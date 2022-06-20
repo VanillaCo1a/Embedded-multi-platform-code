@@ -1,29 +1,25 @@
 #ifndef __OLED_BUFFER_H
 #define __OLED_BUFFER_H
 #include "oledlib.h"
-#define SCREEN_BUFFER    	1
-#define TEMP_BUFFER			0
+#define SCREEN_BUFFER 1
+#define TEMP_BUFFER 0
 
-typedef enum
-{
-	TEMPBUFF_COPY_TO_SCREEN,
-	TEMPBUFF_CLEAN,
-	TEMPBUFF_COVER_L,
-	TEMPBUFF_COVER_H
-	
+typedef enum {
+    BUFF_COPY,
+    BUFF_CLEAN,
+    BUFF_COVER_L,
+    BUFF_COVER_H
 }Type_tempbuff;
 
-void SetScreenBuffer(void);
-void SetTempBuffer(void);
-unsigned char GetSelectedBuffer(void);
-void ClearScreenBuffer(unsigned char val);
-void ClearTempBuffer(void);
-void UpdateScreenDisplay(void);
-unsigned char GetPointBuffer(int x,int y);
-void SetPointBuffer(int x,int y,int value);
+void setBufferPart(int8_t);
+int8_t getBufferPart(void);
+void clearBufferPart(int8_t, uint8_t);
 
-void WriteByteBuffer(int page,int x,unsigned char byte);
-unsigned char ReadByteBuffer(int page,int x);
-void TempBufferFunc(int func);
+void clearBuffer(uint8_t);
+uint8_t readByteBuffer(int32_t, int32_t);
+void writeByteBuffer(int32_t, int32_t, uint8_t);
+void setPointBuffer(int32_t, int32_t, int32_t value);
+int8_t getPointBuffer(int32_t, int32_t );
+void funcBuffer(int32_t, int8_t, int8_t);
+void updateBuffer(void);
 #endif
-

@@ -1,145 +1,102 @@
-/*
-	Ô­×÷ÕßßÙÁ¨ßÙÁ¨:							MjGame 		https://space.bilibili.com/38673747
-	Í¬GifHub:								maoyongjie 	https://github.com/hello-myj/stm32_oled/
-	´úÂëÕûÀí×¢ÊÍÉ¾¼õÔö¼ÓÓÅ»¯µÈ ßÙÁ¨ßÙÁ¨:	Ò»Ö»³ÌĞòÔµ	https://space.bilibili.com/237304109
-	ÕûÀíÖ®Ç°µÄÔ­´úÂëËæ±¾´úÂëÒ»Í¬Ìá¹©,ä¯ÀÀÒÔÉÏÍøÖ·»ñÈ¡¸ü¶àÏà¹ØĞÅÏ¢,±¾´úÂëÒÔÕ÷µÃÔ­×÷Í¬Òâ,¸ĞĞ»Ô­×÷
-	
-	
-	´ËcÎÄ¼şÓÃÓÚ¶ÔÆÁÄ»Êı×é½øĞĞ²Ù×÷
-	Êı×é°üÀ¨ÆÁÄ»»º³åºÍÁÙÊ±»º³å
-	º¯ÊıÖ»»áÄ¿Ç°Ñ¡ÔñµÄ»º³å½øĞĞ²Ù×÷
-	Ä¿Ç°Ñ¡ÔñµÄ»º³å¿ÉÍ¨¹ıº¯ÊıÉèÖÃÉÏÃæÁ½¸ö»º³åÖ®Ò»
-	
-	È»ºó¾ÍÊÇÌá¹©¶Á»òĞ´ÈëÈ¡»º³åÖĞµÄ8Î»Êı¾İ»ò1Î»Êı¾İµÄ½Ó¿Ú
-	×îºóÊÇ¸üĞÂ»º³åÊı¾İµ½ÆÁÄ»
-*/
+/***    åŸä½œè€…å“”å“©å“”å“©:                            MjGame         https://space.bilibili.com/38673747
+            åŒGifHub:                                maoyongjie     https://github.com/hello-myj/stm32_oled/
+            ä»£ç æ•´ç†æ³¨é‡Šåˆ å‡å¢åŠ ä¼˜åŒ–ç­‰ å“”å“©å“”å“©:    ä¸€åªç¨‹åºç¼˜    https://space.bilibili.com/237304109
+            æ•´ç†ä¹‹å‰çš„åŸä»£ç éšæœ¬ä»£ç ä¸€åŒæä¾›,æµè§ˆä»¥ä¸Šç½‘å€è·å–æ›´å¤šç›¸å…³ä¿¡æ¯,æœ¬ä»£ç ä»¥å¾å¾—åŸä½œåŒæ„,æ„Ÿè°¢åŸä½œ
+    
+        æ­¤cæ–‡ä»¶ç”¨äºå¯¹å±å¹•æ•°ç»„è¿›è¡Œæ“ä½œ
+        æ•°ç»„åŒ…æ‹¬å±å¹•ç¼“å†²å’Œä¸´æ—¶ç¼“å†²
+        å‡½æ•°åªä¼šç›®å‰é€‰æ‹©çš„ç¼“å†²è¿›è¡Œæ“ä½œ
+        ç›®å‰é€‰æ‹©çš„ç¼“å†²å¯é€šè¿‡å‡½æ•°è®¾ç½®ä¸Šé¢ä¸¤ä¸ªç¼“å†²ä¹‹ä¸€
+        
+        ç„¶åå°±æ˜¯æä¾›è¯»æˆ–å†™å…¥å–ç¼“å†²ä¸­çš„8ä½æ•°æ®æˆ–1ä½æ•°æ®çš„æ¥å£
+        æœ€åæ˜¯æ›´æ–°ç¼“å†²æ•°æ®åˆ°å±å¹•                    ***/
 
 #include "oled_buffer.h"
 
-//¶¨Òå»º³å ÆÁÄ»»º³åÇøºÍÁÙÊ±»º³åÇø
-unsigned char ScreenBuffer[SCREEN_PAGE_NUM][SCREEN_COLUMN]={0};	//ÆÁÄ»»º³å
-unsigned char TempBuffer[SCREEN_PAGE_NUM][SCREEN_COLUMN]={0};	//ÁÙÊ±²Ù×÷»º³å
-static _Bool _SelectedBuffer=SCREEN_BUFFER;						//µ±Ç°Ñ¡ÔñµÄ»º³åÇø
+//å®šä¹‰å±å¹•ç¼“å†²åŒº
+uint8_t screenBuffer[SCREEN_PART][SCREEN_PAGE][SCREEN_COLUMN] = {0};    //å±å¹•ç¼“å†²
+static int8_t _selectedPart = 0;    //å½“å‰é€‰ä¸­çš„ç¼“å†²åŒº
 
-#define BUFFERSIZE  sizeof(ScreenBuffer)
 extern void UpdateTempBuffer(void);
-extern void UpdateScreenBuffer(void);
-
-///////////////////////////////////////////////////////////////////
-//ÉèÖÃÑ¡Ôñ ÆÁÄ»»º³å
-void SetScreenBuffer(void)
-{
-	_SelectedBuffer=SCREEN_BUFFER;
+extern void UpdatescreenBuffer(void);
+//è®¾ç½®ç¨‹åºç›®å‰é€‰ä¸­çš„ç¼“å†²åŒº
+void setBufferPart(int8_t SelectedBuffer) {
+    _selectedPart = SelectedBuffer;
 }
-//ÉèÖÃÑ¡Ôñ ÁÙÊ±»º³å
-void SetTempBuffer(void)
-{
-	_SelectedBuffer=TEMP_BUFFER;
+//è·å–ç¨‹åºç›®å‰é€‰ä¸­çš„ç¼“å†²åŒº
+int8_t getBufferPart(void) {
+    return _selectedPart;
 }
-//»ñÈ¡³ÌĞòÄ¿Ç°Ñ¡ÔñµÄ»º³åÇø
-unsigned char GetSelectedBuffer(void)
-{
-	return _SelectedBuffer;
-}
-//¹¦ÄÜ:Çå³ıÆÁÄ»»º³åÊı¾İ
-void ClearScreenBuffer(unsigned char val)
-{
-	memset(ScreenBuffer,val,sizeof(ScreenBuffer));
-}
-//¹¦ÄÜ:Çå³ıÁÙÊ±»º³åÊı¾İ
-void ClearTempBuffer(void)
-{
-	memset(TempBuffer,0,sizeof(TempBuffer));
-}
-
-//¶ÔÁÙÊ±»º³å½øĞĞÒ»Ğ©²Ù×÷
-//func:Ö´ĞĞµÄ¹¦ÄÜ¿ÉÑ¡ÔñµÄ²ÎÊıÈçÏÂ
-/*
-	TEMPBUFF_COPY_TO_SCREEN, 		 ½«temp»º³å¸´ÖÆµ½ÆÁÄ»»º³å
-	TEMPBUFF_CLEAN,					 Çå³şµôtemp»º³åÊı¾İ
-	TEMPBUFF_COVER_L,				 ½«temp»º³åµÄÊı¾İÈ¡·´ÔÙ¸²¸ÇµôÆÁÄ»ÉÏµÄÊı¾İ
-	TEMPBUFF_COVER_H				 ½«temp»º³åµÄÊı¾İ¸²¸ÇµôÆÁÄ»ÉÏµÄÊı¾İ */
-void TempBufferFunc(int func)
-{
-	int i,j;
-	switch (func)
-	{
-		case TEMPBUFF_COPY_TO_SCREEN:
-			memcpy(ScreenBuffer,TempBuffer,BUFFERSIZE);
-			break;
-		case TEMPBUFF_CLEAN:
-			ClearTempBuffer();
-			break;
-		case TEMPBUFF_COVER_H:
-				for(i=0;i<8;i++)
-					for(j=0;j<128;j++)
-						ScreenBuffer[i][j] |=TempBuffer[i][j];
-				break;
-		case TEMPBUFF_COVER_L:
-				for(i=0;i<8;i++)
-					for(j=0;j<128;j++)
-						ScreenBuffer[i][j] &=~TempBuffer[i][j];
-				break;
-		default:
-			break;
-	}
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////
-//¶ÁÈ¡Ñ¡ÔñµÄ»º³åÇøµÄ8Î»Êı¾İ
-unsigned char ReadByteBuffer(int page,int x)
-{
-	return _SelectedBuffer? ScreenBuffer[page][x] :TempBuffer[page][x];
-}
-//Ğ´Èë¶ÁÈ¡Ñ¡ÔñµÄ»º³åÇø8Î»Êı¾İ
-void WriteByteBuffer(int page,int x,unsigned char byte)
-{
-	if(_SelectedBuffer)
-	{
-		ScreenBuffer[page][x] =byte;
-	}
-	else
-	{
-		TempBuffer[page][x] =byte;
-	}
-}
-
-//ÉèÖÃµ±Ç°Ñ¡ÔñµÄ»º³åÇø µÄ Ä³Ò»¸öµãµÄÁÁÃğ
-void SetPointBuffer(int x,int y,int value)
-{
-	if(x>SCREEN_COLUMN-1 ||y>SCREEN_ROW-1)   //³¬³ö·¶Î§
-		return;
-	if(_SelectedBuffer)
-	{
-		if(value)
-			ScreenBuffer[y/SCREEN_PAGE_NUM][x] |= 1<<(y%SCREEN_PAGE_NUM);
-		else
-			ScreenBuffer[y/SCREEN_PAGE_NUM][x] &= ~(1<<(y%SCREEN_PAGE_NUM));	
-	}
-	else
-	{
-		if(value)
-			TempBuffer[y/SCREEN_PAGE_NUM][x] |= 1<<(y%SCREEN_PAGE_NUM);
-		else
-			TempBuffer[y/SCREEN_PAGE_NUM][x] &= ~(1<<(y%SCREEN_PAGE_NUM));	
-	}
-}
-//»ñÈ¡µ±Ç°Ñ¡ÔñµÄ»º³åÇø µÄ Ä³Ò»µãµÄÑÕÉ«
-unsigned char GetPointBuffer(int x,int y)
-{
-	if(x>SCREEN_COLUMN-1 ||y>SCREEN_ROW-1)   //³¬³ö·¶Î§
-		return 0;
-	if(_SelectedBuffer)
-		return (ScreenBuffer[y/SCREEN_PAGE_NUM][x]>>(y%SCREEN_PAGE_NUM))&0x01;
-	else
-		return (TempBuffer[y/SCREEN_PAGE_NUM][x]>>(y%SCREEN_PAGE_NUM))&0x01;
-}
-//Ë¢ĞÂÆÁÄ»ÏÔÊ¾
-void UpdateScreenDisplay(void)
-{
-	UpdateScreenBuffer();
+//åœ¨è¾“å…¥çš„ç¼“å†²åŒºä¸­æ¸…é™¤æ•°æ®
+void clearBufferPart(int8_t part, uint8_t val) {
+    memset(screenBuffer[part],val,sizeof(screenBuffer));
 }
 
 
-
-
+////////////////////////////////////////////////////////////////////////////
+//åœ¨ç¨‹åºé€‰ä¸­çš„ç¼“å†²åŒºä¸­æ¸…é™¤æ•°æ®
+void clearBuffer(uint8_t val) {
+    memset(screenBuffer[getBufferPart()],val,sizeof(screenBuffer));
+}
+//ä»é€‰ä¸­çš„ç¼“å†²åŒºä¸­è¯»å–8ä½æ•°æ®
+uint8_t readByteBuffer(int32_t page, int32_t x) {
+    return screenBuffer[getBufferPart()][page][x];
+}
+//åœ¨é€‰ä¸­çš„ç¼“å†²åŒºä¸­å†™å…¥8ä½æ•°æ®
+void writeByteBuffer(int32_t page, int32_t x, uint8_t byte) {
+    screenBuffer[getBufferPart()][page][x] = byte;
+}
+//è®¾ç½®é€‰ä¸­ç¼“å†²åŒºçš„æŸä¸€ç‚¹çš„äº®ç­
+void setPointBuffer(int32_t x,int32_t y,int32_t value) {
+    if(x>SCREEN_COLUMN-1 || y>SCREEN_ROW-1) {    //è¶…å‡ºèŒƒå›´
+        return;
+    }
+    if(value) {
+        screenBuffer[getBufferPart()][y/SCREEN_PAGE][x] |= 1<<(y%SCREEN_PAGE);
+    }else {
+        screenBuffer[getBufferPart()][y/SCREEN_PAGE][x] &= ~(1<<(y%SCREEN_PAGE));
+    }
+}
+//è·å–é€‰ä¸­ç¼“å†²åŒºçš„æŸä¸€ç‚¹çš„é¢œè‰²
+int8_t getPointBuffer(int32_t x, int32_t y) {
+    if(x>SCREEN_COLUMN-1 || y>SCREEN_ROW-1) {    //è¶…å‡ºèŒƒå›´
+        return 0;
+    }
+    return (screenBuffer[getBufferPart()][y/SCREEN_PAGE][x]>>(y%SCREEN_PAGE))&0x01;
+}
+/***    å¯¹ä¸´æ—¶ç¼“å†²è¿›è¡Œä¸€äº›æ“ä½œ    func:æ‰§è¡Œçš„åŠŸèƒ½å¯é€‰æ‹©çš„å‚æ•°å¦‚ä¸‹
+    BUFF_COPY,            å°†æºç¼“å†²åŒºå¤åˆ¶åˆ°ç›®æ ‡ç¼“å†²åŒº
+    BUFF_CLEAN,            æ¸…é™¤æºç¼“å†²åŒº
+    BUFF_COVER_L,        å°†æºç¼“å†²åŒºå–åå†è¦†ç›–ç›®æ ‡ç¼“å†²åŒº
+    BUFF_COVER_H        å°†æºç¼“å†²åŒºè¦†ç›–ç›®æ ‡ç¼“å†²åŒº        ***/
+void funcBuffer(int32_t func, int8_t partto, int8_t partfrom) {
+    int32_t i = 0, j = 0;
+    switch(func) {
+    case BUFF_COPY:
+        memcpy(screenBuffer[partto],screenBuffer[partfrom],sizeof(screenBuffer[partfrom]));
+        break;
+    case BUFF_CLEAN:
+        clearBufferPart(partto, 0);    
+        break;
+    case BUFF_COVER_L:
+        for(i=0; i<8; i++) {
+            for(j=0; j<128; j++) {
+                screenBuffer[partto][i][j] |= screenBuffer[partfrom][i][j];
+            }
+        }
+        break;
+    case BUFF_COVER_H:
+        for(i=0;i<8;i++) {
+            for(j=0; j<128; j++) {
+                screenBuffer[partto][i][j] &= ~screenBuffer[partfrom][i][j];
+            }
+        }
+        break;
+    default:
+        break;
+    }
+}
+//å°†screenBufferå±å¹•ç¼“å­˜çš„å†…å®¹æ˜¾ç¤ºåˆ°å±å¹•ä¸Š
+void updateBuffer(void) {
+    OLED_Fill(screenBuffer[getBufferPart()][0]);
+}

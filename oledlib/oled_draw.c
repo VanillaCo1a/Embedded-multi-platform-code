@@ -1,930 +1,594 @@
-/*
-	Ô­×÷ÕßßÙÁ¨ßÙÁ¨:							MjGame 		https://space.bilibili.com/38673747
-	Í¬GifHub:								maoyongjie 	https://github.com/hello-myj/stm32_oled/
-	´úÂëÕûÀí×¢ÊÍÉ¾¼õÔö¼ÓÓÅ»¯µÈ ßÙÁ¨ßÙÁ¨:	Ò»Ö»³ÌĞòÔµ	https://space.bilibili.com/237304109
-	ÕûÀíÖ®Ç°µÄÔ­´úÂëËæ±¾´úÂëÒ»Í¬Ìá¹©,ä¯ÀÀÒÔÉÏÍøÖ·»ñÈ¡¸ü¶àÏà¹ØĞÅÏ¢,±¾´úÂëÒÔÕ÷µÃÔ­×÷Í¬Òâ,¸ĞĞ»Ô­×÷
-	
-	
-	´ËcÎÄ¼şÓÃÓÚ»­Í¼ºÍ×Ö·û²Ù×÷(¸ß¼¶²Ù×÷)
-	(Ö÷Òª)ÓÉ´òµãÎª»ù´¡
-	ÔÙ Ïß ÕÛÏß
-	ÔÙ»­ºÍÌî³ä ¾ØĞÎ Èı½ÇĞÎ Ô² ÍÖÔ² Ô²½Ç¾ØĞÎ
-	È»ºóÊÇ Í¼Æ¬ ×Ö·û ×Ö·û´®
-	×îºóÊÇ ºº×Ö
-*/
+/***    åŸä½œè€…å“”å“©å“”å“©:                            MjGame         https://space.bilibili.com/38673747
+            åŒGifHub:                                maoyongjie     https://github.com/hello-myj/stm32_oled/
+            ä»£ç æ•´ç†æ³¨é‡Šåˆ å‡å¢åŠ ä¼˜åŒ–ç­‰ å“”å“©å“”å“©:    ä¸€åªç¨‹åºç¼˜    https://space.bilibili.com/237304109
+            æ•´ç†ä¹‹å‰çš„åŸä»£ç éšæœ¬ä»£ç ä¸€åŒæä¾›,æµè§ˆä»¥ä¸Šç½‘å€è·å–æ›´å¤šç›¸å…³ä¿¡æ¯,æœ¬ä»£ç ä»¥å¾å¾—åŸä½œåŒæ„,æ„Ÿè°¢åŸä½œ
+    
+        æ­¤cæ–‡ä»¶ç”¨äºç”»å›¾å’Œå­—ç¬¦æ“ä½œ(é«˜çº§æ“ä½œ)
+        (ä¸»è¦)ç”±æ‰“ç‚¹ä¸ºåŸºç¡€
+        å† çº¿ æŠ˜çº¿
+        å†ç”»å’Œå¡«å…… çŸ©å½¢ ä¸‰è§’å½¢ åœ† æ¤­åœ† åœ†è§’çŸ©å½¢
+        ç„¶åæ˜¯ å›¾ç‰‡ å­—ç¬¦ å­—ç¬¦ä¸²
+        æœ€åæ˜¯ æ±‰å­—                        ***/
 
 #include "oled_draw.h"
 
-//»­Í¼¹â±ê
-static int  _pointx=0;
-static int 	_pointy=0;
+//ç”»å›¾å…‰æ ‡
+TypeXY _point = {0, 0};
 
-////////////////////////////////////////////////////////////////////
-//ÒÔÏÂ4¸öº¯ÊıÊÇ¶Ôµ±Ç°¹â±êµÄÉèÖÃ ¹©ÒÔÏÂ»æÖÆº¯Êıµ÷ÓÃ ÓÃ»§²»Ö±½ÓÊ¹ÓÃ
-void MoveTo(int x,int y)
-{
-	_pointx=x;
-	_pointy=y;
+////////////////////////////////////////////////////////////////////////////
+//ä»¥ä¸‹4ä¸ªå‡½æ•°æ˜¯å¯¹å½“å‰å…‰æ ‡çš„è®¾ç½® ä¾›ä»¥ä¸‹ç»˜åˆ¶å‡½æ•°è°ƒç”¨ ç”¨æˆ·ä¸ç›´æ¥ä½¿ç”¨
+int GetX(void) {
+    return _point.x;
 }
-
-TypeXY GetXY(void)
-{
-	
-	TypeXY m;
-	m.x=_pointx;
-	m.y=_pointy;
-	return m;
+int GetY(void) {
+    return _point.y;
 }
-int GetX(void)
-{
-	return _pointx;
+TypeXY GetXY(void) {
+    return _point;
 }
-int GetY(void)
-{
-	return _pointy;
+void MoveTo(int x,int y) {
+    _point.x = x;
+    _point.y = y;
 }
-void LineTo(int x,int y)
-{
-	DrawLine(_pointx,_pointy,x,y);
-	_pointx=x;
-	_pointy=y;
+void LineTo(int x,int y) {
+    TypeXY temp;
+    temp.x = x;
+    temp.y = y;
+    DrawLine(_point.x,_point.y, temp.x,temp.y);
+    _point = temp;
 
 }
-///////////////////////////////////////////////////////////////////////////////////
-//»æÖÆÒ»¸öµã
-void DrawPixel(int x,int y)
-{
-	SetPointBuffer(x,y,GetDrawColor());
+////////////////////////////////////////////////////////////////////////////
+//ç»˜åˆ¶ä¸€ä¸ªç‚¹
+void DrawPixel(int x,int y) {
+    setPointBuffer(x,y,getLineColor());
+}
+//ç”»çº¿ å‚æ•°:èµ·ç‚¹åæ ‡,ç»ˆç‚¹åæ ‡
+void DrawLine(int x1,int y1,int x2,int y2) {
+    unsigned short us;
+    unsigned short usX_Current, usY_Current;
+
+    int lError_X = 0, lError_Y = 0, lDelta_X, lDelta_Y, lDistance;
+    int lIncrease_X, lIncrease_Y;
+
+    lDelta_X = x2 - x1; //è®¡ç®—åæ ‡å¢é‡
+    lDelta_Y = y2 - y1;
+
+    usX_Current = x1;
+    usY_Current = y1;
+
+    if(lDelta_X > 0) {
+        lIncrease_X = 1;             //è®¾ç½®å•æ­¥æ­£æ–¹å‘
+    }else if(lDelta_X == 0) {
+        lIncrease_X = 0;            //å‚ç›´çº¿
+    }else {
+        lIncrease_X = -1;            //è®¾ç½®å•æ­¥åæ–¹å‘
+        lDelta_X = -lDelta_X;
+    }
+    //Yè½´çš„å¤„ç†æ–¹å¼ä¸ä¸Šå›¾Xè½´çš„å¤„ç†æ–¹å¼åŒç†
+    if(lDelta_Y > 0) {
+        lIncrease_Y = 1;
+    }else if(lDelta_Y == 0) {
+        lIncrease_Y = 0;            //æ°´å¹³çº¿ 
+    }else {
+        lIncrease_Y = -1;
+        lDelta_Y = -lDelta_Y;
+    }
+    //é€‰å–ä¸é‚£ä¹ˆé™¡çš„æ–¹å‘ä¾æ¬¡ç”»ç‚¹
+    if( lDelta_X > lDelta_Y ) {
+        lDistance = lDelta_X;
+    }else {
+        lDistance = lDelta_Y;
+    }
+    //ä¾æ¬¡ç”»ç‚¹ è¿›å…¥ç¼“å­˜åŒº ç”»å¥½åå†åˆ·æ–°ç¼“å†²åŒºå°±å¥½å•¦
+    for(us=0; us<=lDistance+1; us++) {            //ç”»çº¿è¾“å‡º
+        setPointBuffer(usX_Current,usY_Current,getLineColor());    //ç”»ç‚¹
+        lError_X += lDelta_X ;
+        lError_Y += lDelta_Y ;
+
+        if(lError_X > lDistance) {
+            lError_X -= lDistance;
+            usX_Current += lIncrease_X;
+        }
+        if(lError_Y > lDistance) {
+            lError_Y -= lDistance;
+            usY_Current += lIncrease_Y;
+        }
+    }
+}
+//å¿«é€Ÿç”»çº¿ ä¸“ç”¨äºç”»æ¨ªå¹³ç«–ç›´çš„çº¿ æé«˜æ•ˆç‡
+void DrawFastHLine(int x, int y, unsigned char w) {
+    int end = x + w;
+    int a;
+    
+    Type_color color = getLineColor();
+    for(a=MAX(0,x); a<MIN(end,SCREEN_COLUMN); a++) {
+        setPointBuffer(a,y,color);
+    }
+}
+//å¿«é€Ÿç”»çº¿ ä¸“ç”¨äºç”»æ¨ªå¹³ç«–ç›´çš„çº¿ æé«˜æ•ˆç‡
+void DrawFastVLine(int x, int y, unsigned char h) {
+    int end = y + h;
+    int a;
+    
+    Type_color color = getLineColor();
+    for(a=MAX(0,y); a<MIN(end,SCREEN_ROW); a++) {
+        setPointBuffer(x,a,color);
+    }
+}
+//ç»˜åˆ¶æŠ˜çº¿ å¼€å§‹å’Œè½¬æŠ˜ç‚¹çš„åæ ‡ æ€»ç‚¹ä¸ªæ•°
+void DrawPolyLineTo(const TypeXY *points,int num) {
+    int i = 0;
+    MoveTo(points[0].x,points[0].y);
+    for(i=1; i<num; i++) {
+        LineTo(points[i].x,points[i].y);
+    }
 }
 
-
-////////////////////////////////////////////////////////////////////////////////////
-//»®Ïß 
-//²ÎÊı:Æğµã×ø±ê ÖÕµã×ø±ê
-void DrawLine(int x1,int y1,int x2,int y2)
-{
-	unsigned short us; 
-	unsigned short usX_Current, usY_Current;
-	
-	int lError_X = 0, lError_Y = 0, lDelta_X, lDelta_Y, lDistance; 
-	int lIncrease_X, lIncrease_Y; 	
-
-	lDelta_X = x2 - x1; //¼ÆËã×ø±êÔöÁ¿ 
-	lDelta_Y = y2 - y1; 
-
-	usX_Current = x1; 
-	usY_Current = y1; 
-
-	if ( lDelta_X > 0 ) 
-		lIncrease_X = 1; 			//ÉèÖÃµ¥²½Õı·½Ïò 
-	else if ( lDelta_X == 0 ) 
-		lIncrease_X = 0;			//´¹Ö±Ïß 
-	else 
-	{ 
-		lIncrease_X = -1;			//ÉèÖÃµ¥²½·´·½Ïò 
-		lDelta_X = - lDelta_X;
-	} 
-
-	//YÖáµÄ´¦Àí·½Ê½ÓëÉÏÍ¼XÖáµÄ´¦Àí·½Ê½Í¬Àí
-	if ( lDelta_Y > 0 )
-		lIncrease_Y = 1; 
-	else if ( lDelta_Y == 0 )
-		lIncrease_Y = 0;			//Ë®Æ½Ïß 
-	else 
-	{
-		lIncrease_Y = -1;
-		lDelta_Y = - lDelta_Y;
-	} 
-
-	//Ñ¡È¡²»ÄÇÃ´¶¸µÄ·½ÏòÒÀ´Î»­µã
-	if ( lDelta_X > lDelta_Y )
-		lDistance = lDelta_X;
-	else 
-		lDistance = lDelta_Y; 
-
-	//ÒÀ´Î»­µã ½øÈë»º´æÇø »­ºÃºóÔÙË¢ĞÂ»º³åÇø¾ÍºÃÀ²
-	for ( us = 0; us <= lDistance + 1; us ++ )					//»­ÏßÊä³ö 
-	{
-		SetPointBuffer(usX_Current,usY_Current,GetDrawColor());	//»­µã 
-		lError_X += lDelta_X ; 
-		lError_Y += lDelta_Y ; 
-
-		if ( lError_X > lDistance ) 
-		{
-			lError_X -= lDistance; 
-			usX_Current += lIncrease_X; 
-		}  
-
-		if ( lError_Y > lDistance ) 
-		{ 
-			lError_Y -= lDistance; 
-			usY_Current += lIncrease_Y; 
-		} 		
-	}  
+////////////////////////////////////////////////////////////////////////////
+//ä½¿ç”¨å¯¹è§’ç‚¹å¡«å……çŸ©å½¢
+void DrawRect1(int left,int top,int right,int bottom) {
+    DrawLine(left,top,right,top);
+    DrawLine(left,bottom,right,bottom);
+    DrawLine(left,top,left,bottom);
+    DrawLine(right,top,right,bottom);    
 }
-//¿ìËÙ»®Ïß ×¨ÓÃÓÚ»­ºáÆ½ÊúÖ±µÄÏß Ìá¸ßĞ§ÂÊ
-void DrawFastHLine(int x, int y, unsigned char w)
-{
-	int end = x+w;
-	int a;
-	
-	Type_color color =GetDrawColor();
-	for ( a = MAX(0,x); a < MIN(end,SCREEN_COLUMN); a++)
-	{
-		SetPointBuffer(a,y,color);
-	}
+//åŠŸèƒ½:ä½¿ç”¨å¯¹è§’ç‚¹å¡«å……çŸ©å½¢
+void DrawFillRect1(int left,int top,int right,int bottom) {
+    DrawRect1(left,top,right,bottom);
+    FillRect(left+1,top+1,right-left-1,bottom-top-1);
 }
-//¿ìËÙ»®Ïß ×¨ÓÃÓÚ»­ºáÆ½ÊúÖ±µÄÏß Ìá¸ßĞ§ÂÊ
-void DrawFastVLine(int x, int y, unsigned char h)
-{
-	int end = y+h;
-	int a;
-	
-	Type_color color =GetDrawColor();
-	for (a = MAX(0,y); a < MIN(end,SCREEN_ROW); a++)
-	{
-		SetPointBuffer(x,a,color);
-	}
+//å·¦ä¸Šè§’åæ ‡ çŸ©å½¢å®½é«˜
+void DrawRect2(int left,int top,int width,int height) {
+    DrawLine(left,top,left+width-1,top);
+    DrawLine(left,top+height-1,left+width-1,top+height-1);
+    DrawLine(left,top,left,top+height-1);
+    DrawLine(left+width-1,top,left+width-1,top+height-1);    
 }
-//»æÖÆÕÛÏß ¿ªÊ¼ºÍ×ªÕÛµãµÄ×ø±ê ×Üµã¸öÊı
-void DrawPolyLineTo(const TypeXY *points,int num)
-{
-	int i=0;
-	MoveTo(points[0].x,points[0].y);
-	for(i=1;i<num;i++)
-	{
-		LineTo(points[i].x,points[i].y);
-	}
+//å¡«å……çŸ©å½¢
+void DrawFillRect2(int left,int top,int width,int height) {
+    //å…ˆç”¨ä¸Šé¢çš„å‡½æ•°ç”»å¤–æ¡†
+    DrawRect2(left,top,width,height);
+    //ç„¶åå¡«å……å®å¿ƒ
+    FillRect(left+1,top+1,width-1,height-1);
 }
 
-///////////////////////////////////////////////////////////////////////////////////////
-//Ê¹ÓÃ¶Ô½ÇµãÌî³ä¾ØĞÎ
-void DrawRect1(int left,int top,int right,int bottom)
-{
-	DrawLine ( left, top, right, top );
-	DrawLine ( left, bottom , right , bottom );
-	DrawLine ( left, top, left, bottom );
-	DrawLine ( right , top, right , bottom );	
+////////////////////////////////////////////////////////////////////////////
+//ç”»åœ†
+void DrawCircle (int usX_Center,int usY_Center,int usRadius) {
+    short sCurrentX, sCurrentY;
+    short sError;
+    sCurrentX = 0;
+    sCurrentY = usRadius;      
+    sError = 3 - ( usRadius << 1 );     //åˆ¤æ–­ä¸‹ä¸ªç‚¹ä½ç½®çš„æ ‡å¿—
+    
+    while(sCurrentX <= sCurrentY) {
+        //æ­¤å¤„ç”»åœ†æ‰“ç‚¹çš„æ–¹æ³•å’Œç”»åœ†è§’çŸ©å½¢çš„å››åˆ†ä¹‹ä¸€åœ†å¼§çš„å‡½æ•°æœ‰ç‚¹åƒ
+        setPointBuffer(usX_Center+sCurrentX,usY_Center+sCurrentY,getLineColor());        //1ï¼Œç ”ç©¶å¯¹è±¡
+        setPointBuffer(usX_Center-sCurrentX,usY_Center+sCurrentY,getLineColor());        //2
+        setPointBuffer(usX_Center-sCurrentY,usY_Center+sCurrentX,getLineColor());        //3
+        setPointBuffer(usX_Center-sCurrentY,usY_Center-sCurrentX,getLineColor());        //4
+        setPointBuffer(usX_Center-sCurrentX,usY_Center-sCurrentY,getLineColor());        //5
+        setPointBuffer(usX_Center+sCurrentX,usY_Center-sCurrentY,getLineColor());        //6
+        setPointBuffer(usX_Center+sCurrentY,usY_Center-sCurrentX,getLineColor());        //7
+        setPointBuffer(usX_Center+sCurrentY,usY_Center+sCurrentX,getLineColor());        //0
+        sCurrentX++;
+        if(sError < 0) {
+            sError += 4*sCurrentX + 6;
+        }else {
+            sError += 10 + 4*(sCurrentX-sCurrentY);
+            sCurrentY--;
+        }
+    }
 }
-//¹¦ÄÜ:Ê¹ÓÃ¶Ô½ÇµãÌî³ä¾ØĞÎ
-void DrawFillRect1(int left,int top,int right,int bottom)
-{
-	DrawRect1(left,top,right,bottom);
-	FillRect(left+1,top+1,right-left-1,bottom-top-1);	
-}
-//×óÉÏ½Ç×ø±ê ¾ØĞÎ¿í¸ß
-void DrawRect2(int left,int top,int width,int height)
-{
-		DrawLine ( left, top, left+width-1, top );
-		DrawLine ( left, top+height-1 , left+width-1 , top+height-1 );
-		DrawLine ( left, top, left, top+height-1);
-		DrawLine ( left+width-1 , top, left+width-1 , top+height-1);	
-}
-//Ìî³ä¾ØĞÎ
-void DrawFillRect2(int left,int top,int width,int height)
-{
-	//ÏÈÓÃÉÏÃæµÄº¯Êı»­Íâ¿ò
-	DrawRect2(left,top,width,height);
-	//È»ºóÌî³äÊµĞÄ
-	FillRect(left+1,top+1,width-1,height-1);	
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//»­Ô²
-void DrawCircle ( int usX_Center, int usY_Center, int usRadius)
-{
-	short sCurrentX, sCurrentY;
-	short sError;
-	sCurrentX = 0; sCurrentY = usRadius;	  
-	sError = 3 - ( usRadius << 1 );     //ÅĞ¶ÏÏÂ¸öµãÎ»ÖÃµÄ±êÖ¾
-	
-	while ( sCurrentX <= sCurrentY )
-	{
-		//´Ë´¦»­Ô²´òµãµÄ·½·¨ºÍ»­Ô²½Ç¾ØĞÎµÄËÄ·ÖÖ®Ò»Ô²»¡µÄº¯ÊıÓĞµãÏñ
-		SetPointBuffer ( usX_Center + sCurrentX, usY_Center + sCurrentY	,GetDrawColor());             //1£¬ÑĞ¾¿¶ÔÏó
-		SetPointBuffer ( usX_Center - sCurrentX, usY_Center + sCurrentY ,GetDrawColor());             //2      
-		SetPointBuffer ( usX_Center - sCurrentY, usY_Center + sCurrentX ,GetDrawColor());             //3
-		SetPointBuffer ( usX_Center - sCurrentY, usY_Center - sCurrentX ,GetDrawColor());             //4
-		SetPointBuffer ( usX_Center - sCurrentX, usY_Center - sCurrentY ,GetDrawColor());             //5       
-		SetPointBuffer ( usX_Center + sCurrentX, usY_Center - sCurrentY ,GetDrawColor());             //6
-		SetPointBuffer ( usX_Center + sCurrentY, usY_Center - sCurrentX ,GetDrawColor());             //7 
-		SetPointBuffer ( usX_Center + sCurrentY, usY_Center + sCurrentX ,GetDrawColor());             //0
-		sCurrentX ++;		
-		if ( sError < 0 ) 
-			sError += 4 * sCurrentX + 6;	  
-		else
-		{
-			sError += 10 + 4 * ( sCurrentX - sCurrentY );   
-			sCurrentY --;
-		} 		
-	}
-}
-//Ìî³äÔ²
-void DrawFillCircle( int usX_Center, int usY_Center, int r)
-{
-	DrawFastVLine(usX_Center, usY_Center-r, 2*r+1);
-	DrawFillCircleHelper(usX_Center,usY_Center, r, 3, 0);
+//å¡«å……åœ†
+void DrawFillCircle(int usX_Center,int usY_Center,int r) {
+    DrawFastVLine(usX_Center, usY_Center-r, 2*r+1);
+    DrawFillCircleHelper(usX_Center,usY_Center, r, 3, 0);
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//»­²¿·ÖÔ²
-//Ô²ĞÄ×ø±ê °ë¾¶ 4·İÔ²Òª»­ÄÄÒ»·İ»òÄÄ¼¸·İ
-void DrawCircleHelper(int x0, int y0, unsigned char r, unsigned char cornername)
-{
-	int f = 1 - r;
-	int ddF_x = 1;
-	int ddF_y = -2 * r;
-	int x = 0;
-	int y = r;
-	
-	Type_color color=GetDrawColor();
-	while (x<y)
-	{
-		if (f >= 0)
-		{
-			y--;
-			ddF_y += 2;
-			f += ddF_y;
-		}
+////////////////////////////////////////////////////////////////////////////
+//ç”»éƒ¨åˆ†åœ†
+//åœ†å¿ƒåæ ‡ åŠå¾„ 4ä»½åœ†è¦ç”»å“ªä¸€ä»½æˆ–å“ªå‡ ä»½
+void DrawCircleHelper(int x0, int y0, unsigned char r, unsigned char cornername) {
+    int f = 1 - r;
+    int ddF_x = 1;
+    int ddF_y = -2 * r;
+    int x = 0;
+    int y = r;
+    
+    Type_color color = getLineColor();
+    while(x < y) {
+        if(f >= 0) {
+            y--;
+            ddF_y += 2;
+            f += ddF_y;
+        }
 
-		x++;
-		ddF_x += 2;
-		f += ddF_x;
+        x++;
+        ddF_x += 2;
+        f += ddF_x;
 
-		if (cornername & 0x4)//ÓÒÉÏ
-		{
-			//´Ë´¦»­Ô²µÄ·½Ê½ÊÇ½»Ìæ´òµã ´Ó2±ß´òµ½ÖĞ¼ä ×îÖÕx<y¾Í´òÍêµãÌø³öÑ­»·
-			SetPointBuffer(x0 + x, y0 + y,color);
-			SetPointBuffer(x0 + y, y0 + x,color);
-		}
-		if (cornername & 0x2)//ÓÒÏÂ
-		{
-			SetPointBuffer(x0 + x, y0 - y, color);
-			SetPointBuffer(x0 + y, y0 - x, color);
-		}
-		if (cornername & 0x8)//×óÉÏ
-		{
-			SetPointBuffer(x0 - y, y0 + x, color);
-			SetPointBuffer(x0 - x, y0 + y, color);
-		}
-		if (cornername & 0x1)//×óÏÂ
-		{
-			SetPointBuffer(x0 - y, y0 - x, color);
-			SetPointBuffer(x0 - x, y0 - y, color);
-		}
-	}
+        if(cornername & 0x4) {        //å³ä¸Š
+            //æ­¤å¤„ç”»åœ†çš„æ–¹å¼æ˜¯äº¤æ›¿æ‰“ç‚¹ ä»2è¾¹æ‰“åˆ°ä¸­é—´ æœ€ç»ˆx<yå°±æ‰“å®Œç‚¹è·³å‡ºå¾ªç¯
+            setPointBuffer(x0+x,y0+y,color);
+            setPointBuffer(x0+y,y0+x,color);
+        }
+        if(cornername & 0x2) {        //å³ä¸‹
+            setPointBuffer(x0 + x, y0 - y, color);
+            setPointBuffer(x0 + y, y0 - x, color);
+        }
+        if(cornername & 0x8) {        //å·¦ä¸Š
+            setPointBuffer(x0-y,y0+x,color);
+            setPointBuffer(x0-x,y0+y,color);
+        }
+        if(cornername & 0x1) {        //å·¦ä¸‹
+            setPointBuffer(x0-y,y0-x,color);
+            setPointBuffer(x0-x,y0-y,color);
+        }
+    }
 }
-//Ìî³ä2¸öËÄ·ÖÖ®Ò»Ô²ºÍÖĞ¼äµÄ¾ØĞÎ
-//´Ëº¯Êı×¨ÓÃÓÚ»­Ô²½Ç¾ØĞÎ
-//ÓÒÉÏËÄ·ÖÖ®Ò»Ô²»ò×óÏÂËÄ·ÖÖ®Ò»Ô²µÄÔ²ĞÄ °ë¾¶ ÖĞ¼ä¾ØĞÎµÄ¸ß
-void DrawFillCircleHelper(int x0, int y0, unsigned char r, unsigned char cornername, int delta)
-{
-	int f = 1 - r;
-	int ddF_x = 1;
-	int ddF_y = -2 * r;
-	int x = 0;
-	int y = r;
-	
-	Type_color color=GetDrawColor();
-	while (x < y)
-	{
-		if (f >= 0)
-		{
-			y--;
-			ddF_y += 2;
-			f += ddF_y;
-		}
+//å¡«å……2ä¸ªå››åˆ†ä¹‹ä¸€åœ†å’Œä¸­é—´çš„çŸ©å½¢
+//æ­¤å‡½æ•°ä¸“ç”¨äºç”»åœ†è§’çŸ©å½¢
+//å³ä¸Šå››åˆ†ä¹‹ä¸€åœ†æˆ–å·¦ä¸‹å››åˆ†ä¹‹ä¸€åœ†çš„åœ†å¿ƒ åŠå¾„ ä¸­é—´çŸ©å½¢çš„é«˜
+void DrawFillCircleHelper(int x0, int y0, unsigned char r, unsigned char cornername, int delta) {
+    int f = 1 - r;
+    int ddF_x = 1;
+    int ddF_y = -2 * r;
+    int x = 0;
+    int y = r;
+    
+    Type_color color = getLineColor();
+    while (x < y) {
+        if (f >= 0) {
+            y--;
+            ddF_y += 2;
+            f += ddF_y;
+        }
 
-		x++;
-		ddF_x += 2;
-		f += ddF_x;
+        x++;
+        ddF_x += 2;
+        f += ddF_x;
 
-		if (cornername & 0x1)//Ìî³äÓÒ±ßµÄ2¸öËÄ·ÖÖ®Ò»Ô²ºÍÖĞ¼äµÄ¾ØĞÎ
-		{
-			DrawFastVLine(x0+x, y0-y, 2*y+1+delta);
-			DrawFastVLine(x0+y, y0-x, 2*x+1+delta);
-		}
-		if (cornername & 0x2)//Ìî³ä×ó±ßµÄ2¸öËÄ·ÖÖ®Ò»Ô²ºÍÖĞ¼äµÄ¾ØĞÎ
-		{
-			DrawFastVLine(x0-x, y0-y, 2*y+1+delta);
-			DrawFastVLine(x0-y, y0-x, 2*x+1+delta);
-		}
-	}
+        if (cornername & 0x1) {        //å¡«å……å³è¾¹çš„2ä¸ªå››åˆ†ä¹‹ä¸€åœ†å’Œä¸­é—´çš„çŸ©å½¢
+            DrawFastVLine(x0+x, y0-y, 2*y+1+delta);
+            DrawFastVLine(x0+y, y0-x, 2*x+1+delta);
+        }
+        if (cornername & 0x2) {        //å¡«å……å·¦è¾¹çš„2ä¸ªå››åˆ†ä¹‹ä¸€åœ†å’Œä¸­é—´çš„çŸ©å½¢
+            DrawFastVLine(x0-x, y0-y, 2*y+1+delta);
+            DrawFastVLine(x0-y, y0-x, 2*x+1+delta);
+        }
+    }
 }
-//»æÖÆÒ»¸öÔ²»¡
-//x,y:Ô²»¡ÖĞĞÄ×ø±ê
-//r:Ô²»¡µÄ°ë¾¶
-//angle_start:Ô²»¡ÆğÊ¼½Ç¶È
-//angle_end:Ô²»¡ÖÕÖ¹½Ç¶È
-//×¢Òâ£ºÉ÷ÓÃ´Ë·½·¨£¬´Ë·½·¨»¹ĞèÓÅ»¯¡£
-void DrawArc(int x,int y,unsigned char r,int angle_start,int angle_end)
-{
-	float i=0;
-	
-	TypeXY m,temp;
-	temp=GetXY();
-	SetRotateCenter(x,y);
-	SetAnggleDir(0);
-	if(angle_end>360)
-		angle_end=360;
-	SetAngle(0);
-	m=GetRotateXY(x,y+r);
-	MoveTo(m.x,m.y);
-	for(i=angle_start;i<angle_end;i+=5)
-	{
-		SetAngle(i);
-		m=GetRotateXY(x,y+r);
-		LineTo(m.x,m.y);
-	}
-	LineTo(x+r,y);
-	MoveTo(temp.x,temp.y);
+//ç»˜åˆ¶ä¸€ä¸ªåœ†å¼§
+//x,y:åœ†å¼§ä¸­å¿ƒåæ ‡
+//r:åœ†å¼§çš„åŠå¾„
+//angle_start:åœ†å¼§èµ·å§‹è§’åº¦
+//angle_end:åœ†å¼§ç»ˆæ­¢è§’åº¦
+//æ³¨æ„ï¼šæ…ç”¨æ­¤æ–¹æ³•ï¼Œæ­¤æ–¹æ³•è¿˜éœ€ä¼˜åŒ–ã€‚
+void DrawArc(int x,int y,unsigned char r,int angle_start,int angle_end) {
+    float i = 0;
+    TypeXY m, temp;
+    temp = GetXY();
+    SetRotateCenter(x,y);
+    SetAnggleDir(0);
+    if(angle_end > 360) {
+        angle_end = 360;
+    }
+    SetAngle(0);
+    m = GetRotateXY(x,y+r);
+    MoveTo(m.x,m.y);
+    for(i=angle_start; i<angle_end; i+=5) {
+        SetAngle(i);
+        m = GetRotateXY(x,y+r);
+        LineTo(m.x,m.y);
+    }
+    LineTo(x+r,y);
+    MoveTo(temp.x,temp.y);
 }
-void DrawFillArc(int x,int y,unsigned char r,int angle_start,int angle_end)
-{
-	return;
+void DrawFillArc(int x,int y,unsigned char r,int angle_start,int angle_end) {
+    return;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////////////
-//»­Ô²½Ç¾ØĞÎ
-void DrawRoundRect(int x, int y, unsigned char w, unsigned char h, unsigned char r)
-{
-	//»­³ö±ßÔµ ÒòÎª±ßÔµÊÇÖ±Ïß ËùÒÔ×¨ÓÃ¸ßĞ§ÂÊº¯Êı
-	DrawFastHLine(x+r, y, w-2*r); 		// Top
-	DrawFastHLine(x+r, y+h-1, w-2*r); 	// Bottom
-	DrawFastVLine(x, y+r, h-2*r); 		// Left
-	DrawFastVLine(x+w-1, y+r, h-2*r); 	// Right
-	//»­³öËÄ¸öÔ²½Ç
-	DrawCircleHelper(x+r, y+r, r, 1);
-	DrawCircleHelper(x+w-r-1, y+r, r, 2);
-	DrawCircleHelper(x+w-r-1, y+h-r-1, r, 4);
-	DrawCircleHelper(x+r, y+h-r-1, r, 8);
+////////////////////////////////////////////////////////////////////////////
+//ç”»åœ†è§’çŸ©å½¢
+void DrawRoundRect(int x, int y, unsigned char w, unsigned char h, unsigned char r) {
+    //ç”»å‡ºè¾¹ç¼˜ å› ä¸ºè¾¹ç¼˜æ˜¯ç›´çº¿ æ‰€ä»¥ä¸“ç”¨é«˜æ•ˆç‡å‡½æ•°
+    DrawFastHLine(x+r, y, w-2*r);         // Top
+    DrawFastHLine(x+r, y+h-1, w-2*r);     // Bottom
+    DrawFastVLine(x, y+r, h-2*r);         // Left
+    DrawFastVLine(x+w-1, y+r, h-2*r);     // Right
+    //ç”»å‡ºå››ä¸ªåœ†è§’
+    DrawCircleHelper(x+r, y+r, r, 1);
+    DrawCircleHelper(x+w-r-1, y+r, r, 2);
+    DrawCircleHelper(x+w-r-1, y+h-r-1, r, 4);
+    DrawCircleHelper(x+r, y+h-r-1, r, 8);
 }
-//»­ÊµĞÄÔ²½Ç¾ØĞÎ
-void DrawfillRoundRect(int x, int y, unsigned char w, unsigned char h, unsigned char r)
-{
-  //»­ÊµĞÄ¾ØĞÎ
+//ç”»å®å¿ƒåœ†è§’çŸ©å½¢
+void DrawfillRoundRect(int x, int y, unsigned char w, unsigned char h, unsigned char r) {
+  //ç”»å®å¿ƒçŸ©å½¢
   DrawFillRect2(x+r, y, w-2*r, h);
 
-  //ÔÙÌî³ä×óÓÒÁ½±ß
-  DrawFillCircleHelper(x+w-r-1, y+r, r, 1, h-2*r-1);	//ÓÒÉÏ½ÇµÄÔ²ĞÄ
-  DrawFillCircleHelper(x+r, y+r, r, 2, h-2*r-1);		//×óÏÂ½ÇµÄÔ²ĞÄ
+  //å†å¡«å……å·¦å³ä¸¤è¾¹
+  DrawFillCircleHelper(x+w-r-1, y+r, r, 1, h-2*r-1);    //å³ä¸Šè§’çš„åœ†å¿ƒ
+  DrawFillCircleHelper(x+r, y+r, r, 2, h-2*r-1);        //å·¦ä¸‹è§’çš„åœ†å¿ƒ
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////
-//»­ÍÖÔ²
-//Ô²ĞÄ 2¸öÖá³¤
-void DrawEllipse(int xCenter,int yCenter,int Rx,int Ry)
-{
-	int Rx2=Rx*Rx;
-	int Ry2=Ry*Ry;
-	int twoRx2=2*Rx2;
-	int twoRy2=2*Ry2;
-	int p;
-	int x=0;
-	int y=Ry;
-	int px = 0;
-	int py = twoRx2*y;
-	
-	//ÍÖÔ²×îÏÂÃæµÄµã
-	SetPointBuffer(xCenter+x,yCenter+y,GetDrawColor());//ÒòÎª´ËÊ±x=0 Á©¸öµãÎªÍ¬Ò»¸ö Ô­×÷ÕâÑùĞ´µÄ ÄÇ¾ÍÕâÑù°É
-	SetPointBuffer(xCenter-x,yCenter+y,GetDrawColor());
-	//ÍÖÔ²×îÉÏÃæµÄµã
-	SetPointBuffer(xCenter+x,yCenter-y,GetDrawColor());
-	SetPointBuffer(xCenter-x,yCenter-y,GetDrawColor());
-	
-	//Region?1 »­³öÉÏÏÂµÄÏßÌõ ËµÊµ»°ÎÒÒ²Ã»¿´¶®ÁË Ëã·¨´óÀĞ
-	p=(int)(Ry2-Rx2*Ry+0.25*Rx2);
-	while(px<py)
-	{
-		x++;
-		px+=twoRy2;
-		if(p<0)
-			p+=Ry2+px;
-		else
-		{
-			y--;
-			py-=twoRx2;
-			p+=Ry2+px-py;
-		}
-		SetPointBuffer(xCenter+x,yCenter+y,GetDrawColor());
-		SetPointBuffer(xCenter-x,yCenter+y,GetDrawColor());
-		SetPointBuffer(xCenter+x,yCenter-y,GetDrawColor());
-		SetPointBuffer(xCenter-x,yCenter-y,GetDrawColor());
-	}
-	
-	//Region?2
-	p=(int)(Ry2*(x+0.5)*(x+0.5)+Rx2*(y-1)*(y-1)-Rx2*Ry2);
-	while(y>0)
-	{
-		y--;
-		py-=twoRx2;
-		if(p>0)
-			p+=Rx2-py;
-		else
-		{
-			x++;
-			px+=twoRy2;
-			p+=Rx2-py+px;
-		}
-		SetPointBuffer(xCenter+x,yCenter+y,GetDrawColor());
-		SetPointBuffer(xCenter-x,yCenter+y,GetDrawColor());
-		SetPointBuffer(xCenter+x,yCenter-y,GetDrawColor());
-		SetPointBuffer(xCenter-x,yCenter-y,GetDrawColor());
-	}
+////////////////////////////////////////////////////////////////////////////
+//ç”»æ¤­åœ†
+//åœ†å¿ƒ 2ä¸ªè½´é•¿
+void DrawEllipse(int xCenter,int yCenter,int Rx,int Ry) {
+    int Rx2 = Rx * Rx;
+    int Ry2 = Ry * Ry;
+    int twoRx2 = 2 * Rx2;
+    int twoRy2 = 2 * Ry2;
+    int p;
+    int x = 0;
+    int y = Ry;
+    int px = 0;
+    int py = twoRx2 * y;
+    
+    //æ¤­åœ†æœ€ä¸‹é¢çš„ç‚¹
+    setPointBuffer(xCenter+x,yCenter+y,getLineColor());    //å› ä¸ºæ­¤æ—¶x=0 ä¿©ä¸ªç‚¹ä¸ºåŒä¸€ä¸ª åŸä½œè¿™æ ·å†™çš„ é‚£å°±è¿™æ ·å§
+    setPointBuffer(xCenter-x,yCenter+y,getLineColor());
+    //æ¤­åœ†æœ€ä¸Šé¢çš„ç‚¹
+    setPointBuffer(xCenter+x,yCenter-y,getLineColor());
+    setPointBuffer(xCenter-x,yCenter-y,getLineColor());
+    
+    //Region?1 ç”»å‡ºä¸Šä¸‹çš„çº¿æ¡ è¯´å®è¯æˆ‘ä¹Ÿæ²¡çœ‹æ‡‚äº† ç®—æ³•å¤§ä½¬
+    p = (int)(Ry2-Rx2*Ry + 0.25*Rx2);
+    while(px < py) {
+        x++;
+        px += twoRy2;
+        if(p < 0) {
+            p+=Ry2+px;
+        }else {
+            y--;
+            py -= twoRx2;
+            p += Ry2 + px-py;
+        }
+        setPointBuffer(xCenter+x,yCenter+y,getLineColor());
+        setPointBuffer(xCenter-x,yCenter+y,getLineColor());
+        setPointBuffer(xCenter+x,yCenter-y,getLineColor());
+        setPointBuffer(xCenter-x,yCenter-y,getLineColor());
+    }
+    
+    //Region?2
+    p = (int)(Ry2*(x+0.5)*(x+0.5) + Rx2*(y-1)*(y-1)-Rx2*Ry2);
+    while(y >0 ) {
+        y--;
+        py -= twoRx2;
+        if(p > 0) {
+            p += Rx2 - py;
+        }else {
+            x++;
+            px += twoRy2;
+            p += Rx2 - py + px;
+        }
+        setPointBuffer(xCenter+x,yCenter+y,getLineColor());
+        setPointBuffer(xCenter-x,yCenter+y,getLineColor());
+        setPointBuffer(xCenter+x,yCenter-y,getLineColor());
+        setPointBuffer(xCenter-x,yCenter-y,getLineColor());
+    }
 }
-//Ìî³äÒ»¸öÍÖÔ² ²ÎÊıÍ¬ÉÏ
-void DrawFillEllipse(int x0, int y0,int rx,int ry)
-{
-	int x, y;
-	int xchg, ychg;
-	int err;
-	int rxrx2;
-	int ryry2;
-	int stopx, stopy;
+//å¡«å……ä¸€ä¸ªæ¤­åœ† å‚æ•°åŒä¸Š
+void DrawFillEllipse(int x0, int y0,int rx,int ry) {
+    int x, y;
+    int xchg, ychg;
+    int err;
+    int rxrx2;
+    int ryry2;
+    int stopx, stopy;
 
-	rxrx2 = rx;
-	rxrx2 *= rx;
-	rxrx2 *= 2;
+    rxrx2 = rx;
+    rxrx2 *= rx;
+    rxrx2 *= 2;
 
-	ryry2 = ry;
-	ryry2 *= ry;
-	ryry2 *= 2;
+    ryry2 = ry;
+    ryry2 *= ry;
+    ryry2 *= 2;
 
-	x = rx;
-	y = 0;
+    x = rx;
+    y = 0;
 
-	xchg = 1;
-	xchg -= rx;
-	xchg -= rx;
-	xchg *= ry;
-	xchg *= ry;
+    xchg = 1;
+    xchg -= rx;
+    xchg -= rx;
+    xchg *= ry;
+    xchg *= ry;
 
-	ychg = rx;
-	ychg *= rx;
+    ychg = rx;
+    ychg *= rx;
 
-	err = 0;
+    err = 0;
 
-	stopx = ryry2;
-	stopx *= rx;
-	stopy = 0;
+    stopx = ryry2;
+    stopx *= rx;
+    stopy = 0;
 
-	while( stopx >= stopy )
-	{
-		DrawFastVLine( x0+x, y0-y, y+1);
-		DrawFastVLine( x0-x, y0-y, y+1);
-		DrawFastVLine( x0+x, y0, y+1);
-		DrawFastVLine( x0-x, y0, y+1);
-		y++;
-		stopy += rxrx2;
-		err += ychg;
-		ychg += rxrx2;
-		if ( 2*err+xchg > 0 )
-		{
-			x--;
-			stopx -= ryry2;
-			err += xchg;
-			xchg += ryry2;      
-		}
-	}
+    while(stopx >= stopy) {
+        DrawFastVLine( x0+x, y0-y, y+1);
+        DrawFastVLine( x0-x, y0-y, y+1);
+        DrawFastVLine( x0+x, y0, y+1);
+        DrawFastVLine( x0-x, y0, y+1);
+        y++;
+        stopy += rxrx2;
+        err += ychg;
+        ychg += rxrx2;
+        if(2*err+xchg > 0) {
+            x--;
+            stopx -= ryry2;
+            err += xchg;
+            xchg += ryry2;      
+        }
+    }
 
-	x = 0;
-	y = ry;
+    x = 0;
+    y = ry;
 
-	xchg = ry;
-	xchg *= ry;
+    xchg = ry;
+    xchg *= ry;
 
-	ychg = 1;
-	ychg -= ry;
-	ychg -= ry;
-	ychg *= rx;
-	ychg *= rx;
+    ychg = 1;
+    ychg -= ry;
+    ychg -= ry;
+    ychg *= rx;
+    ychg *= rx;
 
-	err = 0;
-	stopx = 0;
-	stopy = rxrx2;
-	stopy *= ry;
+    err = 0;
+    stopx = 0;
+    stopy = rxrx2;
+    stopy *= ry;
 
-	while( stopx <= stopy )
-	{
-		DrawFastVLine( x0+x, y0-y, y+1);
-		DrawFastVLine( x0-x, y0-y, y+1);
-		DrawFastVLine( x0+x, y0, y+1);
-		DrawFastVLine( x0-x, y0, y+1);
+    while(stopx <= stopy) {
+        DrawFastVLine( x0+x, y0-y, y+1);
+        DrawFastVLine( x0-x, y0-y, y+1);
+        DrawFastVLine( x0+x, y0, y+1);
+        DrawFastVLine( x0-x, y0, y+1);
 
-		x++;
-		stopx += ryry2;
-		err += xchg;
-		xchg += ryry2;
-		if ( 2*err+ychg > 0 )
-		{
-			y--;
-			stopy -= rxrx2;
-			err += ychg;
-			ychg += rxrx2;
-		}
-	}
+        x++;
+        stopx += ryry2;
+        err += xchg;
+        xchg += ryry2;
+        if(2*err+ychg > 0) {
+            y--;
+            stopy -= rxrx2;
+            err += ychg;
+            ychg += rxrx2;
+        }
+    }
 }
-//¹¦ÄÜ:»æÖÆÒ»¸ö¾ØĞÎÄÚÇĞÍÖÔ²
-//x0,y0:¾ØĞÎ×óÉÏ½Ç×ø±ê
-//x1,y1:¾ØĞÎÓÒÏÂ½Ç×ø±ê
-void DrawEllipseRect( int x0, int y0, int x1, int y1)
-{
-	int a = abs(x1 - x0);
-	int b = abs(y1 - y0);	//get diameters
-	int b1 = b&1;
-	long dx = 4*(1-a)*b*b;
-	long dy = 4*(b1+1)*a*a;
-	long err = dx+dy+b1*a*a;
-	long e2;
-	
-	if (x0 > x1) { x0 = x1; x1 += a; }
-	if (y0 > y1) { y0 = y1; } 
-	y0 += (b+1)/2;
-	y1 = y0-b1;
-	a *= 8*a;
-	b1 = 8*b*b;
-	
-	do {
-		DrawPixel( x1, y0);
-		DrawPixel( x0, y0);
-		DrawPixel( x0, y1);
-		DrawPixel( x1, y1);
-		e2 = 2*err;
-		if (e2 >= dx) {
-			x0++;
-			x1--;
-			err += dx += b1;
-		}
-		if (e2 <= dy) {
-			y0++;
-			y1--;
-			err += dy += a;
-		}
-	} while (x0 <= x1);
-	
-	while (y0-y1 < b) {
-		DrawPixel( x0-1, y0);
-		DrawPixel( x1+1, y0++);
-		DrawPixel( x0-1, y1);
-		DrawPixel( x1+1, y1--);
-	}
+//åŠŸèƒ½:ç»˜åˆ¶ä¸€ä¸ªçŸ©å½¢å†…åˆ‡æ¤­åœ†
+//x0,y0:çŸ©å½¢å·¦ä¸Šè§’åæ ‡
+//x1,y1:çŸ©å½¢å³ä¸‹è§’åæ ‡
+void DrawEllipseRect( int x0, int y0, int x1, int y1) {
+    int a = abs(x1 - x0);
+    int b = abs(y1 - y0);    //get diameters
+    int b1 = b & 1;
+    long dx = 4 * (1-a) * b*b;
+    long dy = 4 * (b1+1) * a*a;
+    long err = dx + dy + b1*a*a;
+    long e2;
+    
+    if(x0 > x1) {
+        x0 = x1;
+        x1 += a;
+    }
+    if(y0 > y1) {
+        y0 = y1;
+    } 
+    y0 += (b+1) / 2;
+    y1 = y0 - b1;
+    a *= 8*a;
+    b1 = 8*b*b;
+    
+    do {
+        DrawPixel(x1, y0);
+        DrawPixel(x0, y0);
+        DrawPixel(x0, y1);
+        DrawPixel(x1, y1);
+        e2 = 2 * err;
+        if(e2 >= dx) {
+            x0++;
+            x1--;
+            err += dx += b1;
+        }
+        if(e2 <= dy) {
+            y0++;
+            y1--;
+            err += dy += a;
+        }
+    }while(x0 <= x1);
+    
+    while(y0-y1 < b) {
+        DrawPixel( x0-1, y0);
+        DrawPixel( x1+1, y0++);
+        DrawPixel( x0-1, y1);
+        DrawPixel( x1+1, y1--);
+    }
 }
 
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//»­Èı½ÇĞÎ
-void DrawTriangle(unsigned char x0, unsigned char y0, unsigned char x1, unsigned char y1, unsigned char x2, unsigned char y2)
-{
-	//ºÜ¼òµ¥  ¾ÍÊÇ»­3ÌõÈÎÒâÏß
-	DrawLine(x0, y0, x1, y1);
-	DrawLine(x1, y1, x2, y2);
-	DrawLine(x2, y2, x0, y0);
+////////////////////////////////////////////////////////////////////////////
+//ç”»ä¸‰è§’å½¢
+void DrawTriangle(unsigned char x0, unsigned char y0, unsigned char x1, unsigned char y1, unsigned char x2, unsigned char y2) {
+    //å¾ˆç®€å•  å°±æ˜¯ç”»3æ¡ä»»æ„çº¿
+    DrawLine(x0, y0, x1, y1);
+    DrawLine(x1, y1, x2, y2);
+    DrawLine(x2, y2, x0, y0);
 }
-//Ìî³äÈı½ÇĞÎ
-void DrawFillTriangle(int x0, int y0, int x1, int y1, int x2, int y2)
-{
-	int a, b, y, last;
-	int dx01, dy01,dx02,dy02,dx12,dy12,sa = 0,sb = 0;
-	
-	Type_color tmpcolor;
-	tmpcolor =GetDrawColor();
-	SetDrawColor(GetFillColor());
-	if (y0 > y1)
-	{
-		SWAP(y0, y1); SWAP(x0, x1);
-	}
-	if (y1 > y2)
-	{
-		SWAP(y2, y1); SWAP(x2, x1);
-	}
-	if (y0 > y1)
-	{
-		SWAP(y0, y1); SWAP(x0, x1);
-	}
-	if(y0 == y2)
-	{
-		a = b = x0;
-		if(x1 < a)
-		{
-			a = x1;
-		}
-		else if(x1 > b)
-		{
-			b = x1;
-		}
-		if(x2 < a)
-		{
-			a = x2;
-		}
-		else if(x2 > b)
-		{
-			b = x2;
-		}
-		DrawFastHLine(a, y0, b-a+1);
-		return;
-	}
-	dx01 = x1 - x0,
-	dy01 = y1 - y0,
-	dx02 = x2 - x0,
-	dy02 = y2 - y0,
-	dx12 = x2 - x1,
-	dy12 = y2 - y1,
-	sa = 0,
-	sb = 0;
-	if (y1 == y2)
-	{
-		last = y1;   // Include y1 scanline
-	}
-	else
-	{
-		last = y1-1; // Skip it
-	}
+//å¡«å……ä¸‰è§’å½¢
+void DrawFillTriangle(int x0, int y0, int x1, int y1, int x2, int y2) {
+    int a, b, y, last;
+    int dx01, dy01,dx02,dy02,dx12,dy12,sa = 0,sb = 0;
+    
+    Type_color tmpcolor;
+    tmpcolor = getLineColor();
+    setLineColor(getFillColor());
+    if(y0 > y1) {
+        SWAP(y0, y1);
+        SWAP(x0, x1);
+    }
+    if(y1 > y2) {
+        SWAP(y2, y1);
+        SWAP(x2, x1);
+    }
+    if(y0 > y1) {
+        SWAP(y0, y1);
+        SWAP(x0, x1);
+    }
+    if(y0 == y2) {
+        a = b = x0;
+        if(x1 < a) {
+            a = x1;
+        }else if(x1 > b) {
+            b = x1;
+        }
+        if(x2 < a) {
+            a = x2;
+        }
+        else if(x2 > b) {
+            b = x2;
+        }
+        DrawFastHLine(a, y0, b-a+1);
+        return;
+    }
+    dx01 = x1 - x0,
+    dy01 = y1 - y0,
+    dx02 = x2 - x0,
+    dy02 = y2 - y0,
+    dx12 = x2 - x1,
+    dy12 = y2 - y1,
+    sa = 0,
+    sb = 0;
+    if (y1 == y2) {
+        last = y1;   // Include y1 scanline
+    }else {
+        last = y1 - 1; // Skip it
+    }
 
-	for(y = y0; y <= last; y++)
-	{
-		a   = x0 + sa / dy01;
-		b   = x0 + sb / dy02;
-		sa += dx01;
-		sb += dx02;
+    for(y=y0; y<=last; y++) {
+        a = x0 + sa / dy01;
+        b = x0 + sb / dy02;
+        sa += dx01;
+        sb += dx02;
 
-		if(a > b)
-		{
-			SWAP(a,b);
-		}
-		DrawFastHLine(a, y, b-a+1);
-	}
-	sa = dx12 * (y - y1);
-	sb = dx02 * (y - y0);
-	for(; y <= y2; y++)
-	{
-		a   = x1 + sa / dy12;
-		b   = x0 + sb / dy02;
-		sa += dx12;
-		sb += dx02;
-		if(a > b)
-		{
-			SWAP(a,b);
-		}
-		DrawFastHLine(a, y, b-a+1);
-	}
-	SetDrawColor(tmpcolor);
-}
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//»­Ò»·ù»­
-//Æğµã×ø±êx y Í¼ÏñÈ¡Ä£Êı×é Í¼Ïñ¿í¸ßw h
-void DrawBitmap(int x, int y, const unsigned char *bitmap, unsigned char w, unsigned char h)
-{
-	int iCol,a;
-	int yOffset = abs(y) % 8;
-	int sRow = y / 8;
-	int rows = h/8;
-
-	if(x+w < 0 || x > SCREEN_COLUMN-1 || y+h < 0 || y > SCREEN_ROW-1)
-		return;
-	if(y < 0)
-	{
-		sRow--;
-		yOffset = 8 - yOffset;
-	}
-
-	if(h%8!=0) rows++;
-	for(a = 0; a < rows; a++) 
-	{
-		int bRow = sRow + a;
-		if(bRow > (SCREEN_ROW/8)-1) break;
-		if(bRow > -2) 
-		{
-			for (iCol = 0; iCol<w; iCol++) 
-			{
-				if (iCol + x > (SCREEN_COLUMN-1)) break;
-				if (iCol + x >= 0) 
-				{
-					if (bRow >= 0) 
-					{
-						if(GetDrawColor() == pix_white)
-						{
-							unsigned char temp = ReadByteBuffer(bRow,x + iCol);
-							temp|=pgm_read_byte(bitmap+(a*w)+iCol) << yOffset;
-							WriteByteBuffer(bRow,x + iCol,temp);
-						}
-						else if(GetDrawColor() == pix_black)
-						{
-							unsigned char temp = ReadByteBuffer(bRow,x + iCol);
-							temp&=~(pgm_read_byte(bitmap+(a*w)+iCol) << yOffset);
-							WriteByteBuffer(bRow,x + iCol,temp);
-						}
-						else
-						{
-							unsigned char temp = ReadByteBuffer(bRow,x + iCol);
-							temp^=(pgm_read_byte(bitmap+(a*w)+iCol) << yOffset);
-							WriteByteBuffer(bRow,x + iCol,temp);
-						}
-					}
-					if (yOffset && bRow<(SCREEN_ROW/8)-1 && bRow > -2) 
-					{
-						if(GetDrawColor() == pix_white) 
-						{
-							unsigned char temp = ReadByteBuffer(bRow+1,x + iCol);
-							temp|=pgm_read_byte(bitmap+(a*w)+iCol) >> (8-yOffset);
-							WriteByteBuffer(bRow+1,x + iCol,temp);
-						}
-						else if (GetDrawColor() == pix_black)
-						{
-							unsigned char temp = ReadByteBuffer(bRow+1,x + iCol);
-							temp&=~(pgm_read_byte(bitmap+(a*w)+iCol) >> (8-yOffset));
-							WriteByteBuffer(bRow+1,x + iCol,temp);
-						}
-						else
-						{
-							unsigned char temp = ReadByteBuffer(bRow+1,x + iCol);
-							temp^=pgm_read_byte(bitmap+(a*w)+iCol) >> (8-yOffset);
-							WriteByteBuffer( bRow+1,x + iCol,temp);						
-						}
-					}
-				}
-			}
-		}
-	}
-}
-//////////////////////////////////////////////////////////////////////////////////////////////////
-//ÏÔÊ¾Ò»¸ö×Ö·û
-//¹ØÓÚ×ÖÌå³ß´ç¼°Ê¹ÓÃÇë¿´SetFontSize()µÄ×¢ÊÍ
-//µ±size=0Ê± xÎªµÚ¼¸ĞĞ yÎªµÚ¼¸ÁĞ
-void DrawChar(int x, int y, unsigned char c)
-{
-	int i,j;
-	unsigned char draw_background,bg,a,b,size,color;
-	
-	size=GetFontSize();		//×ÖÌå³ß´ç
-	color=GetDrawColor();	//×ÖÌåÑÕÉ« 1°×0ºÚ
-	bg=GetTextBkMode();		//Ğ´×ÖµÄÊ±ºò×ÖµÄ±³¾°µÄÑÕÉ« 1°×0ºÚ
-	draw_background= bg != color;	//ÕâÁ½¸öÑÕÉ«Òª²»Ò»Ñù×Ö²Å¿´µÃµ½
-	
-	if(!size)//Ä¬ÈÏ×Ö·û´óĞ¡
-	{
-		if((x>6) || (y>SCREEN_COLUMN-8))
-			return;
-		c=c-' ';			//µÃµ½Æ«ÒÆºóµÄÎ»ÖÃ
-		for(i=0;i<8;i++)
-			WriteByteBuffer(x,y+i,F8X16[c*16+i]);
-		for(i=0;i<8;i++)
-			WriteByteBuffer(x+1,y+i,F8X16[c*16+i+8]);
-	}
-	else//Ê¹ÓÃÔ­×÷´ÖÌå×Ö·û
-	{
-		//ÅĞ¶ÏÒ»¸ö×Ö·ûµÄÉÏÏÂ×óÓÒÊÇ·ñ³¬³ö±ß½ç·¶Î§
-		if ((x >= SCREEN_COLUMN) ||         // Clip right
-		(y >= SCREEN_ROW) ||        		// Clip bottom
-		((x + 5 * size - 1) < 0) ||   		// Clip left
-		((y + 8 * size - 1) < 0)    		// Clip top
-		)
-			return;
-
-		for (i=0; i<6; i++)
-		{
-			int line;
-			//Ò»¸ö×Ö·ûÔÚfont5x7ÖĞÓÉÒ»ĞĞ6¸öchar±íÊ¾
-			//lineÎªÕâ¸ö×Ö·ûµÄµÚÄ³ĞĞÄÚÈİ
-			if (i == 5)
-				line = 0x0;
-			else
-				line = pgm_read_byte(font5x7+(c*5)+i);
-			
-			for (j=0; j<8; j++)
-			{
-				unsigned char draw_color = (line & 0x1) ? color : bg;//Ä¿Ç°ĞèÒªÌî³äµÄÑÕÉ«ÊÇ0 ¾ÍÊÇ±³¾°É« 1¾ÍÊÇ×ÖÌåÉ«
-
-				//²»Í¬ºÅ´óĞ¡µÄ×ÖÌåÖ»ÊÇ×î»ù´¡×ÖÌåµÄ·Å´ó±¶Êı ÕâµãÒª×¢Òâ
-				//±ÈÈç»ù´¡×ÖÊÇ1¸öÏñËØ ·Å´óºó¾ÍÊÇ4¸öÏñËØ ÔÙ¾ÍÊÇ9¸öÏñËØ ´ïµ½ÂíÈü¿ËµÄ·Å´óĞ§¹û
-				if (draw_color || draw_background) 
-					for ( a = 0; a < size; a++ )
-						for ( b = 0; b < size; b++ )
-							SetPointBuffer(x + (i * size) + a, y + (j * size) + b, draw_color);
-
-				line >>= 1;
-			}
-		}
-	}
-}
-//ÏÔÊ¾×Ö·û´® ¾ÍÊÇÏÔÊ¾¶à´ÎÏÔÊ¾×Ö·û
-void DrawString(int x, int y,char *str)
-{
-	unsigned char j=0,tempx=x,tempy=y;
-	unsigned char size=GetFontSize();
-	
-	if(!size)//Ä¬ÈÏ×ÖÌå
-	{
-		while (str[j]!='\0')
-		{
-			DrawChar(x,y,str[j]);
-			y+=8;
-			if(y>120){y=0;x+=2;}
-			j++;
-		}
-	}
-	else//Ê¹ÓÃÔ­×÷´ÖÌå×Ö·û
-	{
-		while (str[j]!='\0')
-		{
-			if(str[j]=='\n')
-			{
-				tempy+=8*size;
-				tempx=x;
-				j++;
-				continue;
-			}
-			DrawChar(tempx,tempy,str[j]);
-			tempx+=size*6;
-			j++;
-		}
-	}
-}
-//ÏÔÊ¾Êı×Ö ¾ÍÊÇ¶à´ÎÏÔÊ¾Êı×ÖµÄ×Ö·û
-void DrawNum(unsigned char x,unsigned char y,unsigned int num,unsigned char len)
-{
-	unsigned char t,temp;
-	unsigned char enshow=0;			
-	unsigned char size=GetFontSize();
-	
-	if(!size)
-	{
-		for(t=0;t<len;t++)
-		{
-			temp=(num/oled_pow(10,len-t-1))%10;
-			if(enshow==0&&t<(len-1))
-			{
-				if(temp==0)
-				{
-					DrawChar(x,y+8*t,' ');
-					continue;
-				}
-				else 
-					enshow=1; 
-			}
-			DrawChar(x,y+8*t,temp+'0'); 
-		}
-	}
-	else
-	{
-		for(t=0;t<len;t++)
-		{
-			temp=(num/oled_pow(10,len-t-1))%10;
-			if(enshow==0&&t<(len-1))
-			{
-				if(temp==0)
-				{
-					DrawChar(x+(size*6)*t,y,'0');
-					continue;
-				}else enshow=1; 	 
-			}
-		 DrawChar(x+(size*6)*t,y,temp+'0'); 
-		}
-	}
-}
-//////////////////////////////////////////////////////////////////////////////////////////////////
-void DrawIntNum(unsigned char x,unsigned char y,int num,unsigned char len)
-{
-	int temp;
-	if (num > 0) {
-		//DrawChar(x, y-8, '+');
-		DrawNum(x , y, num, len);
-	}else {
-		DrawChar(x, y-8, '-');
-		temp = abs(num);
-		DrawNum(x, y, temp, len);
-	}
-}
-/////////////////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////////////////
-//ÏÔÊ¾ºº×Ö
-void OLED_ShowCHinese(unsigned char x,unsigned char y,unsigned char *cn)
-{      			    
-	u8 j, wordNum;
-
-	if((x > 7)||(y>128-16))
-		return;
-	
-	while (*cn != '\0')	 																																		//ÔÚCÓïÑÔÖĞ×Ö·û´®½áÊøÒÔ¡®\0¡¯½áÎ²
-	{
-		for (wordNum=0; wordNum<117; wordNum++)
-		{
-			if ((CN16CHAR[wordNum].Index[0]==*cn) && (CN16CHAR[wordNum].Index[1]==*(cn+1)))   //²éÑ¯ÒªĞ´µÄ×ÖÔÚ×Ö¿âÖĞµÄÎ»ÖÃ
-			{
-				for (j=0; j<32; j++) {																														//Ğ´Ò»¸ö×Ö
-					if (j == 16) { 																																	//ÓÉÓÚ16X16ÓÃµ½Á½¸öY×ø±ê£¬µ±´óÓÚµÈÓÚ16Ê±£¬ÇĞ»»×ø±ê
-						x++;
-					}			
-					WriteByteBuffer(x,y+(j%16),CN16CHAR[wordNum].Msk[j]);
-				}
-				y += 16;
-				x--;
-				if(y > (128-16)) {
-					x += 2;
-					y = 0;
-				}
-				break;
-			}
-		}
-		cn += 2;																																							//´Ë´¦´òÍêÒ»¸ö×Ö£¬½ÓÏÂÀ´Ñ°ÕÒµÚ¶ş¸ö×Ö
-	}
+        if(a > b) {
+            SWAP(a,b);
+        }
+        DrawFastHLine(a, y, b-a+1);
+    }
+    sa = dx12 * (y - y1);
+    sb = dx02 * (y - y0);
+    for(; y <= y2; y++) {
+        a = x1 + sa / dy12;
+        b = x0 + sb / dy02;
+        sa += dx12;
+        sb += dx02;
+        if(a > b) {
+            SWAP(a,b);
+        }
+        DrawFastHLine(a, y, b-a+1);
+    }
+    setLineColor(tmpcolor);
 }

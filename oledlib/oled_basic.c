@@ -1,292 +1,234 @@
-/*
-	Ô­×÷ÕßßÙÁ¨ßÙÁ¨:							MjGame 		https://space.bilibili.com/38673747
-	Í¬GifHub:								maoyongjie 	https://github.com/hello-myj/stm32_oled/
-	´úÂëÕûÀí×¢ÊÍÉ¾¼õÔö¼ÓÓÅ»¯µÈ ßÙÁ¨ßÙÁ¨:	Ò»Ö»³ÌĞòÔµ	https://space.bilibili.com/237304109
-	ÕûÀíÖ®Ç°µÄÔ­´úÂëËæ±¾´úÂëÒ»Í¬Ìá¹©,ä¯ÀÀÒÔÉÏÍøÖ·»ñÈ¡¸ü¶àÏà¹ØĞÅÏ¢,±¾´úÂëÒÔÕ÷µÃÔ­×÷Í¬Òâ,¸ĞĞ»Ô­×÷
-	
-	
-	´ËcÎÄ¼şÓÃÓÚ»­Í¼µÄµ×²ã²Ù×÷(»ù´¡²Ù×÷)
-	È«ÆÁ²Ù×÷°üÀ¨ ³õÊ¼»¯ ÇåÆÁ ¸üĞÂÊı×éµ½ÆÁÄ»
-	»­Ïß µã Ğı×ª ·â±ÕÍ¼ĞÎµÄÌî³ä Ê±¼äµÄ»ù×¼¸üĞÂ
-*/
+/***    åŸä½œè€…å“”å“©å“”å“©:                            MjGame         https://space.bilibili.com/38673747
+            åŒGifHub:                                maoyongjie     https://github.com/hello-myj/stm32_oled/
+            ä»£ç æ•´ç†æ³¨é‡Šåˆ å‡å¢åŠ ä¼˜åŒ–ç­‰ å“”å“©å“”å“©:    ä¸€åªç¨‹åºç¼˜    https://space.bilibili.com/237304109
+            æ•´ç†ä¹‹å‰çš„åŸä»£ç éšæœ¬ä»£ç ä¸€åŒæä¾›,æµè§ˆä»¥ä¸Šç½‘å€è·å–æ›´å¤šç›¸å…³ä¿¡æ¯,æœ¬ä»£ç ä»¥å¾å¾—åŸä½œåŒæ„,æ„Ÿè°¢åŸä½œ
+
+        æ­¤cæ–‡ä»¶ç”¨äºç”»å›¾çš„åº•å±‚æ“ä½œ(åŸºç¡€æ“ä½œ)
+        å…¨å±æ“ä½œåŒ…æ‹¬ åˆå§‹åŒ– æ¸…å± æ›´æ–°æ•°ç»„åˆ°å±å¹•
+        ç”»çº¿ ç‚¹ æ—‹è½¬ å°é—­å›¾å½¢çš„å¡«å…… æ—¶é—´çš„åŸºå‡†æ›´æ–°                ***/
 
 #include "oled_basic.h"
 
-TypeRoate _RoateValue={{0,0},0,1};
-static unsigned char _BitTableS[8]={0x01,0x03,0x07,0x0f,0x1f,0x3f,0x7f,0xff};
+TypeRoate _RoateValue = {{0,0},0,1};
+static uint8_t _BitTableS[8] = {0x01,0x03,0x07,0x0f,0x1f,0x3f,0x7f,0xff};
 static void Rotate(int x0,int y0,int*x,int*y,double angle,int direction);
 extern void DriverInit(void);
-extern unsigned int OledTimeMs;
+extern uint32_t OledTimeMs;
 
-//³õÊ¼»¯oled
-void OLED_Graph_Init(void)
-{
-	//³õÊ¼»¯Òı½Å ÅäÖÃoled²¢ÇåÆÁ
-	Driver_Init();
+//æ¸…å±
+void OLED_clearScreen(void) {
+    clearBuffer(0);
 }
-//ÇåÆÁ
-void ClearScreen(void)
-{
-	ClearScreenBuffer(0);
-}
-//¸üĞÂÆÁÄ» ×¢Òâ´Ë´¦ÌØÖ¸Ë¢ĞÂÆÁÄ»Êı×é¶ø²»ÊÇÁÙÊ±Êı×é
-void UpdateScreen(void)
-{
-	UpdateScreenDisplay();
+//æ›´æ–°å±å¹• æ³¨æ„æ­¤å¤„ç‰¹æŒ‡åˆ·æ–°å½“å‰è®¾å®šçš„å±å¹•æ•°ç»„
+void OLED_updateScreen(void) {
+    updateBuffer();
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////////
-//¸øÑ¡ÔñµÄ»º³åÇøĞ´Èë8Î»Êı¾İ
-void FillByte(int page,int x,unsigned  char byte)
-{
-	if(GetFillColor())
-		WriteByteBuffer(page,x,ReadByteBuffer(page,x)|byte);
-	else
-		WriteByteBuffer(page,x,ReadByteBuffer(page,x)&(~byte));
+////////////////////////////////////////////////////////////////////////////
+//ç»™é€‰æ‹©çš„ç¼“å†²åŒºå†™å…¥8ä½æ•°æ®
+void FillByte(int page,int x,uint8_t byte) {
+    if(getFillColor()) {
+        writeByteBuffer(page,x,readByteBuffer(page,x)|byte);
+    }else {
+        writeByteBuffer(page,x,readByteBuffer(page,x)&(~byte));
+    }
 }
-//¸øÑ¡ÔñµÄ»º³åÇøÌî³äÒ»¸ö¾ØĞÎ
-void FillRect(int x,int y,int width,int height)
-{
-	int i,j;
-	int temp =(y+height-1)/8-y/8;	//ĞèÒªÌî³äµÄ¾ØĞÎÔÚÆÁÄ»ÖĞËùÕ¼µÄĞĞÊı ÆÁÄ»±»·ÖÎª8´óĞĞ
-	if(x>SCREEN_COLUMN ||y>SCREEN_ROW)   
-			return;
-	for(i=x; i<x+width&&i<128; i++)
-	{
-		if( temp==0 )
-		{
-			FillByte(y/8,i,_BitTableS[height-1]<<(y%8));
-		}
-		else
-		{
-			//´Ó×óÍùÓÒ ÊúÏòÌî³ä
-			FillByte(y/8,i,_BitTableS[(8-y%8)-1]<<(y%8));
-			for(j=1;j<temp;j++)
-			{
-				FillByte(y/8+j,i,0xff);
-			}
-			FillByte(y/8+temp,i,_BitTableS[(height-1+y)%8]);
-		}	
-	}
+//ç»™é€‰æ‹©çš„ç¼“å†²åŒºå¡«å……ä¸€ä¸ªçŸ©å½¢
+void FillRect(int x,int y,int width,int height) {
+    int i = 0, j = 0;
+    int temp = (y+height-1)/8 - y/8;    //éœ€è¦å¡«å……çš„çŸ©å½¢åœ¨å±å¹•ä¸­æ‰€å çš„è¡Œæ•° å±å¹•è¢«åˆ†ä¸º8å¤§è¡Œ
+    if(x>SCREEN_COLUMN ||y>SCREEN_ROW) {
+            return;
+    }
+    for(i=x; i<x+width&&i<128; i++) {
+        if(temp == 0) {
+            FillByte(y/8,i,_BitTableS[height-1]<<(y%8));
+        }else {
+            //ä»å·¦å¾€å³ ç«–å‘å¡«å……
+            FillByte(y/8,i,_BitTableS[(8-y%8)-1]<<(y%8));
+            for(j=1; j<temp; j++) {
+                FillByte(y/8+j,i,0xff);
+            }
+            FillByte(y/8+temp,i,_BitTableS[(height-1+y)%8]);
+        }
+    }
 }
-//»­Ò»ÌõÆğµã×ø±êÎªx,y ³¤¶ÈÎªheightµÄÊúÏß (ÓëDrawFastHLine()ÀàËÆ ²»¹ıºóÕßÊÇÊ¹ÓÃ´òµãÊµÏÖ)
-void FillVerticalLine(int x,int y,int height,int value)
-{
-	int temp =(y+height-1)/8-y/8,j;
+//ç”»ä¸€æ¡èµ·ç‚¹åæ ‡ä¸ºx,y é•¿åº¦ä¸ºheightçš„ç«–çº¿ (ä¸DrawFastHLine()ç±»ä¼¼ ä¸è¿‡åè€…æ˜¯ä½¿ç”¨æ‰“ç‚¹å®ç°)
+void FillVerticalLine(int x,int y,int height,int value) {
+    int temp = 0, j = 0;
 
-	if( temp==0 )
-	{
-		FillByte(y/8,x,_BitTableS[height-1]<<(y%8));
-	}
-	else
-	{
-		FillByte(y/8,x,_BitTableS[(8-y%8)-1]<<(y%8));
-		for(j=1;j<temp;j++)
-		{
-			FillByte(y/8+j,x,0xff);
-		}
-		FillByte(y/8+temp,x,_BitTableS[(height-1+y)%8]);
-	}	
+    temp = (y+height-1)/8 - y/8;
+    if(temp == 0) {
+        FillByte(y/8,x,_BitTableS[height-1]<<(y%8));
+    }else {
+        FillByte(y/8,x,_BitTableS[(8-y%8)-1]<<(y%8));
+        for(j=1; j<temp; j++) {
+            FillByte(y/8+j,x,0xff);
+        }
+        FillByte(y/8+temp,x,_BitTableS[(height-1+y)%8]);
+    }
 }
 
-//¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª¡ª
-//°æÈ¨ÉùÃ÷£º±¾ÎÄÎªCSDN²©Ö÷¡¸xtlisk¡¹µÄÔ­´´ÎÄÕÂ£¬×ñÑ­ CC 4.0 BY-SA °æÈ¨Ğ­Òé£¬×ªÔØÇë¸½ÉÏÔ­ÎÄ³ö´¦Á´½Ó¼°±¾ÉùÃ÷¡£
-//Ô­ÎÄÁ´½Ó£ºhttps://blog.csdn.net/xtlisk/article/details/51249371
+//â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”
+//ç‰ˆæƒå£°æ˜ï¼šæœ¬æ–‡ä¸ºCSDNåšä¸»ã€Œxtliskã€çš„åŸåˆ›æ–‡ç« ï¼Œéµå¾ª CC 4.0 BY-SA ç‰ˆæƒåè®®ï¼Œè½¬è½½è¯·é™„ä¸ŠåŸæ–‡å‡ºå¤„é“¾æ¥åŠæœ¬å£°æ˜ã€‚
+//åŸæ–‡é“¾æ¥ï¼šhttps://blog.csdn.net/xtlisk/article/details/51249371
 
-//µãx£¬yÈÆx0£¬y0Ğı×ªangle»¡¶È
-float mySqrt(float x)
-{
-	float a = x;
-	unsigned int i = *(unsigned int *)&x;
-	i = (i + 0x3f76cf62) >> 1;
-	x = *(float *)&i;
-	x = (x + a / x) * 0.5;
-	return x;
+//ç‚¹xï¼Œyç»•x0ï¼Œy0æ—‹è½¬angleå¼§åº¦
+float mySqrt(float x) {
+    float a = x;
+    uint32_t i = *(uint32_t *)&x;
+    i = (i + 0x3f76cf62) >> 1;
+    x = *(float *)&i;
+    x = (x + a / x) * 0.5;
+    return x;
 }
-//¿ªÆ½·½¸ùº¯Êı
-unsigned int sqrt_16(unsigned long M)  
-{  
-    unsigned int N, i;  
-    unsigned long tmp, ttp;   // ½á¹û¡¢Ñ­»·¼ÆÊı  
-    if (M == 0)               // ±»¿ª·½Êı£¬¿ª·½½á¹ûÒ²Îª0  
-        return 0;  
-    N = 0;  
-    tmp = (M >> 30);          // »ñÈ¡×î¸ßÎ»£ºB[m-1]  
-    M <<= 2;  
-    if (tmp > 1)              // ×î¸ßÎ»Îª1  
-    {  
-        N ++;                 // ½á¹ûµ±Ç°Î»Îª1£¬·ñÔòÎªÄ¬ÈÏµÄ0  
-        tmp -= N;  
-    }  
-    for (i=15; i>0; i--)      // ÇóÊ£ÓàµÄ15Î»  
-    {  
-        N <<= 1;              // ×óÒÆÒ»Î»  
+//å¼€å¹³æ–¹æ ¹å‡½æ•°
+uint32_t sqrt_16(unsigned long M) {  
+    uint32_t N, i; 
+    unsigned long tmp, ttp;        // ç»“æœã€å¾ªç¯è®¡æ•°
+    if(M == 0) {                            // è¢«å¼€æ–¹æ•°ï¼Œå¼€æ–¹ç»“æœä¹Ÿä¸º0
+        return 0;
+        }
+    N = 0;
+    tmp = (M >> 30);                    // è·å–æœ€é«˜ä½ï¼šB[m-1]
+    M <<= 2;
+    if(tmp > 1)    {                            // æœ€é«˜ä½ä¸º1
+        N++;                                    // ç»“æœå½“å‰ä½ä¸º1ï¼Œå¦åˆ™ä¸ºé»˜è®¤çš„0
+        tmp -= N;
+    }
+    for (i=15; i>0; i--) {        // æ±‚å‰©ä½™çš„15ä½
+        N <<= 1;                            // å·¦ç§»ä¸€ä½
 
         tmp <<= 2;  
-        tmp += (M >> 30);     // ¼ÙÉè  
+        tmp += (M >> 30);            // å‡è®¾
 
-        ttp = N;  
-        ttp = (ttp<<1)+1;  
+        ttp = N;
+        ttp = (ttp<<1)+1;
 
-        M <<= 2;  
-        if (tmp >= ttp)       // ¼ÙÉè³ÉÁ¢  
-        {  
-            tmp -= ttp;  
-            N ++;  
-        }  
-    }  
-    return N;  
-} 
-
-//ĞèÒªÓÅ»¯atant2 cos sinËã·¨
-static void Rotate(int x0,int y0,int*x,int*y,double angle,int direction)
-{
-	int temp=(*y-y0)*(*y-y0)+(*x-x0)*(*x-x0);
-	double r=mySqrt(temp);
-	double a0=atan2(*x-x0,*y-y0);
-	if(direction)
-	{
-		*x=x0+r*cos(a0+angle);
-		*y=y0+r*sin(a0+angle);
-	}
-	else
-	{
-		*x=x0+r*cos(a0-angle);
-		*y=y0+r*sin(a0-angle);	
-	}
+        M <<= 2;
+        if (tmp >= ttp) {            // å‡è®¾æˆç«‹
+            tmp -= ttp;
+            N ++;
+        }
+    }
+    return N;
 }
 
-//¹¦ÄÜ:ÉèÖÃĞı×ª½Ç¶È
-void SetAngle(float angle)
-{
-	_RoateValue.angle=RADIAN(angle);
-}
-//¹¦ÄÜ:ÉèÖÃĞı×ª·½Ïò 1ÎªÄæÊ±Õë£¬0ÎªË³Ê±Õë
-void SetAnggleDir(int direction)
-{
-	_RoateValue.direct=direction;
-}
-//¹¦ÄÜ:ÉèÖÃĞı×ªÖĞĞÄµã
-void SetRotateCenter(int x0,int y0)
-{
-	_RoateValue.center.x=x0;
-	_RoateValue.center.y=y0;
-}
-//¹¦ÄÜ:ÉèÖÃ½Ç¶È¡¢Ğı×ª·½Ïò¡¢Ğı×ªÖĞĞÄ
-void SetRotateValue(int x,int y,float angle,int direct)
-{
-	SetRotateCenter(x,y);
-	SetAnggleDir(direct);
-	SetAngle(angle);
-}
-//¹¦ÄÜ:½«Ò»¸ö×ø±êĞı×ªÒ»¶¨½Ç¶È
-//x,y:ĞèÒªĞı×ªµÄ×ø±ê
-//return£ºĞı×ªºóµÄ×ø±ê
-TypeXY GetRotateXY(int x,int y)
-{
-	TypeXY temp;
-	int m=x,n=y;
-
-	Rotate(_RoateValue.center.x,_RoateValue.center.y,&m,&n, _RoateValue.angle ,_RoateValue.direct);
-	temp.x=m;
-	temp.y=n;
-	return temp;
+//éœ€è¦ä¼˜åŒ–atant2 cos sinç®—æ³•
+static void Rotate(int x0,int y0,int*x,int*y,double angle,int direction) {
+    int temp = 0;
+    double r = 0, a0 = 0;
+    
+    temp = (*y-y0)*(*y-y0)+(*x-x0)*(*x-x0);
+    r = mySqrt(temp);
+    a0 = atan2(*x-x0,*y-y0);
+    if(direction) {
+        *x = x0 + r*cos(a0+angle);
+        *y = y0 + r*sin(a0+angle);
+    }else {
+        *x = x0 + r*cos(a0-angle);
+        *y = y0 + r*sin(a0-angle);    
+    }
 }
 
-/////////////////////////////////////////////////////////////////////////////////////
-//ÓÉÄ³Ò»µã¿ªÊ¼ »ñÈ¡ÏòÉÏ·½ÏòÍ¬ÑÕÉ«µÄÏñËØµãµÄ¸öÊı
-unsigned char GetLengthUp(unsigned char x,unsigned char y,unsigned char value)
-{
-	if(GetPointBuffer(x,y)==value)
-	{
-		if(y==0)
-			return 0;
-		return 1+GetLengthUp(x,y-1,value);
-	}
-	return 0;
+//åŠŸèƒ½:è®¾ç½®æ—‹è½¬è§’åº¦
+void SetAngle(float angle) {
+    _RoateValue.angle = RADIAN(angle);
 }
-//ºÍÉÏÃæº¯ÊıÍ¬Àí »ñÈ¡ÏòÏÂ·½Ïò
-unsigned char GetLengthDown(unsigned char x,unsigned char y,unsigned char value)
-{
-	if(GetPointBuffer(x,y)==value)
-	{
-		if(y==63)
-			return 0;
-		return 1+GetLengthUp(x,y+1,value);
-	}
-	return 0;
+//åŠŸèƒ½:è®¾ç½®æ—‹è½¬æ–¹å‘ 1ä¸ºé€†æ—¶é’ˆï¼Œ0ä¸ºé¡ºæ—¶é’ˆ
+void SetAnggleDir(int direction) {
+    _RoateValue.direct = direction;
 }
-/////////////////////////////////////////////////////////////////////////////////////////////
-//ÓÉÒ»¸öµã¿ªÊ¼Ìî³äÒ»¸ö·â±ÕÍ¼ĞÎ
-//Ç×²â´Ëº¯Êı¿ÉÄÜÓĞÎÊÌâ ¿ÉÄÜÊÇÌ×ÍŞÌ«¶à ÄÚ´æ²»¹»ÓÃ
-//²âÊÔĞ§¹ûÊÇÌ×ÍŞ¼¸Ê®¸öµãºó»¨ÆÁ
-void FloodFill(unsigned char x,unsigned char y,int oldcolor,int newcolor)
-{		
-	UpdateScreen();
-	if(GetPointBuffer(x,y)==oldcolor)//Õâ¸öµãµÄÑÕÉ«²»¶Ô
-	{
-		SetPointBuffer(x,y,newcolor);//°ÑÕâ¸öµãµÄÑÕÉ«¸ÄÎªĞÂÑÕÉ«
-		//¿ªÊ¼Ì×ÍŞ
-		FloodFill(x-1,y,oldcolor,newcolor);//ĞŞ¸ÄÕâ¸öµãÖÜÎ§µÄ4¸öµãµÄÑÕÉ«
-		FloodFill(x+1,y,oldcolor,newcolor);//ÓÃÕâ¸ö·½·¨Öğ½¥À©É¢ ÌîÍê·¶Î§ÄÚËùÓĞÑÕÉ«
-		FloodFill(x,y+1,oldcolor,newcolor);
-		FloodFill(x,y-1,oldcolor,newcolor);
-	}
+//åŠŸèƒ½:è®¾ç½®æ—‹è½¬ä¸­å¿ƒç‚¹
+void SetRotateCenter(int x0,int y0) {
+    _RoateValue.center.x = x0;
+    _RoateValue.center.y = y0;
 }
-//¹¦ÄÜ:¿ÉÓÃÓÚÌî³äÒ»¸ö·â±ÕÍ¼ĞÎ
-//x,y:ÔÚ·â±ÕÍ¼ĞÎÈÎÒâÒ»µã×ø±ê
-//oldcolor:·â±ÕÍ¼ĞÎÖĞ¾ÉµÄÑÕÉ«
-//newcolor:Ìî³äµÄĞÂÑÕÉ«
-void FloodFill2(unsigned char x,unsigned char y,int oldcolor,int newcolor)
-{
-	unsigned char h1=0,h2=0;
-	short tempx=x;	
-	while(GetPointBuffer(tempx,y)==oldcolor && tempx<128)
-	{		
-		h1=GetLengthDown(tempx,y,oldcolor);
-		h2=GetLengthUp(tempx,y,oldcolor);
-		FillVerticalLine(tempx,y-h2,h1+h2,newcolor);
-		tempx++;
-	}
-	tempx=x-1;
-	while(GetPointBuffer(tempx,y)==oldcolor&&tempx>0)
-	{
-		h1=GetLengthDown(tempx,y,oldcolor);
-		h2=GetLengthUp(tempx,y,oldcolor);
-		FillVerticalLine(tempx,y-h2,h1+h2,newcolor);
-		tempx--;
-	}
+//åŠŸèƒ½:è®¾ç½®è§’åº¦ã€æ—‹è½¬æ–¹å‘ã€æ—‹è½¬ä¸­å¿ƒ
+void SetRotateValue(int x,int y,float angle,int direct) {
+    SetRotateCenter(x,y);
+    SetAnggleDir(direct);
+    SetAngle(angle);
+}
+//åŠŸèƒ½:å°†ä¸€ä¸ªåæ ‡æ—‹è½¬ä¸€å®šè§’åº¦
+//x,y:éœ€è¦æ—‹è½¬çš„åæ ‡
+//returnï¼šæ—‹è½¬åçš„åæ ‡
+TypeXY GetRotateXY(int x,int y) {
+    TypeXY temp;
+    int m = x, n = y;
+
+    Rotate(_RoateValue.center.x,_RoateValue.center.y,&m,&n, _RoateValue.angle ,_RoateValue.direct);
+    temp.x = m;
+    temp.y = n;
+    return temp;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////
-unsigned char pgm_read_byte(const unsigned char * addr)
-{
-	return *addr;
+////////////////////////////////////////////////////////////////////////////
+//ç”±æŸä¸€ç‚¹å¼€å§‹ è·å–å‘ä¸Šæ–¹å‘åŒé¢œè‰²çš„åƒç´ ç‚¹çš„ä¸ªæ•°
+uint8_t GetLengthUp(uint8_t x,uint8_t y,uint8_t value) {
+    if(getPointBuffer(x,y) == value) {
+        if(y == 0)
+            return 0;
+        return 1+GetLengthUp(x,y-1,value);
+    }
+    return 0;
 }
-unsigned int oled_pow(unsigned char m,unsigned char n)
-{
-	unsigned int result=1;	 
-	while(n--)result*=m;    
-	return result;
-}	
-//¹¦ÄÜ:¹Ì¶¨Ö¡Ë¢ĞÂ
-//OledTimeMsÔÚOledTimeMsFunc()ÖĞ±»1msÖĞ¶Ï³ÖĞøµ÷ÓÃ ¼õµ½0Î»ÖÃ
-//´Ëº¯Êı·ÅÔÚwhileÑ­»·ÖĞ ·ûºÏÌõ¼şÊ±Ë¢ĞÂÆÁÄ»
-unsigned char FrameRateUpdateScreen(int value)
-{
-	if(OledTimeMs==0)
-	{
-		UpdateScreen();
-		ClearScreen();
-		OledTimeMs=1000/value;
-		return 1;
-	}
-	return 0;
+//å’Œä¸Šé¢å‡½æ•°åŒç† è·å–å‘ä¸‹æ–¹å‘
+uint8_t GetLengthDown(uint8_t x,uint8_t y,uint8_t value) {
+    if(getPointBuffer(x,y) == value) {
+        if(y == 63) {
+            return 0;
+        }
+        return 1+GetLengthUp(x,y+1,value);
+    }
+    return 0;
 }
-//Ó²ºËÑÓÊ±º¯Êı
-void WaitTimeMs(unsigned int time)
-{
-	OledTimeMs=time;
-	while(OledTimeMs);
+////////////////////////////////////////////////////////////////////////////
+//ç”±ä¸€ä¸ªç‚¹å¼€å§‹å¡«å……ä¸€ä¸ªå°é—­å›¾å½¢
+//äº²æµ‹æ­¤å‡½æ•°å¯èƒ½æœ‰é—®é¢˜ å¯èƒ½æ˜¯å¥—å¨ƒå¤ªå¤š å†…å­˜ä¸å¤Ÿç”¨
+//æµ‹è¯•æ•ˆæœæ˜¯å¥—å¨ƒå‡ åä¸ªç‚¹åèŠ±å±
+void FloodFill(uint8_t x,uint8_t y,int oldcolor,int newcolor) {
+    OLED_updateScreen();
+    if(getPointBuffer(x,y)==oldcolor) {        //è¿™ä¸ªç‚¹çš„é¢œè‰²ä¸å¯¹
+        setPointBuffer(x,y,newcolor);                //æŠŠè¿™ä¸ªç‚¹çš„é¢œè‰²æ”¹ä¸ºæ–°é¢œè‰²
+        //å¼€å§‹å¥—å¨ƒ
+        FloodFill(x-1,y,oldcolor,newcolor);    //ä¿®æ”¹è¿™ä¸ªç‚¹å‘¨å›´çš„4ä¸ªç‚¹çš„é¢œè‰²
+        FloodFill(x+1,y,oldcolor,newcolor);    //ç”¨è¿™ä¸ªæ–¹æ³•é€æ¸æ‰©æ•£ å¡«å®ŒèŒƒå›´å†…æ‰€æœ‰é¢œè‰²
+        FloodFill(x,y+1,oldcolor,newcolor);
+        FloodFill(x,y-1,oldcolor,newcolor);
+    }
+}
+//åŠŸèƒ½:å¯ç”¨äºå¡«å……ä¸€ä¸ªå°é—­å›¾å½¢
+//x,y:åœ¨å°é—­å›¾å½¢ä»»æ„ä¸€ç‚¹åæ ‡
+//oldcolor:å°é—­å›¾å½¢ä¸­æ—§çš„é¢œè‰²
+//newcolor:å¡«å……çš„æ–°é¢œè‰²
+void FloodFill2(uint8_t x,uint8_t y,int oldcolor,int newcolor) {
+    uint8_t h1=0, h2=0;
+    int16_t tempx = x;
+    while(getPointBuffer(tempx,y)==oldcolor && tempx<128) {        
+        h1=GetLengthDown(tempx,y,oldcolor);
+        h2=GetLengthUp(tempx,y,oldcolor);
+        FillVerticalLine(tempx,y-h2,h1+h2,newcolor);
+        tempx++;
+    }
+    tempx = x-1;
+    while(getPointBuffer(tempx,y)==oldcolor&&tempx>0) {
+        h1 = GetLengthDown(tempx,y,oldcolor);
+        h2 = GetLengthUp(tempx,y,oldcolor);
+        FillVerticalLine(tempx,y-h2,h1+h2,newcolor);
+        tempx--;
+    }
 }
 
+//åŠŸèƒ½:å›ºå®šå¸§åˆ·æ–°
+//OledTimeMsåœ¨OledTimeMsFunc()ä¸­è¢«1msä¸­æ–­æŒç»­è°ƒç”¨ å‡åˆ°0ä½ç½®
+//æ­¤å‡½æ•°æ”¾åœ¨whileå¾ªç¯ä¸­ ç¬¦åˆæ¡ä»¶æ—¶åˆ·æ–°å±å¹•
+uint8_t FrameRateOLED_updateScreen(int value) {
+    if(OledTimeMs == 0) {
+        OLED_updateScreen();
+        OLED_clearScreen();
+        OledTimeMs = 1000 / value;
+        return 1;
+    }
+    return 0;
+}

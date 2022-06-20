@@ -2,20 +2,31 @@
 #define __OLED_CONFIG_H
 #include "oledlib.h"
 
-//¶¨ÒåÆÁÄ»»ù±¾×´¿ö
-//±£³ÖÁË¿ÉÍØÕ¹ĞÔ Èç¹û»»ÓÃÆäËûÀàĞÍÆÁ
-//Òò×¢ÒâÆäËûÅäÌ×cÎÄ¼şÖĞÓÃÁËÕâĞ©ºê¶¨ÒåµÄ²¿·Ö
+//å®šä¹‰å±å¹•åŸºæœ¬çŠ¶å†µ
+//ä¿æŒäº†å¯æ‹“å±•æ€§ å¦‚æœæ¢ç”¨å…¶ä»–ç±»å‹å±
+//å› æ³¨æ„å…¶ä»–é…å¥—cæ–‡ä»¶ä¸­ç”¨äº†è¿™äº›å®å®šä¹‰çš„éƒ¨åˆ†
+#define OLED_12864                                    //å±å¹•ç±»å‹
+#define SCREEN_PART (1)                            //å®šä¹‰å‡ ä¸ªå±å¹•ç¼“å†²åŒº, æ¯ä¸ªç¼“å†²åŒºå‡ä¸º1ä¸ªå±å¹•å¤§å°
+#define SCREEN_PAGE (8)                            //æ€»è¡Œæ•° (å¤§è¡Œ)
+#define SCREEN_ROW (64)                            //æ€»è¡Œæ•°
+#define SCREEN_COLUMN (128)                    //æ€»åˆ—æ•°
 
-#define   	OLED_12864						//ÆÁÄ»ÀàĞÍ
-#define 	SCREEN_PAGE_NUM			(8)		//×ÜĞĞÊı (´óĞĞ)
-#define  	SCREEN_PAGEDATA_NUM   	(128)	//Ã¿´óĞĞµÄÁĞÊı
-#define  	SCREEN_ROW 				(64)	//×ÜĞĞÊı
-#define 	SCREEN_COLUMN 			(128)	//×ÜÁĞÊı
+//ç»˜åˆ¶é¢œè‰²ï¼Œç®€å•ç»˜åˆ¶orå¤æ‚ç»˜åˆ¶
+#define COLOR_CHOOSE_DRAW (SIMPLE_DRAW)
+//è®¾ç½®/è·å–ç”»çº¿çš„åƒç´ ç‚¹é¢œè‰²
+void setLineColor(Type_color value);
+Type_color getLineColor(void);
+//è®¾ç½®/è·å–å¡«å……å›¾å½¢çš„åƒç´ ç‚¹é¢œè‰²
+void setFillcolor(Type_color value);
+Type_color getFillColor(void);
+//å¾—åˆ°æŸä¸ªç‚¹çš„é¢œè‰²
+Type_color getPixel(int x,int y);
+//è®¾ç½®/è·å–èƒŒæ™¯æ¨¡å¼, 0ä¸ºé€æ˜,1ä¸ºæ­£å¸¸
+void SetTextBkMode(Type_textbk);
+Type_textbk GetTextBkMode(void);
+//è®¾ç½®/è·å–å­—ä½“æ ¼å¼
+void SetFontSize(unsigned char);
+unsigned char GetFontSize(void);
 
-void Driver_Init(void);
-void UpdateScreenBuffer(void);
-void UpdateTempBuffer(void);
 void OledTimeMsFunc(void);
-void DelayMs(u16);
-
 #endif
