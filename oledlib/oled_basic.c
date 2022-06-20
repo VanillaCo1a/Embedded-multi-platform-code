@@ -15,8 +15,8 @@ static void Rotate(int x0,int y0,int*x,int*y,double angle,int direction);
 extern void DriverInit(void);
 extern uint32_t OledTimeMs;
 
-//清屏
-void OLED_clearScreen(void) {
+//清空当前缓存区
+void OLED_clearBuffer(void) {
     clearBuffer(0);
 }
 //更新屏幕 注意此处特指刷新当前设定的屏幕数组
@@ -79,7 +79,7 @@ float mySqrt(float x) {
     uint32_t i = *(uint32_t *)&x;
     i = (i + 0x3f76cf62) >> 1;
     x = *(float *)&i;
-    x = (x + a / x) * 0.5;
+    x = (x + a / x) * 0.5f;
     return x;
 }
 //开平方根函数
