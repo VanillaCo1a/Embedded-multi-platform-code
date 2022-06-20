@@ -1,52 +1,86 @@
-/*
-	Ô­×÷ÕßßÙÁ¨ßÙÁ¨:							MjGame 		https://space.bilibili.com/38673747
-	Í¬GifHub:								maoyongjie 	https://github.com/hello-myj/stm32_oled/
-	´úÂëÕûÀí×¢ÊÍÉ¾¼õÔö¼ÓÓÅ»¯µÈ ßÙÁ¨ßÙÁ¨:	Ò»Ö»³ÌĞòÔµ	https://space.bilibili.com/237304109
-	ÕûÀíÖ®Ç°µÄÔ­´úÂëËæ±¾´úÂëÒ»Í¬Ìá¹©,ä¯ÀÀÒÔÉÏÍøÖ·»ñÈ¡¸ü¶àÏà¹ØĞÅÏ¢,±¾´úÂëÒÔÕ÷µÃÔ­×÷Í¬Òâ,¸ĞĞ»Ô­×÷
-	
-	´ËcÎÄ¼şÓÃÓÚÅäÖÃoled
-	ÀıÈç³õÊ¼»¯oledÒı½Å Ë¢ĞÂoled
-	×¢Òâ!!! 
-	ÈçĞèÑİÊ¾¶¯»­Ğ§¹û OledTimeMsFunc()Ğè·ÅÈë1msÖĞ¶ÏµÈÖĞ1msµ÷ÓÃÒ»´ÎÎª¿âÌá¹©Ê±¼ä»ù×¼ Ô­×÷ÊÇ·ÅÈëµÎ´ğ¶¨Ê±Æ÷ÖĞ
-*/
+/***    åŸä½œè€…å“”å“©å“”å“©:                            MjGame         https://space.bilibili.com/38673747
+            åŒGifHub:                                maoyongjie     https://github.com/hello-myj/stm32_oled/
+            ä»£ç æ•´ç†æ³¨é‡Šåˆ å‡å¢åŠ ä¼˜åŒ–ç­‰ å“”å“©å“”å“©:    ä¸€åªç¨‹åºç¼˜    https://space.bilibili.com/237304109
+            æ•´ç†ä¹‹å‰çš„åŸä»£ç éšæœ¬ä»£ç ä¸€åŒæä¾›,æµè§ˆä»¥ä¸Šç½‘å€è·å–æ›´å¤šç›¸å…³ä¿¡æ¯,æœ¬ä»£ç ä»¥å¾å¾—åŸä½œåŒæ„,æ„Ÿè°¢åŸä½œ
+    
+        æ­¤cæ–‡ä»¶ç”¨äºé…ç½®oled
+        æ³¨æ„!!! 
+        å¦‚éœ€æ¼”ç¤ºåŠ¨ç”»æ•ˆæœ OledTimeMsFunc()éœ€æ”¾å…¥1msä¸­æ–­ç­‰ä¸­1msè°ƒç”¨ä¸€æ¬¡ä¸ºåº“æä¾›æ—¶é—´åŸºå‡† åŸä½œæ˜¯æ”¾å…¥æ»´ç­”å®šæ—¶å™¨ä¸­
 
+        å¯¹é¢œè‰²è¿›è¡Œæ“ä½œ
+        åœ¨è¿™é‡Œä¸»è¦æ˜¯ç”»çº¿çº¿æ¡(ä¸€èˆ¬ä¸ºç™½)å’Œå¡«å……(ä¸€èˆ¬ä¸ºç™½)çš„é¢œè‰²
+        (åœ¨oled.fontä¸­è¿˜æœ‰ä¸€ä¸ªå­—ä½“èƒŒæ™¯çš„é¢œè‰²(ä¸€èˆ¬ä¸ºé»‘))
+        åœ¨åˆ’çº¿ç”»å›¾å’Œæ‰“ç‚¹æ—¶éƒ½ä¼šè®¿é—®æ­¤æ–‡ä»¶å‡½æ•°è·å–æ‰“ç‚¹çš„é¢œè‰²                
+    
+        å¯¹å­—ä½“è¿›è¡Œæ“ä½œ
+        è®¾ç½®å­—ä½“èƒŒæ™¯é¢œè‰²(å­—ä½“é¢œè‰²åŒåˆ’çº¿çº¿æ¡é¢œè‰²getLineColor())
+        å­—ä½“å°ºå¯¸            ***/
+            
 #include "oled_config.h"
 
-extern unsigned char ScreenBuffer[SCREEN_PAGE_NUM][SCREEN_COLUMN];
-extern unsigned char TempBuffer[SCREEN_PAGE_NUM][SCREEN_COLUMN];
-unsigned int OledTimeMs=0;												//Ê±¼ä»ù×¼
+////////////////////////////////////////////////////////////////////////////
+//å¦‚æœ‰éœ€è¦è¿˜å¯ä»¥è‡ªå·±è¿­ä»£å­—ä½“é¢œè‰² æ–‡å­—èƒŒæ™¯é¢œè‰²ç­‰
+static Type_color _lineColor = pix_white;
+static Type_color _fillColor = pix_white;
 
-//³õÊ¼»¯Í¼ĞÎ¿â£¬Çë½«Ó²¼ş³õÊ¼»¯ĞÅÏ¢·ÅÈë´ËÖĞ
-void Driver_Init(void)
-{
-	OLED_GPIO_Init_function();	//³õÊ¼»¯½Ó¿Ú
-	OLED_Init();			//³õÊ¼»¯ÅäÖÃoled
+//è®¾ç½®/è·å–ç”»çº¿çš„åƒç´ ç‚¹é¢œè‰²
+void setLineColor(Type_color value) {
+    _lineColor = value;
 }
-
-//½«ScreenBufferÆÁÄ»»º´æµÄÄÚÈİÏÔÊ¾µ½ÆÁÄ»ÉÏ
-void UpdateScreenBuffer(void)
-{
-	OLED_Fill(ScreenBuffer[0]);
+Type_color getLineColor(void) {
+    return _lineColor;
 }
-//½«TempBufferÁÙÊ±»º´æµÄÄÚÈİÏÔÊ¾µ½ÆÁÄ»ÉÏ
-void UpdateTempBuffer(void)
-{
-	OLED_Fill(TempBuffer[0]);
+//è®¾ç½®/è·å–å¡«å……å›¾å½¢çš„åƒç´ ç‚¹é¢œè‰²
+void setFillcolor(Type_color value) {
+    _fillColor = value;
 }
-
-//////////////////////////////////////////////////////////
-//Çë½«´Ëº¯Êı·ÅÈë1msÖĞ¶ÏÀï£¬ÎªÍ¼ĞÎÌá¹©Ê±»ù
-//ÏµÍ³Ê±¼ä»ù×¼Ö÷ÒªÓÃÓÚFrameRateUpdateScreen()ÖĞ¹Ì¶¨Ö¡ÂÊË¢ĞÂÆÁÄ»
-void OledTimeMsFunc(void)
-{
-	if(OledTimeMs != 0x00)
-	{ 
-		OledTimeMs--;
-	}
+Type_color getFillColor(void) {
+    return _fillColor;
 }
-//Í¼ĞÎ¿âÆÕÍ¨µÄÑÓÊ±º¯Êı ĞèÒªÓÃ»§×Ô¼ºÅäÖÃ ÕâÀïÔÚdelay.cÖĞµ÷ÓÃ
-void DelayMs(u16 ms)
-{
-	delay_ms(ms);
+//å¾—åˆ°æŸä¸ªç‚¹çš„é¢œè‰²
+Type_color getPixel(int x, int y) {
+    if(getPointBuffer(x,y)) {
+        return pix_white;
+    }else {
+        return pix_black;
+    }
 }
 
+
+////////////////////////////////////////////////////////////////////////////
+static Type_textbk _TextBk = TEXT_BK_NULL;
+static unsigned char _FontSize = 0;            //é»˜è®¤å­—ä½“å°ºå¯¸ ä¸º8x6
+
+//è®¾ç½®å­—ä½“å¡«å……çš„èƒŒæ™¯é¢œè‰²ï¼š 1ç™½,0é»‘ 
+//TEXT_BK_NULLï¼šæ— èƒŒæ™¯, TEXT_BK_NOT_NULLï¼šæœ‰èƒŒæ™¯
+void SetTextBkMode(Type_textbk value) {
+    _TextBk = value;
+}
+Type_textbk GetTextBkMode(void) {
+    return _TextBk;
+}
+//åœ¨æ˜¾ç¤ºå­—ä½“å‰å…ˆè®¾ç½®éœ€è¦æ˜¾ç¤ºçš„å­—ä½“çš„å°ºå¯¸
+//å°ºå¯¸æœ‰ 0 1 2 3
+//å¯¹åº”åƒç´ æ˜¯ 0 8 16 24
+//0ä¸ºé»˜è®¤å­—ä½“Font_8x16[], 8x16
+//1ä¸ºåŸä½œè€…å­—ä½“Font_5x7[], 6x8
+//2ä¸º1çš„2å€æ”¾å¤§, 12x16
+//3ä¸º1çš„3å€æ”¾å¤§, 18x24
+void SetFontSize(unsigned char value) {
+    _FontSize = value;
+}
+unsigned char GetFontSize(void) {
+    return _FontSize;
+}
+
+
+////////////////////////////////////////////////////////////////////////////
+uint32_t OledTimeMs = 0;                            //æ—¶é—´åŸºå‡†
+
+//è¯·å°†æ­¤å‡½æ•°æ”¾å…¥1msä¸­æ–­é‡Œï¼Œä¸ºå›¾å½¢æä¾›æ—¶åŸº
+//ç³»ç»Ÿæ—¶é—´åŸºå‡†ä¸»è¦ç”¨äºFrameRateUpdateScreen()ä¸­å›ºå®šå¸§ç‡åˆ·æ–°å±å¹•
+void OledTimeMsFunc(void) {
+    if(OledTimeMs != 0x00) { 
+        OledTimeMs--;
+    }
+}
