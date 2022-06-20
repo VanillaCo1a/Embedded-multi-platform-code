@@ -74,7 +74,21 @@ int8_t TIMER_scmptor(uint16_t s, volatile uint64_t *compare, volatile int8_t *st
 }
 
 
-#if MCU_COMPILER == MCU_STM32FWLIBF1
+#if defined(STM32HAL)
+void TIM4_Confi(void) {
+    HAL_TIM_Base_Start_IT(&htim4);
+}
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+    if(htim->Instance == TIM9) {
+        HAL_IncTick();
+    }
+    if(htim == &htim4) {
+        time_ms++;
+        time_us += 1000;
+        flag_timerrupt = 0;
+    }
+}
+#elif defined(STM32FWLIBF1)
 void TIM4_IRQHandler(void) {
     if(TIM_GetITStatus(TIM4, TIM_IT_Update) != RESET) {
         TIM_ClearITPendingBit(TIM4, TIM_IT_Update);
@@ -109,19 +123,5 @@ void TIM4_Confi(void) {
     TIM4_NVIC_Init();
     TIM_ITConfig(TIM4, TIM_IT_Update, ENABLE);
     TIM_Cmd(TIM4, ENABLE);
-}
-#elif MCU_COMPILER == MCU_STM32HAL
-void TIM4_Confi(void) {
-    HAL_TIM_Base_Start_IT(&htim4);
-}
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
-    if(htim->Instance == TIM9) {
-        HAL_IncTick();
-    }
-    if(htim == &htim4) {
-        time_ms++;
-        time_us += 1000;
-        flag_timerrupt = 0;
-    }
 }
 #endif

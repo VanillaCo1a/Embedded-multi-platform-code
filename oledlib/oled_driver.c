@@ -8,36 +8,55 @@
 #include "oled_driver.h"
 
 /////////////////////////    OLED配置结构体初始化    /////////////////////////
-//    OLED设备结构体
-DEVS_TypeDef oleds = {.type = OLED, .size = OLED_NUM, .pool = (devpool_size)-1, .stream = 0};
 //    OLED参数配置
 OLED_TypeDef oled_parameter[OLED_NUM] = {
-    {.oledchip = OLED_SH1106},
-};
-//    OLED通信配置
-DEVCMNI_TypeDef oled_cmni[OLED_NUM] = {
-    {.type = SPI, .dev = HARDWARE, .handle = {.hai2c = {OLED_I2CADDR1, &ai2c}, .haspi = {&aspi}, .hi2c = NULL, .hspi = &hspi2}},
+    {.chip = OLED_SSD1306},
+    {.chip = OLED_SSD1306},
 };
 //    OLEDIO配置
 OLED_IOTypeDef oled_io[OLED_NUM] = {
-#if MCU_COMPILER == MCU_STM32HAL
-    {{.SCL_SCLK = {OLED0_SCL_SCLK_GPIO_Port, OLED0_SCL_SCLK_Pin},
-      .SDA_SDO_OWIO = {OLED0_SDA_SDO_GPIO_Port, OLED0_SDA_SDO_Pin},
+#if defined(STM32HAL)
+    {{.SCL_SCLK = {OLED0_SCLK_GPIO_Port, OLED0_SCLK_Pin},
+      .SDA_SDO_OWIO = {OLED0_SDO_GPIO_Port, OLED0_SDO_Pin},
       .CS = {OLED0_CS_GPIO_Port, OLED0_CS_Pin}},
      .DC = {OLED0_DC_GPIO_Port, OLED0_DC_Pin},
      .RST = {NULL, 0x00}},
-// {{.SCL_SCLK = {OLED1_SCL_SCLK_GPIO_Port, OLED1_SCL_SCLK_Pin},
-//   .SDA_SDO_OWIO = {OLED1_SDA_SDO_GPIO_Port, OLED1_SDA_SDO_Pin},
-//   .CS = {NULL, 0x00}},
-//   .DC = {NULL, 0x00},
-//  .RST = {NULL, 0x00}},
-#elif MCU_COMPILER == MCU_STM32FWLIBF1
+    {{.SCL_SCLK = {OLED1_SCL_GPIO_Port, OLED1_SCL_Pin},
+      .SDA_SDO_OWIO = {OLED1_SDA_GPIO_Port, OLED1_SDA_Pin},
+      .CS = {NULL, 0x00}},
+     .DC = {NULL, 0x00},
+     .RST = {NULL, 0x00}},
+#elif defined(STM32FWLIBF1)
     {{.SCL_SCLK = {RCC_APB2Periph_GPIOB, GPIOB, GPIO_Pin_12},
       .SDA_SDO_OWIO = {RCC_APB2Periph_GPIOB, GPIOB, GPIO_Pin_13},
       .CS = {0x00, NULL, 0x00}},
      .DC = {0x00, NULL, 0x00},
      .RST = {0x00, NULL, 0x00}},
 #endif
+};
+//    OLED通信配置
+#ifdef DEVICE_I2C_SOFTWARE_ENABLED
+I2C_ModuleHandleTypeDef mi2c[2] = {
+    {.addr = OLED_I2CADDR1, .speed = I2CHIGH, .bushandle = &ahi2c[0]},
+    {.addr = OLED_I2CADDR1, .speed = I2CHIGH, .bushandle = &hi2c1},
+};
+#endif    // DEVICE_I2C_SOFTWARE_ENABLED
+#ifdef DEVICE_SPI_SOFTWARE_ENABLED
+SPI_ModuleHandleTypeDef mspi[2] = {
+    {.bushandle = &ahspi[0]},
+    {.bushandle = &hspi2},
+};
+#endif    // DEVICE_SPI_SOFTWARE_ENABLED
+DEVCMNI_TypeDef oled_cmni[OLED_NUM] = {
+    {.type = SPI, .dev = SOFTWARE, .handle = &mspi[0]},
+    {.type = I2C, .dev = SOFTWARE, .handle = &mi2c[0]},
+};
+
+//    OLED设备结构体
+DEVS_TypeDef oleds = {.type = OLED, .size = OLED_NUM, .pool = (devpool_size)-1, .stream = 0};
+DEV_TypeDef oled[OLED_NUM] = {
+    {.state = 0, .parameter = &oled_parameter[0], .io = &oled_io[0], .cmni = &oled_cmni[0]},
+    {.state = 0, .parameter = &oled_parameter[1], .io = &oled_io[1], .cmni = &oled_cmni[1]},
 };
 
 
@@ -51,30 +70,56 @@ void OLED_IOInit(void) {
     DEV_TypeDef *oled = DEV_getdev(&oleds);
     OLED_IOTypeDef *oledio = (OLED_IOTypeDef *)oled->io;
     //不同设备实际使用的通信引脚不同, 未定义的引脚不会被初始化
-#if MCU_COMPILER == MCU_STM32HAL
-    //HAL库的IO初始化在main函数中完成
-#elif MCU_COMPILER == MCU_STM32FWLIBF1
+#if defined(STM32HAL)
+    GPIO_InitTypeDef GPIO_InitStructure = {0};
+    if(oled->cmni->type == I2C) {
+        if(((DEVCMNI_IOTypeDef *)oledio)->CS.GPIOx != NULL) {
+            GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_PP;    //初始化CS
+            GPIO_InitStructure.Pull = GPIO_NOPULL;
+            GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_HIGH;
+            DEV_CLK_GPIO_PIN_CONFI(&((DEVCMNI_IOTypeDef *)oledio)->CS, &GPIO_InitStructure);
+        }
+        if(oledio->DC.GPIOx != NULL) {
+            GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_PP;    //初始化DC
+            GPIO_InitStructure.Pull = GPIO_NOPULL;
+            GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_HIGH;
+            DEV_CLK_GPIO_PIN_CONFI(&oledio->DC, &GPIO_InitStructure);
+        }
+    } else if(oled->cmni->type == SPI) {
+        GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_PP;    //初始化DC
+        GPIO_InitStructure.Pull = GPIO_NOPULL;
+        GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_HIGH;
+        DEV_CLK_GPIO_PIN_CONFI(&oledio->DC, &GPIO_InitStructure);
+    }
+    if(oledio->RST.GPIOx != NULL) {
+        GPIO_InitStructure.Mode = GPIO_MODE_OUTPUT_PP;    //初始化RST
+        GPIO_InitStructure.Pull = GPIO_NOPULL;
+        GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_HIGH;
+        DEV_CLK_GPIO_PIN_CONFI(&oledio->RST, &GPIO_InitStructure);
+    }
+
+#elif defined(STM32FWLIBF1)
     GPIO_InitTypeDef GPIO_InitStructure;
     if(oled->cmni->type == I2C) {
         if(((DEVCMNI_IOTypeDef *)oledio)->CS.GPIOx != NULL) {
             GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;    //初始化CS
             GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-            DEV_CLK_GPIO_PIN_CONFI(&((DEVCMNI_IOTypeDef *)oledio)->CS);
+            DEV_CLK_GPIO_PIN_CONFI(&((DEVCMNI_IOTypeDef *)oledio)->CS, &GPIO_InitStructure);
         }
         if(oledio->DC.GPIOx != NULL) {
             GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;    //初始化DC
             GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-            DEV_CLK_GPIO_PIN_CONFI(&oledio->DC);
+            DEV_CLK_GPIO_PIN_CONFI(&oledio->DC, &GPIO_InitStructure);
         }
     } else if(oled->cmni->type == SPI) {
         GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;    //初始化DC
         GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-        DEV_CLK_GPIO_PIN_CONFI(&oledio->DC);
+        DEV_CLK_GPIO_PIN_CONFI(&oledio->DC, &GPIO_InitStructure);
     }
     if(oledio->RST.GPIOx != NULL) {
         GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;    //初始化RST
         GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-        DEV_CLK_GPIO_PIN_CONFI(&oledio->RST);
+        DEV_CLK_GPIO_PIN_CONFI(&oledio->RST, &GPIO_InitStructure);
     }
 #endif
     //IO电位配置
@@ -83,11 +128,13 @@ void OLED_IOInit(void) {
             DEVIO_WritePin_SET(&((DEVCMNI_IOTypeDef *)oledio)->CS);
         }
         if(oledio->DC.GPIOx != NULL) {
-            if(oled->cmni->handle.hai2c.addr == OLED_I2CADDR1) {
+#ifdef DEVICE_SPI_SOFTWARE_ENABLED
+            if(((I2C_ModuleHandleTypeDef *)oled->cmni->handle)->addr == OLED_I2CADDR1) {
                 DEVIO_WritePin_RESET(&oledio->DC);
             } else {
                 DEVIO_WritePin_SET(&oledio->DC);
             }
+#endif    // DEVICE_SPI_SOFTWARE_ENABLED
         }
     } else if(oled->cmni->type == SPI) {
         DEVIO_WritePin_SET(&oledio->DC);
@@ -107,67 +154,81 @@ void OLED_IOInit(void) {
 void OLED_WriteByte(uint8_t data, uint8_t address) {
     DEV_TypeDef *oled = DEV_getdev(&oleds);
     OLED_IOTypeDef *oledio = (OLED_IOTypeDef *)oled->io;
+    void *handle = oled->cmni->handle;
     if(oled->cmni->type == I2C) {
+#ifdef DEVICE_I2C_SOFTWARE_ENABLED
         if(((DEVCMNI_IOTypeDef *)oledio)->CS.GPIOx != NULL) {
             DEVIO_WritePin_RESET(&((DEVCMNI_IOTypeDef *)oledio)->CS);
         }
-        if(oled->cmni->handle.hai2c.addr == OLED_I2CADDR1) {
-            DEVIO_WritePin_RESET(&oledio->DC);
-        } else if(oled->cmni->handle.hai2c.addr == OLED_I2CADDR2) {
-            DEVIO_WritePin_SET(&oledio->DC);
+        if(oledio->DC.GPIOx != NULL) {
+            if(((I2C_ModuleHandleTypeDef *)handle)->addr == OLED_I2CADDR1) {
+                DEVIO_WritePin_RESET(&oledio->DC);
+            } else if(((I2C_ModuleHandleTypeDef *)handle)->addr == OLED_I2CADDR2) {
+                DEVIO_WritePin_SET(&oledio->DC);
+            }
         }
-        DEVCMNI_WriteByte(data, address);
+        DEVCMNI_WriteByte(data, address, 0);
         if(((DEVCMNI_IOTypeDef *)oledio)->CS.GPIOx != NULL) {
             DEVIO_WritePin_SET(&((DEVCMNI_IOTypeDef *)oledio)->CS);
         }
+#endif    // DEVICE_I2C_SOFTWARE_ENABLED
     } else if(oled->cmni->type == SPI) {
+#ifdef DEVICE_SPI_SOFTWARE_ENABLED
         if(address == 0X00) {
             DEVIO_WritePin_RESET(&oledio->DC);
         } else if(address == 0X40) {
             DEVIO_WritePin_SET(&oledio->DC);
         }
-        DEVCMNI_WriteByte(data, address);
+        DEVCMNI_WriteByte(data, 0, 0);
         DEVIO_WritePin_SET(&oledio->DC);
+#endif    // DEVICE_SPI_SOFTWARE_ENABLED
     }
 }
 //    OLED模拟通信连续写多字节函数
 void OLED_WriteConti(uint8_t *pdata, uint16_t size, uint8_t address) {
     DEV_TypeDef *oled = DEV_getdev(&oleds);
     OLED_IOTypeDef *oledio = (OLED_IOTypeDef *)oled->io;
+    void *handle = oled->cmni->handle;
     if(oled->cmni->type == I2C) {
+#ifdef DEVICE_I2C_SOFTWARE_ENABLED
         if(((DEVCMNI_IOTypeDef *)oledio)->CS.GPIOx != NULL) {
             DEVIO_WritePin_RESET(&((DEVCMNI_IOTypeDef *)oledio)->CS);
         }
-        if(oled->cmni->handle.hai2c.addr == OLED_I2CADDR1) {
-            DEVIO_WritePin_RESET(&oledio->DC);
-        } else {
-            DEVIO_WritePin_SET(&oledio->DC);
+        if(oledio->DC.GPIOx != NULL) {
+            if(((I2C_ModuleHandleTypeDef *)handle)->addr == OLED_I2CADDR1) {
+                DEVIO_WritePin_RESET(&oledio->DC);
+            } else if(((I2C_ModuleHandleTypeDef *)handle)->addr == OLED_I2CADDR2) {
+                DEVIO_WritePin_SET(&oledio->DC);
+            }
         }
-        DEVCMNI_WriteConti(pdata, size, address);
+        DEVCMNI_Write(pdata, size, address, 0);
         if(((DEVCMNI_IOTypeDef *)oledio)->CS.GPIOx != NULL) {
             DEVIO_WritePin_SET(&((DEVCMNI_IOTypeDef *)oledio)->CS);
         }
+#endif    // DEVICE_I2C_SOFTWARE_ENABLED
     } else if(oled->cmni->type == SPI) {
+#ifdef DEVICE_SPI_SOFTWARE_ENABLED
         if(address == 0X00) {
             DEVIO_WritePin_RESET(&oledio->DC);
         } else if(address == 0X40) {
             DEVIO_WritePin_SET(&oledio->DC);
         }
-        DEVCMNI_WriteConti(pdata, size, address);
+        DEVCMNI_Write(pdata, size, 0, 0);
         DEVIO_WritePin_SET(&oledio->DC);
+#endif    // DEVICE_SPI_SOFTWARE_ENABLED
     }
 }
 
 /////////////////////////    OLED配置初始化    /////////////////////////
 //    图形库普通的延时函数 需要用户自己配置
 void OLED_delayms(uint16_t ms) {
-#if MCU_COMPILER == MCU_STM32HAL
+#if defined(STM32HAL)
 #ifdef __TIMER_H
     delayms_timer(ms);
 #else
     HAL_Delay(ms);
 #endif
-#elif MCU_COMPILER == MCU_STM32FWLIBF1
+#elif defined(STM32FWLIBF1)
     delayms_timer(ms);
 #endif
 }
@@ -205,15 +266,16 @@ void OLED_Flip(int8_t horizontal, int8_t vertical) {
 }
 //    设置器件内部光标, 格式为(页,列)
 void OLED_Cursor(uint8_t page, uint8_t col) {
-    OLED_WriteByte(0xB0 + page, 0X00);    //设置显示起始页地址（0~7）
-    if(((OLED_TypeDef *)DEV_getdev(&oleds)->parameter)->oledchip == OLED_SSD1306) {
-        OLED_WriteByte(0x00 + (col & 0x0F), 0X00);    //设置显示起始列地址低4位
-    } else if(((OLED_TypeDef *)DEV_getdev(&oleds)->parameter)->oledchip == OLED_SH1106) {
-        OLED_WriteByte(0x02 + (col & 0x0F), 0X00);    //设置显示起始列地址低4位
-    }
-    OLED_WriteByte(0x10 + ((col >> 4) & 0x0F), 0X00);    //设置显示起始列地址高4位
+    OLED_TypeDef *oled_par = (OLED_TypeDef *)DEV_getdev(&oleds)->parameter;
+    uint8_t col_temp = col + ((oled_par->chip == OLED_SH1106) ? 0x02 : 0x00);    //对于SH1106芯片的屏幕, 显存起始地址为0x02
+    uint8_t cursor[3] = {
+        0xB0 | (page),                      //设置显示起始页地址(0~7)
+        0x00 | (col_temp & 0x0F),           //设置显示起始列地址低4位(0~F)
+        0x10 | ((col_temp & 0xF0) >> 4),    //设置显示起始列地址高4位(0~7(8 ))
+    };
+    OLED_WriteConti(cursor, 3, 0X00);
 }
-//    在指定坐标处直接刷新一个字节(页中的某一列,上低下高), 由于要重设光标,非常地缓慢
+//    在指定坐标处直接刷新一个字节(页中的某一列,上低下高), 由于要重设光标,较为缓慢
 void OLED_directByte(uint8_t page, uint8_t col, uint8_t data) {
     OLED_Cursor(page, col);
     OLED_WriteByte(data, 0X40);
@@ -247,9 +309,9 @@ void OLED_Init(void) {
     OLED_WriteByte(0x20, 0X00);    //设置内存寻址模式(默认0x10) Set Memory Addressing Mode
     OLED_WriteByte(0x02, 0X00);    //0x00水平寻址模式,0x01垂直寻址模式,0x02页面寻址模式(默认),其他无效  0x00 Horizontal Addressing Mode,0x01 Vertical Addressing Mode,0x02 Page Addressing Mode,others Invalid
     OLED_WriteByte(0xB0, 0X00);    //设置页起始地址(0xB0~0xB7,仅页寻址模式有效)  Set Page Start Address for Page Addressing Mode
-    if(((OLED_TypeDef *)DEV_getdev(&oleds)->parameter)->oledchip == OLED_SSD1306) {
+    if(((OLED_TypeDef *)DEV_getdev(&oleds)->parameter)->chip == OLED_SSD1306) {
         OLED_WriteByte(0x00, 0X00);    //设置显示起始列地址低4位
-    } else if(((OLED_TypeDef *)DEV_getdev(&oleds)->parameter)->oledchip == OLED_SH1106) {
+    } else if(((OLED_TypeDef *)DEV_getdev(&oleds)->parameter)->chip == OLED_SH1106) {
         OLED_WriteByte(0x02, 0X00);    //设置显示起始列地址低4位
     }
     OLED_WriteByte(0x10, 0X00);    //设置列起始地址高4位(默认0x10,0x10~0x1F,仅页寻址模式有效)  Set Higher Column Start Address for Page Addressing Mode
@@ -274,7 +336,7 @@ void OLED_Init(void) {
 }
 void OLED_Confi(void) {
     //初始化OLED类设备, 将参数绑定到设备池中, 并初始化通信引脚
-    DEV_Confi(&oleds, oled_parameter, oled_io, oled_cmni);
+    DEV_Confi(&oleds, oled);
     //初始化其他引脚, 复位定义RST脚的OLED
     DEV_Do(&oleds, OLED_IOInit);
     DEV_Do(&oleds, OLED_Reset);    //延时200ms等待OLED电源稳定
@@ -285,6 +347,15 @@ void OLED_Confi(void) {
     OLED_Init();
     OLED_Cursor(0, 0);    //设置光标和屏幕方向, 在初始化函数中已经配置过, 单独分离出来方便修改
     OLED_Flip(0, 0);
+    OLED_ClearScreen();    //清空显存和屏幕
+    OLED_On();             //开启屏幕显示
+
+    if(DEV_setistm(&oleds, 1) == 1) {    //配置第2个OLED
+        DEV_Error();
+    }
+    OLED_Init();
+    OLED_Cursor(0, 0);    //设置光标和屏幕方向, 在初始化函数中已经配置过, 单独分离出来方便修改
+    OLED_Flip(1, 1);
     OLED_ClearScreen();    //清空显存和屏幕
     OLED_On();             //开启屏幕显示
     //...

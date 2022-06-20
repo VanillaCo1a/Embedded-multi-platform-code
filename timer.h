@@ -1,8 +1,10 @@
 #ifndef __TIMER_H
 #define __TIMER_H
 #include "device.h"
-#define USEMARCO 1
-#if MCU_COMPILER == MCU_STM32HAL
+#if defined(STM32HAL)
+#ifndef USEMACRO
+#define USEMACRO 0
+#endif // !USEMACRO
 #define TimerError 0    //为了修正函数运行带来的误差, 在使用不同型号芯片前需调试计算得到数值
 #endif
 
@@ -52,7 +54,7 @@ uint32_t TIMER_getRunTimes(void);
     result; })
 
 //100%的情况下精度在5us内, 99.8%的情况下精度在1us内, 当比较器遇到定时器更新中断时误差增大
-#if USEMARCO
+#if USEMACRO
 #define TIMER_uscmptor(us, compare, state) ({        \
     extern volatile uint64_t time_us;                \
     extern volatile int8_t flag_timerrupt;           \
@@ -102,11 +104,10 @@ static inline int8_t TIMER_uscmptor(uint16_t us, volatile uint64_t *compare, vol
     }
     return result;
 }
-#endif    // USEMARCO
-int8_t TIMER_mscmptor(uint16_t, volatile uint64_t *, volatile int8_t *);
-int8_t TIMER_scmptor(uint16_t, volatile uint64_t *, volatile int8_t *);
+#endif    // USEMACRO
+int8_t TIMER_mscmptor(uint16_t ms, volatile uint64_t *compare, volatile int8_t *state);
+int8_t TIMER_scmptor(uint16_t s, volatile uint64_t *compare, volatile int8_t *state);
 
 void TIM4_Confi(void);
 
-#undef USEMARCO
 #endif
