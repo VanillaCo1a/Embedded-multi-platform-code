@@ -1,7 +1,7 @@
 #ifndef __OLED_DRIVER_H
 #define __OLED_DRIVER_H
 #include "oledlib.h"
-#define OLED_NUM 1
+#define OLED_NUM 4
 #define OLED_I2CADDR1 0x3C   //常用的OLED地址为0111100和0111101
 #define OLED_I2CADDR2 0x3D
 
