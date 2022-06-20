@@ -10,16 +10,16 @@
 ////////////////////////////////////////////////////////////////////////////
 //      IO操作宏
 #if (MCU_COMPILER == MCU_STM32FWLIB)        //固件库IO操作宏替换
-#define GPIO_OUT_SET(X) GPIO_SetBits(AT24C02[_streamnum].at24c02io->GPIO_##X, AT24C02[_streamnum].at24c02io->PIN_##X)
-#define GPIO_OUT_RESET(X) GPIO_ResetBits(AT24C02[_streamnum].at24c02io->GPIO_##X, AT24C02[_streamnum].at24c02io->PIN_##X)
-#define GPIO_IN(X) GPIO_ReadInputDataBit(AT24C02[_streamnum].at24c02io->GPIO_##X, AT24C02[_streamnum].at24c02io->PIN_##X)
-#define DEFINE_CLOCK_SET(X) RCC_APB2PeriphClockCmd(AT24C02[_streamnum].at24c02io->CLK_##X, ENABLE)
-#define DEFINE_GPIO_SET(X) GPIO_Init(AT24C02[_streamnum].at24c02io->GPIO_##X, &GPIO_InitStructure)
-#define DEFINE_PIN_SET(X) GPIO_Pin = AT24C02[_streamnum].at24c02io->PIN_##X
+#define GPIO_OUT_SET(X) GPIO_SetBits(AT24C02[DEVICE_getiostream(&at24c02)].at24c02io->GPIO_##X, AT24C02[DEVICE_getiostream(&at24c02)].at24c02io->PIN_##X)
+#define GPIO_OUT_RESET(X) GPIO_ResetBits(AT24C02[DEVICE_getiostream(&at24c02)].at24c02io->GPIO_##X, AT24C02[DEVICE_getiostream(&at24c02)].at24c02io->PIN_##X)
+#define GPIO_IN(X) GPIO_ReadInputDataBit(AT24C02[DEVICE_getiostream(&at24c02)].at24c02io->GPIO_##X, AT24C02[DEVICE_getiostream(&at24c02)].at24c02io->PIN_##X)
+#define DEFINE_CLOCK_SET(X) RCC_APB2PeriphClockCmd(AT24C02[DEVICE_getiostream(&at24c02)].at24c02io->CLK_##X, ENABLE)
+#define DEFINE_GPIO_SET(X) GPIO_Init(AT24C02[DEVICE_getiostream(&at24c02)].at24c02io->GPIO_##X, &GPIO_InitStructure)
+#define DEFINE_PIN_SET(X) GPIO_Pin = AT24C02[DEVICE_getiostream(&at24c02)].at24c02io->PIN_##X
 #elif (MCU_COMPILER == MCU_STM32HAL)        //HAL库IO操作宏替换
-#define GPIO_OUT_SET(X) HAL_GPIO_WritePin(AT24C02[_streamnum].at24c02io->GPIO_##X, AT24C02[_streamnum].at24c02io->PIN_##X, GPIO_PIN_SET)
-#define GPIO_OUT_RESET(X) HAL_GPIO_WritePin(AT24C02[_streamnum].at24c02io->GPIO_##X, AT24C02[_streamnum].at24c02io->PIN_##X, GPIO_PIN_RESET)
-#define GPIO_IN(X) HAL_GPIO_ReadPin(AT24C02[_streamnum].at24c02io->GPIO_##X, AT24C02[_streamnum].at24c02io->PIN_##X)
+#define GPIO_OUT_SET(X) HAL_GPIO_WritePin(AT24C02[DEVICE_getiostream(&at24c02)].at24c02io->GPIO_##X, AT24C02[DEVICE_getiostream(&at24c02)].at24c02io->PIN_##X, GPIO_PIN_SET)
+#define GPIO_OUT_RESET(X) HAL_GPIO_WritePin(AT24C02[DEVICE_getiostream(&at24c02)].at24c02io->GPIO_##X, AT24C02[DEVICE_getiostream(&at24c02)].at24c02io->PIN_##X, GPIO_PIN_RESET)
+#define GPIO_IN(X) HAL_GPIO_ReadPin(AT24C02[DEVICE_getiostream(&at24c02)].at24c02io->GPIO_##X, AT24C02[DEVICE_getiostream(&at24c02)].at24c02io->PIN_##X)
 #endif
 
 
@@ -36,16 +36,7 @@ SPI_AnalogTypedef AT24C02SPI[AT24C02_NUM] = {0};
 
 ////////////////////////////////////////////////////////////////////////////
 //      AT24C02输出流控制函数
-int8_t _streamnum = 0;  //设置缓存区输出流向哪一个AT24C02
-void AT24C02_setOutputStream(int8_t num) {
-    _streamnum = num;
-}
-At24c02_Typedef AT24C02_getOutputStream(void) {
-    return AT24C02[_streamnum];
-}
-int8_t AT24C02_getOutputNum(void) {
-    return _streamnum;
-}
+Device_TypeDef at24c02;
 
 ////////////////////////////////////////////////////////////////////////////
 //      MPU_AT24C02引脚配置
@@ -61,20 +52,20 @@ void AT24C02_ioDef(void) {
     AT24C02IO[0].GPIO_sda_sdo =    GPIOB;
     AT24C02IO[0].PIN_sda_sdo =     GPIO_Pin_13;     
     #elif (MCU_COMPILER == MCU_STM32HAL)
-    AT24C02IO[0].GPIO_scl_sclk =   AT24C020_2_3_SCL_SCLK_GPIO_Port;
-    AT24C02IO[0].PIN_scl_sclk =    AT24C020_2_3_SCL_SCLK_Pin;
-    AT24C02IO[0].GPIO_sda_sdo =    AT24C020_2_3_SDA_SDO_GPIO_Port;
-    AT24C02IO[0].PIN_sda_sdo =     AT24C020_2_3_SDA_SDO_Pin;
+    AT24C02IO[0].GPIO_scl_sclk =   AT24C020_SCL_SCLK_GPIO_Port;
+    AT24C02IO[0].PIN_scl_sclk =    AT24C020_SCL_SCLK_Pin;
+    AT24C02IO[0].GPIO_sda_sdo =    AT24C020_SDA_SDO_GPIO_Port;
+    AT24C02IO[0].PIN_sda_sdo =     AT24C020_SDA_SDO_Pin;
     #endif
 }
 void AT24C02_ioSet(void) {
-    AT24C02[_streamnum].at24c02io = &AT24C02IO[_streamnum];
+    AT24C02[DEVICE_getiostream(&at24c02)].at24c02io = &AT24C02IO[DEVICE_getiostream(&at24c02)];
 }
-void AT24C02_gpioInit(void) {GPIO_InitTypeDef GPIO_InitStructure;
+void AT24C02_gpioInit(void) {
     #if (MCU_COMPILER == MCU_STM32FWLIB)
-    if(AT24C02[_streamnum].at24c02prop == AT24C02_I2C) {
-            //定义一个配置GPIO的结构体变量
-        if(AT24C02[_streamnum].at24c02comi == AT24C02_ANALOG) {
+    if(AT24C02[DEVICE_getiostream(&at24c02)].at24c02prop == AT24C02_I2C) {
+        GPIO_InitTypeDef GPIO_InitStructure;    //定义一个配置GPIO的结构体变量
+        if(AT24C02[DEVICE_getiostream(&at24c02)].at24c02comi == AT24C02_ANALOG) {
             DEFINE_CLOCK_SET(scl_sclk);         //初始化SCL
             GPIO_InitStructure.DEFINE_PIN_SET(scl_sclk);
             GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_OD;
@@ -87,7 +78,7 @@ void AT24C02_gpioInit(void) {GPIO_InitTypeDef GPIO_InitStructure;
             DEFINE_GPIO_SET(sda_sdo);
             GPIO_OUT_SET(scl_sclk);             //设置SCL,SDA输出电平
             GPIO_OUT_SET(sda_sdo);
-        }else if(AT24C02[_streamnum].at24c02comi == AT24C02_HARDWARE) {
+        }else if(AT24C02[DEVICE_getiostream(&at24c02)].at24c02comi == AT24C02_HARDWARE) {
             //固件库的硬件I2C初始化,待补充
         }
     }
@@ -116,30 +107,29 @@ void AT24C02_SDAOut(uint8_t bit) {
 uint8_t AT24C02_SDAIn(void) {
     return GPIO_IN(sda_sdo);
 }
-void AT24C02_Delayus(int16_t nus) {
+void AT24C02_Delayus(uint16_t us) {
     #if (MCU_COMPILER == MCU_STM32FWLIB)
-    Delay_us(nus);
+    delayus_timer(us);
     #elif (MCU_COMPILER == MCU_STM32HAL)
-    int16_t i = 1;
-    while(i--); 
+    delayus_timer(us);
     #endif
 }
 //通信类的实现函数, 初始化通信成员后将地址存入对应AT24C02结构体中
 void AT24C02_wireSet(void) {
     static int8_t j = 0, k = 0;
-    if(AT24C02[_streamnum].at24c02prop == AT24C02_I2C) {
-        if(AT24C02[_streamnum].at24c02comi == AT24C02_ANALOG) {
-            AT24C02I2C[j].ADDRESS = AT24C02[_streamnum].at24c02addr==0x00 ? AT24C02_I2CADDR1 : AT24C02[_streamnum].at24c02addr;
+    if(AT24C02[DEVICE_getiostream(&at24c02)].at24c02prop == AT24C02_I2C) {
+        if(AT24C02[DEVICE_getiostream(&at24c02)].at24c02comi == AT24C02_ANALOG) {
+            AT24C02I2C[j].ADDRESS = AT24C02[DEVICE_getiostream(&at24c02)].at24c02addr==0x00 ? AT24C02_I2CADDR1 : AT24C02[DEVICE_getiostream(&at24c02)].at24c02addr;
             AT24C02I2C[j].i2cSCLSet = AT24C02_SCLSet;
             AT24C02I2C[j].i2cSDASet = AT24C02_SDASet;
             AT24C02I2C[j].i2cSCLOut = AT24C02_SCLOut;
             AT24C02I2C[j].i2cSDAOut = AT24C02_SDAOut;
             AT24C02I2C[j].i2cSDAIn = AT24C02_SDAIn;
             AT24C02I2C[j].delayus = AT24C02_Delayus;
-            AT24C02[_streamnum].communication_handle = (I2C_AnalogTypedef *)&AT24C02I2C[j];
+            AT24C02[DEVICE_getiostream(&at24c02)].communication_handle = (I2C_AnalogTypedef *)&AT24C02I2C[j];
             j++;
         }
-    }else if(AT24C02[_streamnum].at24c02prop == AT24C02_ONEWIRE) {
+    }else if(AT24C02[DEVICE_getiostream(&at24c02)].at24c02prop == AT24C02_ONEWIRE) {
         k++;
     }
 }
@@ -147,16 +137,16 @@ void AT24C02_wireSet(void) {
 //      I2C/SPI通信底层函数
 //AT24C02模拟通信写字节函数
 void AT24C02_writeByte(uint8_t data, uint8_t address) {
-    if(AT24C02[_streamnum].at24c02prop == AT24C02_I2C) {
-        if(AT24C02[_streamnum].at24c02comi == AT24C02_ANALOG) {
-            MODULAR_I2CWrite(((I2C_AnalogTypedef *)AT24C02[_streamnum].communication_handle), address, &data,1, 1,I2CHIGH);
-        }else if(AT24C02[_streamnum].at24c02comi == AT24C02_HARDWARE) {
+    if(AT24C02[DEVICE_getiostream(&at24c02)].at24c02prop == AT24C02_I2C) {
+        if(AT24C02[DEVICE_getiostream(&at24c02)].at24c02comi == AT24C02_ANALOG) {
+            MODULAR_I2CWrite(((I2C_AnalogTypedef *)AT24C02[DEVICE_getiostream(&at24c02)].communication_handle), address, &data,1, 1,I2CHIGH);
+        }else if(AT24C02[DEVICE_getiostream(&at24c02)].at24c02comi == AT24C02_HARDWARE) {
           #if (MCU_I2CCOM == MCU_HARDWARE)
             #if (MCU_COMPILER == MCU_STM32FWLIB)
             //固件库的硬件I2C驱动函数,待补充
             #elif (MCU_COMPILER == MCU_STM32HAL)
-            HAL_I2C_Mem_Write(((I2C_HandleTypeDef *)AT24C02[_streamnum].communication_handle), (AT24C02[_streamnum].at24c02addr<<1)|0X00, address,I2C_MEMADD_SIZE_8BIT, &data,1, 0x100);
-            //HAL_FMPI2C_Mem_Write(((I2C_HandleTypeDef *)AT24C02[_streamnum].communication_handle), (AT24C02[_streamnum].at24c02addr<<1)|0X00, address,FMPI2C_MEMADD_SIZE_8BIT, &data,1, 0x100);
+            HAL_I2C_Mem_Write(((I2C_HandleTypeDef *)AT24C02[DEVICE_getiostream(&at24c02)].communication_handle), (AT24C02[DEVICE_getiostream(&at24c02)].at24c02addr<<1)|0X00, address,I2C_MEMADD_SIZE_8BIT, &data,1, 0x100);
+            //HAL_FMPI2C_Mem_Write(((I2C_HandleTypeDef *)AT24C02[DEVICE_getiostream(&at24c02)].communication_handle), (AT24C02[DEVICE_getiostream(&at24c02)].at24c02addr<<1)|0X00, address,FMPI2C_MEMADD_SIZE_8BIT, &data,1, 0x100);
             #endif
           #endif
         }
@@ -164,16 +154,16 @@ void AT24C02_writeByte(uint8_t data, uint8_t address) {
 }
 //AT24C02模拟通信连续写多字节函数
 void AT24C02_writeConti(uint8_t *pdata, uint16_t size, uint8_t address) {
-    if(AT24C02[_streamnum].at24c02prop == AT24C02_I2C) {
-        if(AT24C02[_streamnum].at24c02comi == AT24C02_ANALOG) {
-            MODULAR_I2CWrite(((I2C_AnalogTypedef *)AT24C02[_streamnum].communication_handle), address, pdata,size, 1,I2CHIGH);
-        }else if(AT24C02[_streamnum].at24c02comi == AT24C02_HARDWARE) {
+    if(AT24C02[DEVICE_getiostream(&at24c02)].at24c02prop == AT24C02_I2C) {
+        if(AT24C02[DEVICE_getiostream(&at24c02)].at24c02comi == AT24C02_ANALOG) {
+            MODULAR_I2CWrite(((I2C_AnalogTypedef *)AT24C02[DEVICE_getiostream(&at24c02)].communication_handle), address, pdata,size, 1,I2CHIGH);
+        }else if(AT24C02[DEVICE_getiostream(&at24c02)].at24c02comi == AT24C02_HARDWARE) {
           #if (MCU_I2CCOM == MCU_HARDWARE)
             #if (MCU_COMPILER == MCU_STM32FWLIB)
             //固件库的硬件I2C驱动函数,待补充
             #elif (MCU_COMPILER == MCU_STM32HAL)
-            HAL_I2C_Mem_Write(((I2C_HandleTypeDef *)AT24C02[_streamnum].communication_handle), (AT24C02[_streamnum].at24c02addr<<1)|0X00, address,I2C_MEMADD_SIZE_8BIT, pdata,size, 0x100);
-            //HAL_FMPI2C_Mem_Write(((I2C_HandleTypeDef *)AT24C02[_streamnum].communication_handle), (AT24C02[_streamnum].at24c02addr<<1)|0X00, address,FMPI2C_MEMADD_SIZE_8BIT, pdata,size, 0x100);
+            HAL_I2C_Mem_Write(((I2C_HandleTypeDef *)AT24C02[DEVICE_getiostream(&at24c02)].communication_handle), (AT24C02[DEVICE_getiostream(&at24c02)].at24c02addr<<1)|0X00, address,I2C_MEMADD_SIZE_8BIT, pdata,size, 0x100);
+            //HAL_FMPI2C_Mem_Write(((I2C_HandleTypeDef *)AT24C02[DEVICE_getiostream(&at24c02)].communication_handle), (AT24C02[DEVICE_getiostream(&at24c02)].at24c02addr<<1)|0X00, address,FMPI2C_MEMADD_SIZE_8BIT, pdata,size, 0x100);
             #endif
           #endif
         }
@@ -182,17 +172,17 @@ void AT24C02_writeConti(uint8_t *pdata, uint16_t size, uint8_t address) {
 //AT24C02模拟通信读字节函数
 uint8_t AT24C02_readByte(uint8_t address) {
     uint8_t data = 0;
-    if(AT24C02[_streamnum].at24c02prop == AT24C02_I2C) {
-        if(AT24C02[_streamnum].at24c02comi == AT24C02_ANALOG) {
-            MODULAR_I2CRead(((I2C_AnalogTypedef *)AT24C02[_streamnum].communication_handle), address, &data,1, 1,I2CHIGH);
+    if(AT24C02[DEVICE_getiostream(&at24c02)].at24c02prop == AT24C02_I2C) {
+        if(AT24C02[DEVICE_getiostream(&at24c02)].at24c02comi == AT24C02_ANALOG) {
+            MODULAR_I2CRead(((I2C_AnalogTypedef *)AT24C02[DEVICE_getiostream(&at24c02)].communication_handle), address, &data,1, 1,I2CHIGH);
             return data;
-        }else if(AT24C02[_streamnum].at24c02comi == AT24C02_HARDWARE) {
+        }else if(AT24C02[DEVICE_getiostream(&at24c02)].at24c02comi == AT24C02_HARDWARE) {
           #if (MCU_I2CCOM == MCU_HARDWARE)
             #if (MCU_COMPILER == MCU_STM32FWLIB)
             //固件库的硬件I2C驱动函数,待补充
             #elif (MCU_COMPILER == MCU_STM32HAL)
-            HAL_I2C_Mem_Read(((I2C_HandleTypeDef *)AT24C02[_streamnum].communication_handle), (AT24C02[_streamnum].at24c02addr<<1)|0X00, address,I2C_MEMADD_SIZE_8BIT, &data,1, 0x100);
-            //HAL_FMPI2C_Mem_Write(((I2C_HandleTypeDef *)AT24C02[_streamnum].communication_handle), (AT24C02[_streamnum].at24c02addr<<1)|0X00, address,FMPI2C_MEMADD_SIZE_8BIT, &data,1, 0x100);
+            HAL_I2C_Mem_Read(((I2C_HandleTypeDef *)AT24C02[DEVICE_getiostream(&at24c02)].communication_handle), (AT24C02[DEVICE_getiostream(&at24c02)].at24c02addr<<1)|0X00, address,I2C_MEMADD_SIZE_8BIT, &data,1, 0x100);
+            //HAL_FMPI2C_Mem_Write(((I2C_HandleTypeDef *)AT24C02[DEVICE_getiostream(&at24c02)].communication_handle), (AT24C02[DEVICE_getiostream(&at24c02)].at24c02addr<<1)|0X00, address,FMPI2C_MEMADD_SIZE_8BIT, &data,1, 0x100);
             #endif
           #endif
         }
@@ -201,16 +191,16 @@ uint8_t AT24C02_readByte(uint8_t address) {
 }
 //AT24C02模拟通信连续读多字节函数
 void AT24C02_readConti(uint8_t *pdata, uint16_t size, uint8_t address) {
-    if(AT24C02[_streamnum].at24c02prop == AT24C02_I2C) {
-        if(AT24C02[_streamnum].at24c02comi == AT24C02_ANALOG) {
-            MODULAR_I2CRead(((I2C_AnalogTypedef *)AT24C02[_streamnum].communication_handle), address, pdata,size, 1,I2CHIGH);
-        }else if(AT24C02[_streamnum].at24c02comi == AT24C02_HARDWARE) {
+    if(AT24C02[DEVICE_getiostream(&at24c02)].at24c02prop == AT24C02_I2C) {
+        if(AT24C02[DEVICE_getiostream(&at24c02)].at24c02comi == AT24C02_ANALOG) {
+            MODULAR_I2CRead(((I2C_AnalogTypedef *)AT24C02[DEVICE_getiostream(&at24c02)].communication_handle), address, pdata,size, 1,I2CHIGH);
+        }else if(AT24C02[DEVICE_getiostream(&at24c02)].at24c02comi == AT24C02_HARDWARE) {
           #if (MCU_I2CCOM == MCU_HARDWARE)
             #if (MCU_COMPILER == MCU_STM32FWLIB)
             //固件库的硬件I2C驱动函数,待补充
             #elif (MCU_COMPILER == MCU_STM32HAL)
-            HAL_I2C_Mem_Read(((I2C_HandleTypeDef *)AT24C02[_streamnum].communication_handle), (AT24C02[_streamnum].at24c02addr<<1)|0X00, address,I2C_MEMADD_SIZE_8BIT, pdata,size, 0x100);
-            //HAL_FMPI2C_Mem_Write(((I2C_HandleTypeDef *)AT24C02[_streamnum].communication_handle), (AT24C02[_streamnum].at24c02addr<<1)|0X00, address,FMPI2C_MEMADD_SIZE_8BIT, pdata,size, 0x100);
+            HAL_I2C_Mem_Read(((I2C_HandleTypeDef *)AT24C02[DEVICE_getiostream(&at24c02)].communication_handle), (AT24C02[DEVICE_getiostream(&at24c02)].at24c02addr<<1)|0X00, address,I2C_MEMADD_SIZE_8BIT, pdata,size, 0x100);
+            //HAL_FMPI2C_Mem_Write(((I2C_HandleTypeDef *)AT24C02[DEVICE_getiostream(&at24c02)].communication_handle), (AT24C02[DEVICE_getiostream(&at24c02)].at24c02addr<<1)|0X00, address,FMPI2C_MEMADD_SIZE_8BIT, pdata,size, 0x100);
             #endif
           #endif
         }
@@ -221,31 +211,19 @@ void AT24C02_readConti(uint8_t *pdata, uint16_t size, uint8_t address) {
 ////////////////////////////////////////////////////////////////////////////
 //        AT24C02器件驱动函数
 void AT24C02_Confi(void) {
+     DEVICE_Init(&at24c02, AT24C02_NUM);
     //在调用AT24C02配置函数时, 一次性初始化所有AT24C02的引脚
     AT24C02_ioDef();
-    for(_streamnum=0; _streamnum<AT24C02_NUM; _streamnum++) {
+    for(uint8_t i=0; i<AT24C02_NUM; i++) {
+        DEVICE_setiostream(&at24c02, i);
         AT24C02_ioSet();
         AT24C02_wireSet();
     }
-    for(_streamnum=0; _streamnum<AT24C02_NUM; _streamnum++) {
+    for(uint8_t i=0; i<AT24C02_NUM; i++) {
+        DEVICE_setiostream(&at24c02, i);
         AT24C02_gpioInit();
     }
-    AT24C02_setOutputStream(0);
-}
-//设备读写控制函数
-State_Type _devicestate = idle;
-uint32_t busytime = 0;
-void setDeviceState(State_Type status) {
-    if(status == busy) {
-        busytime = TIMER_getRunTimems();
-    }
-    _devicestate = status;
-}
-State_Type getDeviceState(void) {
-    if(_devicestate==busy && TIMER_getRunTimems()-busytime>=5) {
-        _devicestate = idle;        //设备忙5ms后转为空闲状态
-    }
-    return _devicestate;
+    DEVICE_setiostream(&at24c02, 0);
 }
 //EEPROM任意类型数据读写函数
 //参数: 起始地址, 长度, 写入地址
@@ -258,7 +236,7 @@ State_Type getDeviceState(void) {
     printf("%d %lf", temp1, temp2);     ***/
 
 void *AT24C02_ReadOrWrite(void *pdata, uint16_t size, uint8_t address, int8_t rw) {
-    if(getDeviceState() == busy) {  //设备忙, 返回NULL
+    if(Device_getState(&at24c02) == busy) {  //设备忙, 返回NULL
         return NULL;
     }else {                         //EEPROM连续读写
         if(rw == 0) {
@@ -266,7 +244,7 @@ void *AT24C02_ReadOrWrite(void *pdata, uint16_t size, uint8_t address, int8_t rw
         }else {
             AT24C02_writeConti((uint8_t *)pdata,size, address);
         }
-        setDeviceState(busy);
+        Device_setState(&at24c02, 500);
         return pdata;
     }
 }

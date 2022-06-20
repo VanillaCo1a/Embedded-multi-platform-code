@@ -1,12 +1,12 @@
 #ifndef __AT24C02_H
 #define __AT24C02_H
-#include "head.h"
+#include "main.h"
 #define MCU_STM32FWLIB 0
 #define MCU_STM32HAL 1
 #define MCU_TIBOARD 2
 #define MCU_ESP32 3
 #define MCU_HC32 4
-#define MCU_COMPILER    MCU_STM32FWLIB  //主控芯片编译环境
+#define MCU_COMPILER    MCU_STM32HAL  //主控芯片编译环境
 #define AT24C02_NUM 1
 #define AT24C02_I2CADDR1 0X57
 
@@ -53,10 +53,6 @@ typedef struct {
     void *communication_handle; //通信句柄
     At24c02io_Typedef *at24c02io;
 }At24c02_Typedef;
-
-typedef enum {
-    busy, idle
-} State_Type;
 
 void AT24C02_Confi(void);
 void *AT24C02_ReadOrWrite(void *, uint16_t, uint8_t, int8_t);

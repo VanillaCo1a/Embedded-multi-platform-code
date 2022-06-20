@@ -21,7 +21,7 @@ void OLED_clearBuffer(void) {
 }
 //更新屏幕 注意此处特指刷新当前设定的屏幕数组
 void OLED_updateScreen(int8_t num) {
-    OLED_setOutputStream(num);
+    DEV_setiostream(&oled, num);
     updateBuffer();
 }
 
@@ -189,7 +189,7 @@ uint8_t GetLengthDown(uint8_t x,uint8_t y,uint8_t value) {
 //亲测此函数可能有问题 可能是套娃太多 内存不够用
 //测试效果是套娃几十个点后花屏
 void FloodFill(uint8_t x,uint8_t y,int oldcolor,int newcolor) {
-    OLED_updateScreen(OLED_getOutputNum());
+    updateBuffer();
     if(getPointBuffer(x,y)==oldcolor) {        //这个点的颜色不对
         setPointBuffer(x,y,newcolor);                //把这个点的颜色改为新颜色
         //开始套娃
@@ -226,7 +226,7 @@ void FloodFill2(uint8_t x,uint8_t y,int oldcolor,int newcolor) {
 //此函数放在while循环中 符合条件时刷新屏幕
 uint8_t FrameRateOLED_updateScreen(int value) {
     if(OledTimeMs == 0) {
-        OLED_updateScreen(OLED_getOutputNum());
+        updateBuffer();
         OLED_clearScreen();
         OledTimeMs = 1000 / value;
         return 1;

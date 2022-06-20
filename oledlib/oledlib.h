@@ -50,6 +50,7 @@ typedef struct ROATE {
 #include "math.h"
 #include "i2c.h"
 #include "spi.h"
+#include "device.h"
 #include "oled_driver.h"
 #include "oled_config.h"
 #include "oled_buffer.h"
