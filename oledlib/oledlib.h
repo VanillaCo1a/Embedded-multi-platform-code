@@ -41,16 +41,8 @@ typedef struct ROATE {
     int direct;
 }TypeRoate;
 
-#include "main.h"
-#include "stdio.h"
-#include "stdint.h"
-#include "stdlib.h"
-#include "string.h"
-#include "stdarg.h"
-#include "math.h"
-#include "i2c.h"
-#include "spi.h"
 #include "device.h"
+#include "timer.h"
 #include "oled_driver.h"
 #include "oled_config.h"
 #include "oled_buffer.h"

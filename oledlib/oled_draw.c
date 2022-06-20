@@ -238,7 +238,7 @@ void DrawFillCircleHelper(int x0, int y0, unsigned char r, unsigned char cornern
     int x = 0;
     int y = r;
     
-    Type_color color = getLineColor();
+    //Type_color color = getLineColor();
     while (x < y) {
         if (f >= 0) {
             y--;
