@@ -1,4 +1,5 @@
 #include "timer.h"
+#include "device.h"
 
 ////////////////////////////////////////////////////////////////////////////
 //定时器配置部分, 默认使用TIM4, 向上计数模式, 周期1ms
@@ -11,6 +12,7 @@ uint32_t TIMER_getRunTimems(void) {
 uint32_t TIMER_getRunTimes(void) {
     return time_ms / 1000;
 }
+
 ////////////////////////////////////////////////////////////////////////////
 /***    第一次调用函数时开始计时, 后续调用时返回比较结果, 延时未结束返回0, 结束则返回1
 注意: 每个延时函数需要定义单独的静态参数供函数使用, 内存开销较大,
@@ -31,18 +33,18 @@ int8_t TIMER_mscmptor(uint16_t ms, volatile uint64_t *compare, volatile int8_t *
     int8_t result = 0;
     if(*state == 0) {
         flag_timerrupt = 1;
-        *compare = time_us + TIM4->CNT;
+        *compare = time_us + TIMERCOUNT;
         if(flag_timerrupt == 0) {
-            *compare = time_us + TIM4->CNT;
+            *compare = time_us + TIMERCOUNT;
         }
         (*state)++;
     }
     flag_timerrupt = 1;
-    time = time_us + TIM4->CNT;
+    time = time_us + TIMERCOUNT;
     if(flag_timerrupt == 0) {
-        time = time_us + TIM4->CNT;
+        time = time_us + TIMERCOUNT;
     }
-    if(time + TimerError >= *compare + ms * 1000) {
+    if(time + TIMERERROR >= *compare + ms * 1000) {
         (*state)--;
         result = 1;
     }
@@ -55,73 +57,77 @@ int8_t TIMER_scmptor(uint16_t s, volatile uint64_t *compare, volatile int8_t *st
     int8_t result = 0;
     if(*state == 0) {
         flag_timerrupt = 1;
-        *compare = time_us + TIM4->CNT;
+        *compare = time_us + TIMERCOUNT;
         if(flag_timerrupt == 0) {
-            *compare = time_us + TIM4->CNT;
+            *compare = time_us + TIMERCOUNT;
         }
         (*state)++;
     }
     flag_timerrupt = 1;
-    time = time_us + TIM4->CNT;
+    time = time_us + TIMERCOUNT;
     if(flag_timerrupt == 0) {
-        time = time_us + TIM4->CNT;
+        time = time_us + TIMERCOUNT;
     }
-    if(time + TimerError >= *compare + s * 1000000) {
+    if(time + TIMERERROR >= *compare + s * 1000000) {
         (*state)--;
         result = 1;
     }
     return result;
 }
 
-
 #if defined(STM32HAL)
-void TIM4_Confi(void) {
-    HAL_TIM_Base_Start_IT(&htim4);
+TIM_HandleTypeDef *htimer = &TIMERHANDLE;
+void TIMER_Confi(void) {
+    HAL_TIM_Base_Start_IT(htimer);
+}
+void TIMER_Callback(void) {
+    time_ms++;
+    time_us += 1000;
+    flag_timerrupt = 0;
 }
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
-    if(htim->Instance == TIM9) {
-        HAL_IncTick();
-    }
-    if(htim == &htim4) {
-        time_ms++;
-        time_us += 1000;
-        flag_timerrupt = 0;
+    if(htim == htimer) {
+        TIMER_Callback();
     }
 }
-#elif defined(STM32FWLIBF1)
-void TIM4_IRQHandler(void) {
-    if(TIM_GetITStatus(TIM4, TIM_IT_Update) != RESET) {
-        TIM_ClearITPendingBit(TIM4, TIM_IT_Update);
-        time_ms++;
-        time_us = time_ms * 1000;
-    }
-}
-void TIM4_Init(void) {
+#elif defined(STM32FWLIB)
+void TIMER_Init(void) {
     TIM_TimeBaseInitTypeDef TIM_TimeBaseInitStructure;
     RCC_ClocksTypeDef RCC_ClocksStructure;
     RCC_GetClocksFreq(&RCC_ClocksStructure);
-    RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM4, ENABLE);
+    RCC_APB1PeriphClockCmd(RCC_TIMER, ENABLE);
     TIM_TimeBaseInitStructure.TIM_Period = 1000 - 1;
     TIM_TimeBaseInitStructure.TIM_Prescaler = RCC_ClocksStructure.PCLK2_Frequency / 1000000 - 1;
     TIM_TimeBaseInitStructure.TIM_CounterMode = TIM_CounterMode_Up;
     TIM_TimeBaseInitStructure.TIM_ClockDivision = TIM_CKD_DIV1;
-    TIM_TimeBaseInit(TIM4, &TIM_TimeBaseInitStructure);
+    TIM_TimeBaseInit(TIMER, &TIM_TimeBaseInitStructure);
 }
-void TIM4_NVIC_Init(void) {
+void TIMER_NVIC_Init(void) {
     NVIC_InitTypeDef NVIC_InitStructure;
-    NVIC_InitStructure.NVIC_IRQChannel = TIM4_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannel = TIMER_IRQn;
     NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
     NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&NVIC_InitStructure);
 }
-void TIM4_Confi(void) {
+void TIMER_Confi(void) {
 #ifndef NVICGROUP
     NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);
 #endif
-    TIM4_Init();
-    TIM4_NVIC_Init();
-    TIM_ITConfig(TIM4, TIM_IT_Update, ENABLE);
-    TIM_Cmd(TIM4, ENABLE);
+    TIMER_Init();
+    TIMER_NVIC_Init();
+    TIM_ITConfig(TIMER, TIM_IT_Update, ENABLE);
+    TIM_Cmd(TIMER, ENABLE);
+}
+void TIMER_Callback(void) {
+    time_ms++;
+    time_us += 1000;
+    flag_timerrupt = 0;
+}
+void TIM4_IRQHandler(void) {
+    if(TIM_GetITStatus(TIMER, TIM_IT_Update) != RESET) {
+        TIM_ClearITPendingBit(TIMER, TIM_IT_Update);
+        TIMER_Callback();
+    }
 }
 #endif

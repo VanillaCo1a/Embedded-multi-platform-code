@@ -22,12 +22,12 @@
 //#define SPI_2     (21)
 
 void OLED_clearBuffer(void);
-void OLED_updateScreen(int8_t num);
+void OLED_updateScreen(void);
 
-//设置背景模式，0为透明，1为正常。
-extern void SetTextBkMode(unsigned char value);
+//设置背景模式，0为透明，1为正常。常
+void SetTextBkMode(Type_textbk);
 //获取当前背景模式
-extern unsigned char GetTextBkMode(void);
+Type_textbk GetTextBkMode(void);
 void FloodFill(unsigned char x,unsigned char y,int oldcolor,int newcolor);
 void FillRect(int x,int y,int width,int height);
 void FloodFill2(unsigned char x,unsigned char y,int oldcolor,int newcolor);

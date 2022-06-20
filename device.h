@@ -6,6 +6,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <math.h>
 
 #if !defined(STM32HAL) && !defined(STM32FWLIBF1) && !defined(STM32FWLIBF4) && \
@@ -22,20 +23,25 @@
 #ifdef STM32
 #define STM32HAL
 // #define STM32FWLIB
-// #define STM32REGISTER    //是否优先使用寄存器版本
+#define STM32REGISTER    //是否优先使用寄存器版本
 #endif
 #ifdef STC89C
 // #define STC89C51
 #define STC89C52
 #endif
 
-// #define DEVICE_USEMACRO
-
 #define DEVICE_I2C_SOFTWARE_ENABLED
 #define DEVICE_SPI_SOFTWARE_ENABLED
 #define DEVICE_ONEWIRE_SOFTWARE_ENABLED
+// #define I2CBUS_USEPOINTER
+// #define SPIBUS_USEPOINTER
+// #define OWREBUS_USEPOINTER
+#define I2C_SOFTBUS_NUM 1
+#define SPI_SOFTBUS_NUM 1
+#define ONEWIRE_SOFTBUS_NUM 1
+#define BUS_NUM ((I2C_SOFTBUS_NUM + SPI_SOFTBUS_NUM + ONEWIRE_SOFTBUS_NUM) << 1)
 
-
+/////////////////////////    设备控制部分    /////////////////////////
 #if defined(STM32)
 #if defined(STM32HAL)
 #include "main.h"
@@ -58,10 +64,9 @@
 #endif
 #endif
 #endif
-
-/////////////////////////    设备控制部分    /////////////////////////
 typedef enum {
     DEVUNDEF = 0,
+    BUS,
     OLED,
     MPU6050,
     DS18B20,
@@ -101,7 +106,7 @@ int8_t DEV_SetActState(uint16_t us);
 DEV_StateTypeDef DEV_GetActState(void);
 //设备初始化
 int8_t DEV_Init(DEVS_TypeDef *devs, DEV_TypeDef dev[]);
-void DEV_ReCall(void (*action)(void));
+void DEV_ReCall(DEVS_TypeDef *devs, void (*action)(void));
 void DEV_Error(void);
 void DEV_Confi(DEVS_TypeDef *devs, DEV_TypeDef dev[]);
 
@@ -109,7 +114,7 @@ void DEV_Confi(DEVS_TypeDef *devs, DEV_TypeDef dev[]);
 /////////////////////////    IO操作部分    /////////////////////////
 //todo: 考虑能否模仿hal库, 改为使用assert_param进行有效性判断
 #if defined(STM32)
-#if defined(STM32REGISTER)
+#if defined(STM32HAL)
 typedef enum {
     DEVIO_PIN_RESET = GPIO_PIN_RESET,
     DEVIO_PIN_SET = GPIO_PIN_SET
@@ -118,66 +123,12 @@ typedef struct {    //HAL库IO结构
     GPIO_TypeDef *GPIOx;
     uint16_t GPIO_Pin;
 } DEVIO_TypeDef;
-#if defined(DEVICE_USEMACRO)
-
-
-#define DEVIO_WritePin_SET(DEVIO) ({                \
-    /* Check the parameters */                      \
-    assert_param(IS_GPIO_PIN((DEVIO)->GPIO_Pin));   \
-    assert_param(IS_GPIO_PIN_ACTION(GPIO_PIN_SET)); \
-    (DEVIO)->GPIOx->BSRR = (DEVIO)->GPIO_Pin;       \
-})
-#define DEVIO_WritePin_RESET(DEVIO) ({                         \
-    /* Check the parameters */                                 \
-    assert_param(IS_GPIO_PIN((DEVIO)->GPIO_Pin));              \
-    assert_param(IS_GPIO_PIN_ACTION(GPIO_PIN_RESET));          \
-    (DEVIO)->GPIOx->BSRR = (uint32_t)(DEVIO)->GPIO_Pin << 16U; \
-})
-#define DEVIO_ReadPin(DEVIO) ({                                                 \
-    GPIO_PinState bitstatus;                                                    \
-    assert_param(IS_GPIO_PIN((DEVIO)->GPIO_Pin));                               \
-    if(((DEVIO)->GPIOx->IDR & (DEVIO)->GPIO_Pin) != (uint32_t)GPIO_PIN_RESET) { \
-        bitstatus = GPIO_PIN_SET;                                               \
-    } else {                                                                    \
-        bitstatus = GPIO_PIN_RESET;                                             \
-    }                                                                           \
-    (DEVIO_PinState) bitstatus;                                                 \
-})
-#define DEV_CLK_GPIO_PIN_CONFI(DEVIO, GPIO_InitStructure) ({ \
-    /* todo: clkinit */                                      \
-    (GPIO_InitStructure)->Pin = (DEVIO)->GPIO_Pin;           \
-    HAL_GPIO_Init((DEVIO)->GPIOx, (GPIO_InitStructure));     \
-})
-#else
 void DEVIO_WritePin_SET(DEVIO_TypeDef *DEVIO);
 void DEVIO_WritePin_RESET(DEVIO_TypeDef *DEVIO);
+void DEVIO_WritePin(DEVIO_TypeDef *DEVIO, DEVIO_PinState PinState);
 DEVIO_PinState DEVIO_ReadPin(DEVIO_TypeDef *DEVIO);
 void DEV_CLK_GPIO_PIN_CONFI(DEVIO_TypeDef *DEVIO, GPIO_InitTypeDef *GPIO_InitStructure);
-#endif    // DEVICE_USEMACRO
-#elif defined(STM32HAL)
-typedef enum {
-    DEVIO_PIN_RESET = GPIO_PIN_RESET,
-    DEVIO_PIN_SET = GPIO_PIN_SET
-} DEVIO_PinState;
-typedef struct {    //HAL库IO结构
-    GPIO_TypeDef *GPIOx;
-    uint16_t GPIO_Pin;
-} DEVIO_TypeDef;
-#if defined(DEVICE_USEMACRO)
-#define DEVIO_WritePin_SET(DEVIO) HAL_GPIO_WritePin((DEVIO)->GPIOx, (DEVIO)->GPIO_Pin, GPIO_PIN_SET)
-#define DEVIO_WritePin_RESET(DEVIO) HAL_GPIO_WritePin((DEVIO)->GPIOx, (DEVIO)->GPIO_Pin, GPIO_PIN_RESET)
-#define DEVIO_ReadPin(DEVIO) (DEVIO_PinState) HAL_GPIO_ReadPin((DEVIO)->GPIOx, (DEVIO)->GPIO_Pin)
-#define DEV_CLK_GPIO_PIN_CONFI(DEVIO, GPIO_InitStructure) ({ \
-    /* todo: clkinit */                                      \
-    (GPIO_InitStructure)->Pin = (DEVIO)->GPIO_Pin;           \
-    HAL_GPIO_Init((DEVIO)->GPIOx, (GPIO_InitStructure));     \
-})
-#else
-void DEVIO_WritePin_SET(DEVIO_TypeDef *DEVIO);
-void DEVIO_WritePin_RESET(DEVIO_TypeDef *DEVIO);
-DEVIO_PinState DEVIO_ReadPin(DEVIO_TypeDef *DEVIO);
-void DEV_CLK_GPIO_PIN_CONFI(DEVIO_TypeDef *DEVIO, GPIO_InitTypeDef *GPIO_InitStructure);
-#endif    // DEVICE_USEMACRO
+bool DEVIO_NULL(DEVIO_TypeDef *DEVIO);
 #elif defined(STM32FWLIB)
 typedef enum {
     DEVIO_PIN_RESET = GPIO_PIN_RESET,
@@ -188,65 +139,44 @@ typedef struct {    //固件库IO结构
     GPIO_TypeDef *GPIOx;
     uint16_t GPIO_Pin;
 } DEVIO_TypeDef;
-#if defined(DEVICE_USEMACRO)
-#define DEVIO_WritePin_SET(DEVIO) GPIO_SetBits((DEVIO)->GPIOx, (DEVIO)->GPIO_Pin)
-#define DEVIO_WritePin_RESET(DEVIO) GPIO_ResetBits((DEVIO)->GPIOx, (DEVIO)->GPIO_Pin)
-#define DEVIO_ReadPin(DEVIO) (DEVIO_PinState) GPIO_ReadInputDataBit((DEVIO)->GPIOx, (DEVIO)->GPIO_Pin)
-#define DEV_CLK_GPIO_PIN_CONFI(DEVIO, GPIO_InitStructure) ({ \
-    RCC_APB2PeriphClockCmd(DEVIO->CLK, ENABLE);              \
-    (GPIO_InitStructure)->GPIO_Pin = DEVIO->GPIO_Pin;        \
-    GPIO_Init(DEVIO->GPIOx, (GPIO_InitStructure));           \
-})
-#else
 void DEVIO_WritePin_SET(DEVIO_TypeDef *DEVIO);
 void DEVIO_WritePin_RESET(DEVIO_TypeDef *DEVIO);
 DEVIO_PinState DEVIO_ReadPin(DEVIO_TypeDef *DEVIO);
 void DEV_CLK_GPIO_PIN_CONFI(DEVIO_TypeDef *DEVIO, GPIO_InitTypeDef *GPIO_InitStructure);
-#endif    // DEVICE_USEMACRO
+bool DEVIO_NULL(DEVIO_TypeDef *DEVIO);
 #endif
 #endif
 
 
 /////////////////////////    通信协议实现部分    /////////////////////////
 //模拟通信的句柄, 指向活动设备io操作的函数段
+#include "protocol.h"
 typedef enum {
     I2C = 1,
     SPI,
     ONEWIRE,
-} DEVCMNI_TypeTypeDef;
+} DEVCMNI_ProtocolTypeDef;
 typedef enum {
     SOFTWARE = 1,
     HARDWARE,
-} DEVCMNI_DevTypeDef;
+} DEVCMNI_WareTypeDef;
 typedef struct {
-    DEVIO_TypeDef SCL_SCLK;
-    DEVIO_TypeDef SDA_SDO_OWIO;
+    DEVIO_TypeDef SCL_SCK;
+    DEVIO_TypeDef SDA_SDI_OWRE;
+    DEVIO_TypeDef SDO;
     DEVIO_TypeDef CS;
-} DEVCMNI_IOTypeDef;
+} DEVCMNIIO_TypeDef;
 typedef struct DEVCMNI_TypeDef {
-    DEVCMNI_TypeTypeDef type;
-    DEVCMNI_DevTypeDef dev;
+    DEVCMNI_ProtocolTypeDef protocol;
+    DEVCMNI_WareTypeDef ware;
     void *handle;
 } DEVCMNI_TypeDef;
-
-#ifdef DEVICE_I2C_SOFTWARE_ENABLED
-#include "i2c.h"
-#define SOFTBUS_I2C 1
-extern I2C_SoftHandleTypeDef ahi2c[SOFTBUS_I2C];
-#endif    // DEVICE_I2C_SOFTWARE_ENABLED
-#ifdef DEVICE_SPI_SOFTWARE_ENABLED
-#include "spi.h"
-#define SOFTBUS_SPI 1
-extern SPI_SoftHandleTypeDef ahspi[SOFTBUS_SPI];
-#endif    // DEVICE_SPI_SOFTWARE_ENABLED
-#ifdef DEVICE_ONEWIRE_SOFTWARE_ENABLED
-#include "onewire.h"
-#define SOFTBUS_ONEWIRE 1
-extern ONEWIRE_SoftHandleTypeDef ahowre[SOFTBUS_ONEWIRE];
-#endif    // DEVICE_ONEWIRE_SOFTWARE_ENABLED
-
-
-void DEVCMNI_WriteByte(uint8_t data, uint8_t address, int8_t skip);
-void DEVCMNI_Write(uint8_t *pdata, uint16_t size, uint8_t address, int8_t skip);
-
+extern I2C_SoftHandleTypeDef ahi2c[I2C_SOFTBUS_NUM];
+extern SPI_SoftHandleTypeDef ahspi[SPI_SOFTBUS_NUM];
+extern ONEWIRE_SoftHandleTypeDef ahowre[ONEWIRE_SOFTBUS_NUM];
+void DEVCMNI_WriteByte(uint8_t data, uint8_t address, bool skip);
+uint8_t DEVCMNI_ReadByte(uint8_t address, bool skip);
+bool DEVCMNI_ReadBit(uint8_t address, bool skip);
+void DEVCMNI_Write(uint8_t *pdata, uint16_t size, uint8_t address, bool skip);
+void DEVCMNI_Read(uint8_t *pdata, uint16_t size, uint8_t address, bool skip);
 #endif    // !__DEVICE_H
