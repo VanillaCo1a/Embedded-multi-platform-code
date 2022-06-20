@@ -20,6 +20,8 @@ void USART1_GPIO_ReuseInit(void) {
     GPIO_InitStructure.GPIO_Pin = GPIO_Pin_10;               //初始化需复用的引脚; 此处初始化GPIO的10引脚
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;    //设置需复用GPIO的工作模式; 此处设置需复用为USART1_RX, 故设置为'浮空输入'
     GPIO_Init(GPIOA, &GPIO_InitStructure);
+
+    GPIO_SetBits(GPIOA, GPIO_Pin_9 | GPIO_Pin_10);
 }
 /******************************************	函数效果: GPIOA.2和GPOIA.3作为串口1的TX和RX引脚使用, 复用初始化和配置完成	******************************************/
 
