@@ -10,6 +10,6 @@ __weak bool DEVCMNI_SDA_OWRE_In(void) { return HIGH; }
 __weak bool DEVCMNI_SDO_In(void) { return HIGH; }
 __weak void DEVCMNI_CS_Out(bool pot) {}
 __weak void DEVCMNI_Error(int8_t err) {}
-__weak void DEVCMNI_Delayus(uint16_t us) {}
-__weak void DEVCMNI_Delayms(uint16_t ms) {}
-__weak int8_t DEVCMNI_Delayus_paral(uint16_t us) { return 1; }
+__weak void DEVCMNI_Delayus(uint64_t us) {}
+__weak void DEVCMNI_Delayms(uint64_t ms) {}
+__weak int8_t DEVCMNI_Delayus_paral(uint64_t us) { return 1; }

@@ -158,7 +158,7 @@ void OLED_Chinese(uint8_t y, uint8_t x, uint8_t *cn) {
     
     while(*cn != '\0') {                    //在C语言中字符串结束以‘\0’结尾
         for(wordNum=0; wordNum<117; wordNum++)    {
-            if((CN16CHAR[wordNum].Index[0]==*cn) && (CN16CHAR[wordNum].Index[1]==*(cn+1))) {    //查询要写的字在字库中的位置
+            if((CN16CHAR[wordNum].Index[0]==*cn) && (CN16CHAR[wordNum].Index[1]==*(cn+1)) && (CN16CHAR[wordNum].Index[0]==*(cn+2))) {    //查询要写的字在字库中的位置
                 for(j=0; j<32; j++) {       //写一个字
                     if(j == 16) {           //由于16X16用到两个Y坐标，当大于等于16时，切换坐标
                         y++;

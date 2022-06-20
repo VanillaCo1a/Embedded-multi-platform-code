@@ -8,11 +8,14 @@ typedef enum {
 } DS18B20_POWMDTypedef;
 
 typedef struct {
-    DS18B20_POWMDTypedef powermode;
-} DS18B20_PATypeDef;
-typedef struct {
     DEVCMNIIO_TypeDef cmniio;
 } DS18B20_IOTypedef;
+typedef struct {
+    DEVCMNI_TypeDef cmni;
+} DS18B20_CMNITypeDef;
+typedef struct {
+    DS18B20_POWMDTypedef powermode;
+} DS18B20_PARTypeDef;
 
 typedef struct {
     uint8_t lsb;
@@ -26,7 +29,7 @@ typedef struct {
     uint8_t crc;
 } DS18B20_SCRTypedef;
 void DS18B20_Confi(void);
-int8_t DS18B20_SetTem(devpool_size num);
-int16_t DS18B20_GetTem(devpool_size num);
+int8_t DS18B20_SetTem(poolsize num);
+int16_t DS18B20_GetTem(poolsize num);
 
 #endif
