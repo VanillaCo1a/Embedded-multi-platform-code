@@ -12,13 +12,16 @@ typedef enum {    //常用的OLED地址为0111100和0111101
 } OledI2CAddr_TypeDef;
 
 typedef struct {
-    OledChip_TypeDef chip;
-} OLED_PATypeDef;
-typedef struct {
     DEVCMNIIO_TypeDef cmniio;
     DEVIO_TypeDef DC;
     DEVIO_TypeDef RST;
 } OLED_IOTypeDef;
+typedef struct {
+    DEVCMNI_TypeDef cmni;
+} OLED_CMNITypeDef;
+typedef struct {
+    OledChip_TypeDef chip;
+} OLED_PARTypeDef;
 
 void OLED_Confi(void);
 void OLED_Error(void);

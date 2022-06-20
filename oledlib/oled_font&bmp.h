@@ -3,7 +3,7 @@
 #include "oledlib.h"
 
 struct Cn16CharTypeDef {            //汉字字模数据结构
-    unsigned char  Index[2];        //汉字内码索引,一个汉字占两个字节
+    unsigned char  Index[3];        //汉字内码索引,一个汉字占两个字节
     unsigned char  Msk[32];         //点阵码数据(16*16有32个数据) 
 };
 

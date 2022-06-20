@@ -38,7 +38,7 @@ float TIMER_fps(void) {
 //获取当前时间, 记录当前时间, 更新state
 //state1.输入:时间 返回:0/1(并复位state)
 //获取当前时间, 比较历史时间
-int8_t TIMER_mscmptor(uint16_t ms, volatile uint64_t *compare, volatile int8_t *state) {
+int8_t TIMER_mscmptor(uint64_t ms, volatile uint64_t *compare, volatile int8_t *state) {
     extern volatile uint64_t time_us;
     extern volatile int8_t flag_timerrupt;
     uint64_t time = 0;
@@ -62,7 +62,7 @@ int8_t TIMER_mscmptor(uint16_t ms, volatile uint64_t *compare, volatile int8_t *
     }
     return result;
 }
-int8_t TIMER_scmptor(uint16_t s, volatile uint64_t *compare, volatile int8_t *state) {
+int8_t TIMER_scmptor(uint64_t s, volatile uint64_t *compare, volatile int8_t *state) {
     extern volatile uint64_t time_us;
     extern volatile int8_t flag_timerrupt;
     uint64_t time = 0;

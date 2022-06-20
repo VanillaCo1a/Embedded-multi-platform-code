@@ -1,8 +1,7 @@
 #ifndef __TIMER_H
 #define __TIMER_H
-#include "stdint.h"
+#include <stdint.h>
 #include "device.h"
-#define TIMER_USEMACRO
 
 #if defined(STM32)
 #if defined(STM32HAL)
@@ -13,6 +12,7 @@
 #elif defined(STM32FWLIB)
 #define TIMERERROR 0
 #define TIMER TIM4
+#define TIMERCOUNT TIM4->CNT
 #define TIMER_IRQn TIM4_IRQn
 #define RCC_TIMER RCC_APB1Periph_TIM4
 #endif
@@ -23,9 +23,9 @@ static inline uint64_t TIMER_getRunTimeus(void) {
     extern volatile int8_t flag_timerrupt;
     uint64_t time = 0;
     flag_timerrupt = 1;    //若定时器更新中断触发于下条语句过程中, 则再执行一次
-    time = time_us + (TIM3->CNT) % 1000;
+    time = time_us + (TIMERCOUNT) % 1000;
     if(flag_timerrupt == 0) {
-        time = time_us + (TIM3->CNT) % 1000;
+        time = time_us + (TIMERCOUNT) % 1000;
     }
     return time;
 }
@@ -67,49 +67,23 @@ float TIMER_fps(void);
     result; })
 
 //100%的情况下精度在5us内, 99.8%的情况下精度在1us内, 当比较器遇到定时器更新中断时误差增大
-#ifdef TIMER_USEMACRO
-#define TIMER_uscmptor(us, compare, state) ({ \
-    extern volatile uint64_t time_us;         \
-    extern volatile int8_t flag_timerrupt;    \
-    uint64_t time = 0;                        \
-    int8_t result = 0;                        \
-    if(*(state) == 0) {                       \
-        flag_timerrupt = 1;                   \
-        *(compare) = time_us + TIM3->CNT;     \
-        if(flag_timerrupt == 0) {             \
-            *compare = time_us + TIM3->CNT;   \
-        }                                     \
-        (*(state))++;                         \
-    }                                         \
-    flag_timerrupt = 1;                       \
-    time = time_us + TIM3->CNT;               \
-    if(flag_timerrupt == 0) {                 \
-        time = time_us + TIM3->CNT;           \
-    }                                         \
-    if(time + TIMERERROR >= *compare + us) {  \
-        (*(state))--;                         \
-        result = 1;                           \
-    }                                         \
-    result;                                   \
-})
-#else
-static inline int8_t TIMER_uscmptor(uint16_t us, volatile uint64_t *compare, volatile int8_t *state) {
+static inline int8_t TIMER_uscmptor(uint64_t us, volatile uint64_t *compare, volatile int8_t *state) {
     extern volatile uint64_t time_us;
     extern volatile int8_t flag_timerrupt;
     uint64_t time = 0;
     int8_t result = 0;
     if(*state == 0) {
         flag_timerrupt = 1;
-        *compare = time_us + TIM3->CNT;
+        *compare = time_us + TIMERCOUNT;
         if(flag_timerrupt == 0) {
-            *compare = time_us + TIM3->CNT;
+            *compare = time_us + TIMERCOUNT;
         }
         (*state)++;
     }
     flag_timerrupt = 1;
-    time = time_us + TIM3->CNT;
+    time = time_us + TIMERCOUNT;
     if(flag_timerrupt == 0) {
-        time = time_us + TIM3->CNT;
+        time = time_us + TIMERCOUNT;
     }
     if(time + TIMERERROR >= *compare + us) {
         (*state)--;
@@ -118,12 +92,11 @@ static inline int8_t TIMER_uscmptor(uint16_t us, volatile uint64_t *compare, vol
     return result;
 }
 #endif    // TIMER_USEMACRO
-int8_t TIMER_mscmptor(uint16_t ms, volatile uint64_t *compare, volatile int8_t *state);
-int8_t TIMER_scmptor(uint16_t s, volatile uint64_t *compare, volatile int8_t *state);
+int8_t TIMER_mscmptor(uint64_t ms, volatile uint64_t *compare, volatile int8_t *state);
+int8_t TIMER_scmptor(uint64_t s, volatile uint64_t *compare, volatile int8_t *state);
 
 void TIMER_Confi(void);
 
 #ifdef TIMER_USEMACRO
 #undef TIMER_USEMACRO
 #endif    // !TIMER_USEMACRO
-#endif
