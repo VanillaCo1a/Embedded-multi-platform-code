@@ -8,24 +8,34 @@
 //OLED引脚配置
 
 void OLED_GPIO_Init(void) {
-    #if (OLED_MODE==MODE_I2C || OLED_MODE==MODE_I2C_7PIN)
+#if (MCU_COMMUNICA == ANALOG)
+  #if (MCU_COMPILER == STM32FWLIB)
+    #if (OLED_TYPE==I2C_4PIN || OLED_TYPE==I2C_7PIN)
     GPIO_InitTypeDef GPIO_InitStructure;                        //定义一个配置GPIO的结构体变量
     RCC_APB2PeriphClockCmd(OLED_SCL_CLK|OLED_SDA_CLK, ENABLE);  //初始化GPIO时钟
-    GPIO_InitStructure.GPIO_Pin = OLED_SCL_PIN;
+    GPIO_InitStructure.GPIO_Pin = OLED_SCL_PIN;               
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_Init(OLED_SCL_GPIO, &GPIO_InitStructure);              //调用配置GPIO工作方式的库函数
-    GPIO_InitStructure.GPIO_Pin = OLED_SDA_PIN;
+    GPIO_Init(OLED_SCL_GPIO, &GPIO_InitStructure);  //调用配置GPIO工作方式的库函数
+    GPIO_InitStructure.GPIO_Pin = OLED_SDA_PIN;               
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_Init(OLED_SDA_GPIO, &GPIO_InitStructure);
     GPIO_SetBits(OLED_SCL_GPIO, OLED_SCL_PIN);
     GPIO_SetBits(OLED_SDA_GPIO, OLED_SDA_PIN);
-    #if (OLED_MODE == MODE_I2C_7PIN)
+    #if (OLED_TYPE == I2C_7PIN)
     //七脚oled使用I2C时还需复位RST(维持低电平200ms), 拉低CS, DC用于控制I2C地址
+        #ifdef OLED_RST_CLK
+    RCC_APB2PeriphClockCmd(OLED_RST_CLK, ENABLE);
+    GPIO_InitStructure.GPIO_Pin = OLED_RST_PIN;               
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+    GPIO_Init(OLED_RST_GPIO, &GPIO_InitStructure);
+    GPIO_ResetBits(OLED_RST_GPIO, OLED_DC_PIN);
+        #endif
         #ifdef OLED_DC_CLK
     RCC_APB2PeriphClockCmd(OLED_DC_CLK, ENABLE);
-    GPIO_InitStructure.GPIO_Pin = OLED_DC_PIN;
+    GPIO_InitStructure.GPIO_Pin = OLED_DC_PIN;               
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_Init(OLED_DC_GPIO, &GPIO_InitStructure);
@@ -33,34 +43,26 @@ void OLED_GPIO_Init(void) {
         #endif
         #ifdef OLED_CS_CLK
     RCC_APB2PeriphClockCmd(OLED_CS_CLK, ENABLE);
-    GPIO_InitStructure.GPIO_Pin = OLED_CS_PIN;
+    GPIO_InitStructure.GPIO_Pin = OLED_CS_PIN;               
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_Init(OLED_CS_GPIO, &GPIO_InitStructure);
-    GPIO_ResetBits(OLED_CS_GPIO, OLED_CS_PIN);
-        #endif
-        #ifdef OLED_RST_CLK
-    RCC_APB2PeriphClockCmd(OLED_RST_CLK, ENABLE);
-    GPIO_InitStructure.GPIO_Pin = OLED_RST_PIN;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-    GPIO_Init(OLED_RST_GPIO, &GPIO_InitStructure);
-    GPIO_ResetBits(OLED_RST_GPIO, OLED_RST_PIN);
+    GPIO_ResetBits(OLED_CS_GPIO, OLED_DC_PIN);
         #endif
     #endif
-    #else
+    #elif (OLED_TYPE == SPI_7PIN)
     GPIO_InitTypeDef GPIO_InitStructure;
     RCC_APB2PeriphClockCmd(OLED_SCLK_CLK|OLED_SDO_CLK|OLED_DC_CLK, ENABLE);
-    GPIO_InitStructure.GPIO_Pin = OLED_SCLK_PIN;
+    GPIO_InitStructure.GPIO_Pin = OLED_SCLK_PIN;               
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_Init(OLED_SCLK_GPIO, &GPIO_InitStructure);
-    GPIO_InitStructure.GPIO_Pin = OLED_SDO_PIN;
+    GPIO_InitStructure.GPIO_Pin = OLED_SDO_PIN;               
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_Init(OLED_SDO_GPIO, &GPIO_InitStructure);
-    GPIO_InitStructure.GPIO_Pin = OLED_DC_PIN;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP; 
+    GPIO_InitStructure.GPIO_Pin = OLED_DC_PIN;               
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_Init(OLED_DC_GPIO, &GPIO_InitStructure);
     GPIO_SetBits(OLED_SCLK_GPIO, OLED_SCLK_PIN);
@@ -68,7 +70,7 @@ void OLED_GPIO_Init(void) {
     GPIO_SetBits(OLED_DC_GPIO, OLED_DC_PIN);
         #ifdef OLED_RST_CLK
     RCC_APB2PeriphClockCmd(OLED_RST_CLK, ENABLE);
-    GPIO_InitStructure.GPIO_Pin = OLED_RST_PIN;
+    GPIO_InitStructure.GPIO_Pin = OLED_RST_PIN;               
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_Init(OLED_RST_GPIO, &GPIO_InitStructure);
@@ -76,20 +78,28 @@ void OLED_GPIO_Init(void) {
         #endif
         #ifdef OLED_CS_CLK
     RCC_APB2PeriphClockCmd(OLED_CS_CLK, ENABLE);
-    GPIO_InitStructure.GPIO_Pin = OLED_CS_PIN;
+    GPIO_InitStructure.GPIO_Pin = OLED_CS_PIN;               
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_Init(OLED_CS_GPIO, &GPIO_InitStructure);
-    GPIO_SetBits(OLED_CS_GPIO, OLED_CS_PIN);
+    GPIO_ResetBits(OLED_CS_GPIO, OLED_CS_PIN);
         #endif
     #endif
+  #elif (MCU_COMPILER == STM32HAL)
+  #endif
+#elif (MCU_COMMUNICA == HARDWARE)
+  #if (MCU_COMPILER == STM32FWLIB)
+  
+  #elif (MCU_COMPILER == STM32HAL)
+  #endif
+#endif
 }
-
-
 ////////////////////////////////////////////////////////////////////////////
 //通信对象配置
 
-#if (OLED_MODE==MODE_I2C || OLED_MODE==MODE_I2C_7PIN)
+#if (MCU_COMMUNICA == ANALOG)
+#if (MCU_COMPILER == STM32FWLIB)
+#if (OLED_TYPE==I2C_4PIN || OLED_TYPE==I2C_7PIN)
 I2c OLED;
 void OLED_SCLSet(int8_t dir) {}
 void OLED_SDASet(int8_t dir) {
@@ -123,22 +133,7 @@ void OLED_SDAOut(uint8_t bit) {
 uint8_t OLED_SDAIn(void) {
     return GPIO_ReadInputDataBit(OLED_SDA_GPIO, OLED_SDA_PIN);
 }
-void OLED_Delayus(int16_t nus) {
-    Delay_us(nus);
-}
-
-void OLED_Wire_Init(void) {
-    OLED.ADDRESS = OLED_ADDRESS;
-    OLED.i2cSCLSet = OLED_SCLSet;
-    OLED.i2cSDASet = OLED_SDASet;
-    OLED.i2cSCLOut = OLED_SCLOut;
-    OLED.i2cSDAOut = OLED_SDAOut;
-    OLED.i2cSDAIn = OLED_SDAIn;
-    OLED.delayus = OLED_Delayus;
-    OLED.i2cSCLOut(HIGH);
-    OLED.i2cSDAOut(HIGH);
-}
-#else
+#elif (OLED_TYPE == SPI_7PIN)
 Spi OLED;
 void OLED_CSOut(uint8_t bit) {
     #ifdef OLED_CS_CLK
@@ -163,36 +158,147 @@ void OLED_SDOOut(uint8_t bit) {
         GPIO_ResetBits(OLED_SDO_GPIO, OLED_SDO_PIN);
     }
 }
+#endif
 void OLED_Delayus(int16_t nus) {
     Delay_us(nus);
 }
-
+#elif (MCU_COMPILER == STM32HAL)
+#if (OLED_TYPE==I2C_4PIN || OLED_TYPE==I2C_7PIN)
+I2c OLED;
+void OLED_SCLSet(int8_t dir) {}
+void OLED_SDASet(int8_t dir) {
+    if(dir == IN) {
+        GPIO_InitTypeDef GPIO_InitStruct = {0};
+        HAL_GPIO_WritePin(OLED_SDA_GPIO, OLED_SDA_PIN, GPIO_PIN_SET);
+        GPIO_InitStruct.Pin = OLED_SDA_PIN;
+        GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+        GPIO_InitStruct.Pull = GPIO_NOPULL;
+        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+        HAL_GPIO_Init(OLED_SDA_GPIO, &GPIO_InitStruct);
+    }else {
+        GPIO_InitTypeDef GPIO_InitStruct = {0};
+        HAL_GPIO_WritePin(OLED_SDA_GPIO, OLED_SDA_PIN, GPIO_PIN_SET);
+        GPIO_InitStruct.Pin = OLED_SDA_PIN;
+        GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+        GPIO_InitStruct.Pull = GPIO_PULLUP;
+        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+        HAL_GPIO_Init(OLED_SDA_GPIO, &GPIO_InitStruct);
+    }
+}
+void OLED_SCLOut(uint8_t bit) {
+    if(bit == HIGH) {
+        HAL_GPIO_WritePin(OLED_SCL_GPIO, OLED_SCL_PIN, GPIO_PIN_SET);
+    }else {
+        HAL_GPIO_WritePin(OLED_SCL_GPIO, OLED_SCL_PIN, GPIO_PIN_RESET);
+    }
+}
+void OLED_SDAOut(uint8_t bit) {
+    if(bit == HIGH) {
+        HAL_GPIO_WritePin(OLED_SDA_GPIO, OLED_SDA_PIN, GPIO_PIN_SET);
+    }else {
+        HAL_GPIO_WritePin(OLED_SDA_GPIO, OLED_SDA_PIN, GPIO_PIN_RESET);
+    }
+}
+uint8_t OLED_SDAIn(void) {
+    return HAL_GPIO_ReadPin(OLED_SDA_GPIO, OLED_SDA_PIN);
+}
+#elif (OLED_TYPE == SPI_7PIN)
+Spi OLED;
+void OLED_CSOut(uint8_t bit) {
+    if(bit == HIGH) {
+        HAL_GPIO_WritePin(OLED_CS_GPIO, OLED_CS_PIN, GPIO_PIN_SET);
+    }else {
+        HAL_GPIO_WritePin(OLED_CS_GPIO, OLED_CS_PIN, GPIO_PIN_RESET);
+    }
+}
+void OLED_SCLKOut(uint8_t bit) {
+    if(bit == HIGH) {
+        HAL_GPIO_WritePin(OLED_SCLK_GPIO, OLED_SCLK_PIN, GPIO_PIN_SET);
+    }else {
+        HAL_GPIO_WritePin(OLED_SCLK_GPIO, OLED_SCLK_PIN, GPIO_PIN_RESET);
+    }
+}
+void OLED_SDOOut(uint8_t bit) {
+    if(bit == HIGH) {
+        HAL_GPIO_WritePin(OLED_SDO_GPIO, OLED_SDO_PIN, GPIO_PIN_SET);
+    }else {
+        HAL_GPIO_WritePin(OLED_SDO_GPIO, OLED_SDO_PIN, GPIO_PIN_RESET);
+    }
+}
+#endif
+void OLED_Delayus(int16_t nus) {
+    //HAL_delay_us(nus);  //fix it
+}
+#endif
 void OLED_Wire_Init(void) {
+    #if (OLED_TYPE==I2C_4PIN || OLED_TYPE==I2C_7PIN)
+    OLED.ADDRESS = OLED_ADDRESS;
+    OLED.i2cSCLSet = OLED_SCLSet;
+    OLED.i2cSDASet = OLED_SDASet;
+    OLED.i2cSCLOut = OLED_SCLOut;
+    OLED.i2cSDAOut = OLED_SDAOut;
+    OLED.i2cSDAIn = OLED_SDAIn;
+    OLED.i2cSCLOut(HIGH);
+    OLED.i2cSDAOut(HIGH);
+    OLED.delayus = OLED_Delayus;
+    #elif (OLED_TYPE == SPI_7PIN)
     OLED.spiCSOut = OLED_CSOut;
     OLED.spiSCLKOut = OLED_SCLKOut;
     OLED.spiSDOOut = OLED_SDOOut;
     OLED.delayus = OLED_Delayus;
     OLED.spiSCLKOut(HIGH);
     OLED.spiSDOOut(HIGH);
+    #endif
 }
-#endif
 void OLED_WriteByte(uint8_t data, uint8_t address) {
-    #if (OLED_MODE==MODE_I2C || OLED_MODE==MODE_I2C_7PIN)
+  #if (OLED_TYPE==I2C_4PIN || OLED_TYPE==I2C_7PIN)
     MODULAR_I2CWriteByte(OLED, I2CHIGH, 0, data, address);
-    #else
+  #elif (OLED_TYPE == SPI_7PIN)
+    #if (MCU_COMPILER == STM32FWLIB)
     if(address == 0X00) {
         GPIO_ResetBits(OLED_DC_GPIO, OLED_DC_PIN);
     }else {
         GPIO_SetBits(OLED_DC_GPIO, OLED_DC_PIN);
     }
-    MODULAR_SPIWriteByte(OLED, data);
-    GPIO_SetBits(OLED_DC_GPIO, OLED_DC_PIN);
+    #elif (MCU_COMPILER == STM32HAL)
+    if(address == 0X00) {
+        HAL_GPIO_WritePin(OLED_DC_GPIO, OLED_DC_PIN, GPIO_PIN_RESET);
+    }else {
+        HAL_GPIO_WritePin(OLED_DC_GPIO, OLED_DC_PIN, GPIO_PIN_SET);
+    }
     #endif
+    MODULAR_SPIWriteByte(OLED, data);
+    #if (MCU_COMPILER == STM32FWLIB)
+    GPIO_SetBits(OLED_DC_GPIO, OLED_DC_PIN);
+    #elif (MCU_COMPILER == STM32HAL)
+    HAL_GPIO_WritePin(OLED_DC_GPIO, OLED_DC_PIN, GPIO_PIN_SET);
+    #endif
+  #endif
 }
+#elif (MCU_COMMUNICA == HARDWARE)
+void OLED_Wire_Init(void) {}
+void OLED_WriteByte(uint8_t data, uint8_t address) {
+  #if (OLED_TYPE==I2C_4PIN || OLED_TYPE==I2C_7PIN)
+    HAL_I2C_Mem_Write(&hi2c1, (OLED_ADDRESS<<1)|0X00, address,I2C_MEMADD_SIZE_8BIT, &data,1, 0x100);
+    //HAL_FMPI2C_Mem_Write(&hfmpi2c1, (OLED_ADDRESS<<1)|0X00, address,FMPI2C_MEMADD_SIZE_8BIT, &data,1, 0x100);
+  #elif (OLED_TYPE == SPI_7PIN)
+    if(address == 0X00) {
+        HAL_GPIO_WritePin(OLED_DC_GPIO, OLED_DC_PIN, GPIO_PIN_RESET);
+    }else {
+        HAL_GPIO_WritePin(OLED_DC_GPIO, OLED_DC_PIN, GPIO_PIN_SET);
+    }
+    HAL_GPIO_WritePin(OLED_CS_GPIO, OLED_CS_PIN, GPIO_PIN_RESET);
+    HAL_SPI_Transmit(&hspi1, &data,1, 0x100);    
+    HAL_GPIO_WritePin(OLED_CS_GPIO, OLED_CS_PIN, GPIO_PIN_SET);
+    HAL_GPIO_WritePin(OLED_DC_GPIO, OLED_DC_PIN, GPIO_PIN_SET);
+  #endif
+}
+#endif
 ////////////////////////////////////////////////////////////////////////////
 //底层驱动函数
 
 void OLED_Reset(void) {
+  #if (MCU_COMPILER == STM32FWLIB)
     #ifdef OLED_RST_GPIO
     GPIO_ResetBits(OLED_RST_GPIO, OLED_RST_PIN);
     #endif
@@ -200,6 +306,15 @@ void OLED_Reset(void) {
     #ifdef OLED_RST_GPIO
     GPIO_SetBits(OLED_RST_GPIO, OLED_RST_PIN);
     #endif
+  #elif (MCU_COMPILER == STM32HAL)
+    #ifdef OLED_RST_GPIO
+    HAL_GPIO_WritePin(OLED_RST_GPIO, OLED_RST_PIN, GPIO_PIN_RESET);
+    #endif
+    OLED_Delayms(200);
+    #ifdef OLED_RST_GPIO
+    HAL_GPIO_WritePin(OLED_RST_GPIO, OLED_RST_PIN, GPIO_PIN_SET);
+    #endif
+  #endif
 }
 void OLED_On(void) {
     OLED_WriteByte(0X8D, 0X00);     //设置电荷泵
@@ -288,5 +403,9 @@ void OLED_Confi(void) {     //初始化引脚, 配置oled并清屏
     OLED_Clear();
 }
 void OLED_Delayms(uint16_t ms) {    //图形库普通的延时函数 需要用户自己配置
+    #if (MCU_COMPILER == STM32FWLIB)
     delay_ms(ms);
+    #elif (MCU_COMPILER == STM32HAL)
+    HAL_Delay(ms);
+    #endif
 }
