@@ -1,7 +1,7 @@
 #ifndef __OLED_DRIVER_H
 #define __OLED_DRIVER_H
 #include "oledlib.h"
-#define OLED_NUM 1
+#define OLED_NUM 2
 typedef enum {
     OLED_SSD1306,
     OLED_SH1106
@@ -12,7 +12,7 @@ typedef enum {    //常用的OLED地址为0111100和0111101
 } OledI2CAddr_TypeDef;
 
 typedef struct {
-    OledChip_TypeDef oledchip;
+    OledChip_TypeDef chip;
 } OLED_TypeDef;
 typedef struct {
     DEVCMNI_IOTypeDef cmniio;
