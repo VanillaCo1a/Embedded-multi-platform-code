@@ -29,13 +29,15 @@
 ////////////////////////////////////////////////////////////////////////////
 //      各对象结构体定义
 //OLED对象定义                  通信类型, 通信方式, 芯片型号, 引脚对象, 通信对象
-Oled_Typedef OLED[OLED_NUM] = { {OLED_I2C4PIN, OLED_ANALOG, OLED_SSD1306,   NULL, NULL}};
-//OLED引脚对象定义, 该结构体数组内的元素与OLED数组元素按序号一一对应
+Oled_Typedef OLED[OLED_NUM] = { {OLED_I2C7PIN, OLED_HARDWARE, OLED_SH1106,  NULL, NULL},
+                                {OLED_SPI7PIN, OLED_HARDWARE, OLED_SSD1306, NULL, NULL},
+                                {OLED_I2C7PIN, OLED_ANALOG, OLED_SSD1306,   NULL, NULL},
+                                {OLED_SPI7PIN, OLED_ANALOG, OLED_SH1106,    NULL, NULL}};
+//OLED引脚对象定义, 该结构体数组内的分量与OLED数组分量按序号一一对应
 Oledio_Typedef OLEDIO[OLED_NUM] = {0};
-//OLED模拟通信对象定义, 两个结构体数组内的元素分别与OLEDD数组中使用I2C与SPI通信的元素一一对应(因此, 定义的数组实际上有一半是闲置的)
-I2C_AnalogTypedef OLEDI2C[OLED_NUM] = {{OLED_I2CADDR1}};    //此处按顺序设置对应OLED的硬件I2C地址
+//OLED模拟通信对象定义, 两个结构体数组内的分量分别与OLEDD数组中使用I2C与SPI通信的分量一一对应(因此, 定义的数组实际上有一半是闲置的)
+I2C_AnalogTypedef OLEDI2C[OLED_NUM] = {{OLED_I2CADDR1},{OLED_I2CADDR1}};    //此处按顺序设置对应OLED的硬件I2C地址
 SPI_AnalogTypedef OLEDSPI[OLED_NUM] = {0};
-
 
 
 ////////////////////////////////////////////////////////////////////////////
@@ -75,12 +77,30 @@ void OLED_ioDef(void) {
     OLEDIO[0].PIN_dc =          GPIO_Pin_3;
     OLEDIO[0].CLK_cs =          RCC_APB2Periph_GPIOB;
     OLEDIO[0].GPIO_cs =         GPIOB;
-    OLEDIO[0].PIN_cs =          GPIO_Pin_4;      
+    OLEDIO[0].PIN_cs =          GPIO_Pin_4;
     #elif (MCU_COMPILER == MCU_STM32HAL)
-    OLEDIO[0].GPIO_scl_sclk =   OLED0_SCL_SCLK_GPIO_Port;
-    OLEDIO[0].PIN_scl_sclk =    OLED0_SCL_SCLK_Pin;
-    OLEDIO[0].GPIO_sda_sdo =    OLED0_SDA_SDO_GPIO_Port;
-    OLEDIO[0].PIN_sda_sdo =     OLED0_SDA_SDO_Pin;
+    OLEDIO[1].GPIO_rst =        OLED0_3_RST_GPIO_Port;
+    OLEDIO[1].PIN_rst =         OLED0_3_RST_Pin;
+    OLEDIO[1].GPIO_dc =         OLED0_3_DC_GPIO_Port;
+    OLEDIO[1].PIN_dc =          OLED0_3_DC_Pin;
+    OLEDIO[1].GPIO_cs =         OLED3_CS_GPIO_Port;
+    OLEDIO[1].PIN_cs =          OLED3_CS_Pin;
+    
+    OLEDIO[2].GPIO_scl_sclk =   OLED0_1_SCL_SCLK_GPIO_Port;
+    OLEDIO[2].PIN_scl_sclk =    OLED0_1_SCL_SCLK_Pin;
+    OLEDIO[2].GPIO_sda_sdo =    OLED0_1_SDA_SDO_GPIO_Port;
+    OLEDIO[2].PIN_sda_sdo =     OLED0_1_SDA_SDO_Pin;
+    
+    OLEDIO[3].GPIO_scl_sclk =   OLED0_1_SCL_SCLK_GPIO_Port;
+    OLEDIO[3].PIN_scl_sclk =    OLED0_1_SCL_SCLK_Pin;
+    OLEDIO[3].GPIO_sda_sdo =    OLED0_1_SDA_SDO_GPIO_Port;
+    OLEDIO[3].PIN_sda_sdo =     OLED0_1_SDA_SDO_Pin;
+    OLEDIO[3].GPIO_rst =        OLED0_3_RST_GPIO_Port;
+    OLEDIO[3].PIN_rst =         OLED0_3_RST_Pin;
+    OLEDIO[3].GPIO_dc =         OLED0_3_DC_GPIO_Port;
+    OLEDIO[3].PIN_dc =          OLED0_3_DC_Pin;
+    OLEDIO[3].GPIO_cs =         OLED0_CS_GPIO_Port;
+    OLEDIO[3].PIN_cs =          OLED0_CS_Pin;
     #endif
 }
 void OLED_ioSet(void) {
