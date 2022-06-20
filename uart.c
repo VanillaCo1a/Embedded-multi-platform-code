@@ -1,59 +1,69 @@
 #include "uart.h"
 #define DEBUG_UART        0
-#define Transmit_delay(x) delayhus_timer(x, &flag_comparetime, &flag_reset)    //发信单桢数据后等待延迟, 波特率越低需要延时越长, 115200下的延迟极限在80us左右
-#define Receive_delay(x)  delayms_timer(x, &flag_comparetime, &flag_reset)     //多帧收信等待全部读入缓冲区延迟, 波特率越低需要延时越长, 若不等待, 从队列读入数据时就会在队尾多读一个乱码值. 推测不能一检测缓冲区有数据就读入, 否则会因读取太快导致错乱
-//波特率为115200时的延时参数: Transmit_delay(1); Receive_delay(10);				波特率为9600时的延时参数: Transmit_delay(15); Receive_delay(100);			其他情形可酌情修改
+#define Transmit_delay(x) delayus_timer(x, &flag_comparetime, &flag_reset)    //发信单桢数据后等待延迟, 波特率越低需要延时越长, 115200下的延迟极限在80us左右
+#define Receive_delay(x)  delayms_timer(x, &flag_comparetime, &flag_reset)    //多帧收信等待全部读入缓冲区延迟, 波特率越低需要延时越长, 若不等待, 从队列读入数据时就会在队尾多读一个乱码值. 推测不能一检测缓冲区有数据就读入, 否则会因读取太快导致错乱
+//波特率为115200时的延时参数: Transmit_delay(100); Receive_delay(10);				波特率为9600时的延时参数: Transmit_delay(1500); Receive_delay(100);			其他情形可酌情修改
+
+/* 输出后缀数组的第1个值为输出后缀长度 */
 const uint8_t tail1_inside[] = {'\0'};
 const uint8_t tail1_outside[] = {'\r', '\n'};
-
-int8_t numTransmitBuf1 = 0, numReceiveBuf1 = 0;
+/* 队列缓冲区 */
 Queue_structure *strBuf1_Receive, *strBuf1_Transmit;
 
-void UART1_createBufferArea(void) {    //建2个缓存区存放字符, 数据类型为循环队列
-    strBuf1_Receive = createNewQueue(100);
-    strBuf1_Transmit = createNewQueue(100);
-}
-void UART1_clearBufferArea(void) {    //清空对应的缓存区
-    while(!isQueueEmpty(strBuf1_Receive)) {
-        QueueDel(strBuf1_Receive);
+void UART_createBufferArea(int8_t num) {    //建2个缓存区存放字符, 数据类型为循环队列
+    switch(num) {
+    case 1:
+        strBuf1_Receive = createNewQueue(100);
+        strBuf1_Transmit = createNewQueue(100);
+        break;
     }
-    while(!isQueueEmpty(strBuf1_Transmit)) {
-        QueueDel(strBuf1_Transmit);
+}
+void UART_clearBufferArea(int8_t num) {    //清空对应的缓存区
+    switch(num) {
+    case 1:
+        while(!isQueueEmpty(strBuf1_Receive)) {
+            QueueDel(strBuf1_Receive);
+        }
+        while(!isQueueEmpty(strBuf1_Transmit)) {
+            QueueDel(strBuf1_Transmit);
+        }
+        break;
     }
 }
 void UART_Init(void) {
     USART1_Confi();
-    UART1_createBufferArea();
-}
-void UART1_Ctrl(void) {
-    uint8_t *temp;    //串口接收数据
-    if((temp = readBuf1_Receive()) != NULL) {
-        writeBuf1_Transmit(temp);    //回显
-        //printf("%s", temp);	//justfortest
-        free(temp);
-    }
+    UART_createBufferArea(1);
 }
 
 //将通信串更改后缀后写入缓冲区, 等待发信函数发信
-int8_t writeBuf1_Transmit(uint8_t *record) {
+int8_t writeBuf1_Transmit(uint8_t *record, uint8_t *suffix_in, uint8_t *suffix_out) {
     int16_t i = 0, j = 0;
 
     if(record != NULL) {
         for(i = 0; !isQueueFull(strBuf1_Transmit); i++) {
-            if(record[i] == tail1_inside[j]) {
-                j++;
-                if(j == sizeof(tail1_inside) / sizeof(uint8_t)) {
-                    for(j = 0; j < sizeof(tail1_outside) / sizeof(uint8_t); j++) {
-                        QueueIn(strBuf1_Transmit, tail1_outside[j]);
+            if(suffix_in != NULL && suffix_in[0] != 0) {
+                if(record[i] == suffix_in[j + 1]) {
+                    j++;
+                    if(j == suffix_in[0]) {
+                        break;
                     }
-                    break;
+                } else {
+                    if(j != 0) {
+                        i = i - j;
+                        j = 0;
+                    }
+                    QueueIn(strBuf1_Transmit, record[i]);
                 }
             } else {
-                if(j != 0) {
-                    i = i - j;
-                    j = 0;
+                if((suffix_out != NULL) && (QueueViewSpace(strBuf1_Transmit) == suffix_out[0])) {
+                    break;
                 }
                 QueueIn(strBuf1_Transmit, record[i]);
+            }
+        }
+        if(suffix_out != NULL && suffix_out[0] != 0) {
+            for(j = 0; j < suffix_out[0]; j++) {
+                QueueIn(strBuf1_Transmit, suffix_out[j + 1]);
             }
         }
 #if DEBUG_UART
@@ -70,7 +80,7 @@ int8_t writeBuf1_Transmit(uint8_t *record) {
 }
 //根据设置的外部后缀从缓存区读出1个通信串, 并添加所设置的内部后缀, 返回其地址, 若读取失败则返回NULL
 //!!!注意此函数会申请内存空间, 使用后务必进行空间的释放!!!
-uint8_t *readBuf1_Receive(void) {
+uint8_t *readBuf1_Receive(uint8_t *suffix_in, uint8_t *suffix_out) {
     static int8_t flag_receive = 0;
     static int8_t delay_result = 0;
     int16_t i = 0, j = 0, k = 0;
@@ -79,8 +89,8 @@ uint8_t *readBuf1_Receive(void) {
     if(isQueueEmpty(strBuf1_Receive) == 0) {    //检测缓冲区不为空后等待一段时间再读入, 权宜之计
         flag_receive = 1;
         {
-            static int16_t flag_comparetime = 0;
-            static int8_t flag_reset = 1;
+            static uint16_t flag_comparetime = 0;
+            static int8_t flag_reset = 0;
             delay_result = Receive_delay(10);
         }
     }
@@ -92,23 +102,27 @@ uint8_t *readBuf1_Receive(void) {
             } else {
                 k--;
             }
-            if(record[i] == tail1_outside[j]) {
-                j++;
-                if(j == sizeof(tail1_outside) / sizeof(uint8_t)) {
-                    for(k = 0; k < sizeof(tail1_outside) / sizeof(uint8_t); k++) {
-                        record[i - (j - 1) + k] = 0;
+            if(suffix_out != NULL && suffix_out[0] != 0) {
+                if(record[i] == suffix_out[j + 1]) {
+                    j++;
+                    if(j == suffix_out[0]) {
+                        for(k = 0; k < suffix_out[0]; k++) {
+                            record[i - j + (k + 1)] = 0;
+                        }
+                        break;
                     }
-                    for(k = 0; k < sizeof(tail1_inside) / sizeof(uint8_t); k++) {
-                        record[i - (j - 1) + k] = tail1_inside[k];
+                } else {
+                    if(j != 0) {
+                        i = i - j;
+                        k = j;
+                        j = 0;
                     }
-                    break;
                 }
-            } else {
-                if(j != 0) {
-                    i = i - j;
-                    k = j;
-                    j = 0;
-                }
+            }
+        }
+        if(suffix_in != NULL && suffix_in[0] != 0) {
+            for(k = 0; k < suffix_in[0]; k++) {
+                record[i - j + (k + 1)] = suffix_in[k + 1];
             }
         }
 #if DEBUG_UART
@@ -133,21 +147,21 @@ uint8_t *readBuf1_Receive(void) {
 }
 int8_t UART1_Transmit(void) {    //发信函数, 在缓存区被装填字符串后自动发送, 放在主函数中不断循环即可
     static int8_t delay_choose = 0;
-    if(!isQueueEmpty(strBuf1_Transmit)) {
-        if(delay_choose == 0) {
+    if(delay_choose == 0) {
+        if(!isQueueEmpty(strBuf1_Transmit)) {
             USART_SendData(USART1, QueueOut(strBuf1_Transmit));
             delay_choose = 1;
-        } else {
-            {
-                static int16_t flag_comparetime = 0;
-                static int8_t flag_reset = 1;
-                if(Transmit_delay(1) == 1) {
-                    delay_choose = 0;
-                }
+        }
+    } else {
+        {
+            static uint16_t flag_comparetime = 0;
+            static int8_t flag_reset = 0;
+            if(Transmit_delay(100) == 1) {
+                delay_choose = 0;
             }
         }
     }
-    if(!isQueueEmpty(strBuf1_Transmit) && (delay_choose == 0)) {    //当判断当次发送后缓存区为空时, 返回0
+    if(isQueueEmpty(strBuf1_Transmit) && (delay_choose == 0)) {    //当判断当次发送后缓存区为空时, 返回1
         return 1;
     } else {
         return 0;

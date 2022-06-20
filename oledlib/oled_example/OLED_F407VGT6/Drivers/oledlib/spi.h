@@ -13,7 +13,7 @@ typedef struct {
     void (*spiSCLKOut)(uint8_t);
     void (*spiSDOOut)(uint8_t);
     void (*spiCSOut)(uint8_t);
-    void (*delayus)(uint16_t us);
+    void (*delayus)(int16_t us);
 }SPI_AnalogTypedef;
 
 void MODULAR_SPIWriteByte(SPI_AnalogTypedef *, uint8_t);

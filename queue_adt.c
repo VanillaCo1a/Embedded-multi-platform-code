@@ -97,4 +97,11 @@ int8_t QueueViewElement(Queue_structure *Queue) {
         return 0;
     }
 }
+int8_t QueueViewSpace(Queue_structure *Queue) {
+    if(isQueueFull(Queue) == 0) {
+        return Queue->maxnum - QueueViewElement(Queue) - 1;
+    } else {
+        return 0;
+    }
+}
 //************************************************************//

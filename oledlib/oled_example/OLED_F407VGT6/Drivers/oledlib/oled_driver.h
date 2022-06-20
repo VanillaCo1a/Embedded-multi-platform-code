@@ -1,21 +1,9 @@
 #ifndef __OLED_DRIVER_H
 #define __OLED_DRIVER_H
 #include "oledlib.h"
-#define MCU_STM32FWLIB 0
-#define MCU_STM32HAL 1
-#define MCU_TIBOARD 2
-#define MCU_ESP32 3
-#define MCU_HC32 4
-#define MCU_COMPILER    MCU_STM32HAL    //主控芯片编译环境
-
-#define MCU_ANALOG 0
-#define MCU_HARDWARE 1
-#define MCU_I2CCOM      MCU_ANALOG      //主控芯片I2C通信方式, 0仅使用模拟通信(默认),1硬件通信(或二者均使用)
-#define MCU_SPICOM      MCU_ANALOG      //主控芯片SPI通信方式, 0仅使用模拟通信(默认),1硬件通信(或二者均使用)
-
-#define OLED_NUM 1
-#define OLED_I2CADDR1   0x3C            //常用的OLED地址为0111100和0111101
-#define OLED_I2CADDR2   0x3D
+#define OLED_NUM 9
+#define OLED_I2CADDR1 0x3C   //常用的OLED地址为0111100和0111101
+#define OLED_I2CADDR2 0x3D
 typedef enum {
     OLED_I2C, OLED_SPI
 }OledProp_Type;

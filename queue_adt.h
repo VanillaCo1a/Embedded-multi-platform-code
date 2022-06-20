@@ -24,4 +24,6 @@ int8_t QueueDel(Queue_structure *Queue);
 uint16_t QueueCheckHead(Queue_structure *Queue);
 uint16_t QueueCheckTail(Queue_structure *Queue);
 int8_t QueueViewElement(Queue_structure *Queue);
+int8_t QueueViewSpace(Queue_structure *Queue);
+
 #endif

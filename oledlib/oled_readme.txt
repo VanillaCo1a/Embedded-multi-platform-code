@@ -5,9 +5,9 @@ and will be considered later Further expand the versatility of the program.
 
 
 To use this OLED screen graphics library, you need to complete the following steps to configure:
-1. Configure the MCU compilation environment and the communication methods involved in the entire project through macro definitions in oledlib.h
-2. Configure the number of OLED screens used by macro definition in oled_driver.h
-3. Configure the relevant information of the OLED screen in the OLED array of oled_driver.c
-4. Configure the OLED i2c-address information in the OLEDI2C array (if used) in oled_driver.c
-5. Configure the OLED screen pins in the OLED_ioDef() function of oled_driver.c
-6. Modify and call the OLED_Confi() function in the main function to initialize
+    1. Configure the MCU compilation environment and the communication methods involved 
+        in the entire project through macro definitions in oledlib.h
+    2. Configure the number of OLED screens used by macro definition in oled_driver.h
+    3. Configure the relevant information of the OLED screen in the structure array of the part 2 of oled_driver.c
+    4. Configure the OLED screen pins in the OLED_ioDef() function in part 4 of oled_driver.c
+    5. Configure the OLED_Confi() function of part 7 of oled_driver.c and call it in the main function for initialization
