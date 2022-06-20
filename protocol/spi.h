@@ -3,19 +3,29 @@
 #include "stdint.h"
 #ifndef ENUM_Potential
 #define ENUM_Potential
-enum Potential{LOW, HIGH};
-#endif
+typedef enum {
+    LOW,
+    HIGH
+} Potential_TypeDef;
+#endif // !ENUM_Potential
 #ifndef ENUM_Direct
 #define ENUM_Direct
-enum Direct{IN, OUT};
-#endif
+typedef enum {
+    IN,
+    OUT
+} Direct_TypeDef;
+#endif // !ENUM_Direct
 typedef struct {
-    void (*spiSCLKOut)(uint8_t);
-    void (*spiSDOOut)(uint8_t);
-    void (*spiCSOut)(uint8_t);
+    void (*SCLK_Out)(uint8_t);
+    void (*SDO_Out)(uint8_t);
+    void (*CS_Out)(uint8_t);
     void (*delayus)(uint16_t us);
-}SPI_AnalogTypedef;
+    void (*delayms)(uint16_t ms);
+} SPI_AnalogTypeDef;
+typedef struct {
+    SPI_AnalogTypeDef *method;
+} SPI_AnalogHandleTypeDef;
 
-void MODULAR_SPIWriteByte(SPI_AnalogTypedef *, uint8_t);
-void MODULAR_SPIWrite(SPI_AnalogTypedef *, uint8_t *, uint16_t);
+void MODULAR_SPI_WriteByte(SPI_AnalogHandleTypeDef *, uint8_t);
+void MODULAR_SPI_Write(SPI_AnalogHandleTypeDef *, uint8_t *, uint16_t);
 #endif

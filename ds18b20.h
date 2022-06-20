@@ -1,34 +1,32 @@
 #ifndef __DS18B20_H
 #define __DS18B20_H
-#include "onewire.h"
-#include "main.h"
-#define MCU_STM32FWLIB 0
-#define MCU_STM32HAL 1
-#define MCU_TIBOARD 2
-#define MCU_ESP32 3
-#define MCU_HC32 4
-#define MCU_COMPILER    MCU_STM32HAL    //主控芯片编译环境
-
+#include "device.h"
+#include "timer.h"
 #define DS18B20_NUM 1
-typedef struct {
-    #if (MCU_COMPILER == MCU_STM32FWLIB)    //固件库IO结构
-    uint32_t CLK_io;
-    GPIO_TypeDef *GPIO_io;
-    uint16_t PIN_io;
-    #elif (MCU_COMPILER == MCU_STM32HAL)    //HAL库IO结构
-    GPIO_TypeDef *GPIO_io;
-    uint16_t PIN_io;
-    #endif
-}Ds18b20io_Typedef;
-typedef struct {
-    void *communication_handle; //通信句柄
-    Ds18b20io_Typedef *Ds18b20io;
-}Ds18b20_Typedef;
+typedef enum {
+    PARASITIC,
+    EXTERNAL,
+} DS18B20_POWMDTypedef;
 
-void setTemperature(int16_t);
-int16_t getTemperature(void);
-void DS18B20_Ctrl(void);
+typedef struct {
+    DS18B20_POWMDTypedef powermode;
+} DS18B20_TypeDef;
+typedef struct {
+    DEVCMNI_IOTypeDef cmniio;
+} DS18B20_IOTypedef;
+typedef struct {
+    uint8_t lsb;
+    uint8_t msb;
+    uint8_t tl;
+    uint8_t th;
+    uint8_t conf;
+    uint8_t resvd0;
+    uint8_t resvd1;
+    uint8_t resvd2;
+    uint8_t crc;
+} DS18B20_SCRTypedef;
 void DS18B20_Confi(void);
-void DS18B20_StartTem(void); 
+void DS18B20_SetTem(void);
 int16_t DS18B20_GetTem(void);
+
 #endif

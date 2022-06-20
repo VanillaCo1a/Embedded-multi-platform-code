@@ -20,8 +20,9 @@ void OLED_clearBuffer(void) {
     clearBuffer(0);
 }
 //更新屏幕 注意此处特指刷新当前设定的屏幕数组
-void OLED_updateScreen(int8_t num) {
-    DEV_setiostream(&oled, num);
+void OLED_updateScreen(int8_t stream) {
+    extern DEVS_TypeDef oleds;
+    DEV_setistm(&oleds, stream);
     updateBuffer();
 }
 
@@ -227,7 +228,7 @@ void FloodFill2(uint8_t x,uint8_t y,int oldcolor,int newcolor) {
 uint8_t FrameRateOLED_updateScreen(int value) {
     if(OledTimeMs == 0) {
         updateBuffer();
-        OLED_clearScreen();
+        OLED_ClearScreen();
         OledTimeMs = 1000 / value;
         return 1;
     }
