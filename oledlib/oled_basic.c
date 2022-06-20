@@ -20,9 +20,7 @@ void OLED_clearBuffer(void) {
     clearBuffer(0);
 }
 //更新屏幕 注意此处特指刷新当前设定的屏幕数组
-void OLED_updateScreen(int8_t stream) {
-    extern DEVS_TypeDef oleds;
-    DEV_setistm(&oleds, stream);
+void OLED_updateScreen(void) {
     updateBuffer();
 }
 

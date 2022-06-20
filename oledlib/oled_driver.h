@@ -13,9 +13,9 @@ typedef enum {    //常用的OLED地址为0111100和0111101
 
 typedef struct {
     OledChip_TypeDef chip;
-} OLED_TypeDef;
+} OLED_PATypeDef;
 typedef struct {
-    DEVCMNI_IOTypeDef cmniio;
+    DEVCMNIIO_TypeDef cmniio;
     DEVIO_TypeDef DC;
     DEVIO_TypeDef RST;
 } OLED_IOTypeDef;
@@ -24,7 +24,7 @@ void OLED_Confi(void);
 void OLED_On(void);
 void OLED_Off(void);
 void OLED_Flip(int8_t, int8_t);
-void OLED_FillScreen(uint8_t *);
+void OLED_FillScreen(uint8_t (*Buffer)[SCREEN_PAGE][SCREEN_COLUMN]);
 void OLED_DirectByte(uint8_t, uint8_t, uint8_t);
 void OLED_ClearScreen(void);
 
