@@ -21,25 +21,25 @@
 #ifndef __OLED_LIB_H
 #define __OLED_LIB_H
 
-#define I2C_4PIN 0
-#define I2C_7PIN 1
-#define SPI_7PIN 2
-#define OLED_TYPE       I2C_4PIN        //OLED的引脚数量及通信方式, 依次为4脚I2C,7脚I2C,7脚SPI
+#define OLED_I2C4PIN 0
+#define OLED_I2C7PIN 1
+#define OLED_SPI7PIN 2
+#define OLED_TYPE       OLED_SPI7PIN        //OLED的引脚数量及通信方式, 依次为4脚I2C,7脚I2C,7脚SPI
 
-#define SSD1306 0
-#define SH1106 1
-#define OLED_CHIP       SSD1306         //OLED芯片型号, 不同型号的芯片在寄存器配置上略有不同
+#define OLED_SSD1306 0
+#define OLED_SH1106 1
+#define OLED_CHIP       OLED_SSD1306        //OLED芯片型号, 不同型号的芯片在寄存器配置上略有不同
 
-#define STM32FWLIB 0
-#define STM32HAL 1
-#define TIBOARD 2
-#define ESP32 3
-#define HC32 4
-#define MCU_COMPILER    STM32HAL        //主控芯片编译环境
+#define MCU_STM32FWLIB 0
+#define MCU_STM32HAL 1
+#define MCU_TIBOARD 2
+#define MCU_ESP32 3
+#define MCU_HC32 4
+#define MCU_COMPILER    MCU_STM32HAL        //主控芯片编译环境
 
-#define HARDWARE 0
-#define ANALOG 1
-#define MCU_COMMUNICA   HARDWARE        //主控芯片通信方式, 0硬件通信,1模拟通信
+#define MCU_HARDWARE 0
+#define MCU_ANALOG 1
+#define MCU_COMMUNI     MCU_ANALOG          //主控芯片通信方式, 0硬件通信,1模拟通信
 
 //图形库的一些枚举类型
 typedef enum {
@@ -68,15 +68,15 @@ typedef struct ROATE {
 #include "stdarg.h"
 #include "math.h"
 
-#if (MCU_COMPILER == STM32HAL)
-#include "main.h"
-#elif (MCU_COMPILER == STM32FWLIB)
+#if (MCU_COMPILER == MCU_STM32FWLIB)
 #include "stm32f10x.h"
 #include "delay.h"
+#elif (MCU_COMPILER == MCU_STM32HAL)
+#include "main.h"
 #endif
-#if ((OLED_TYPE==I2C_4PIN||OLED_TYPE==I2C_7PIN) && MCU_COMMUNICA==ANALOG)
+#if ((OLED_TYPE==OLED_I2C4PIN||OLED_TYPE==OLED_I2C7PIN) && MCU_COMMUNI==MCU_ANALOG)
 #include "i2c.h"
-#elif (OLED_TYPE==SPI_7PIN && MCU_COMMUNICA==ANALOG)
+#elif (OLED_TYPE==OLED_SPI7PIN && MCU_COMMUNI==MCU_ANALOG)
 #include "spi.h"
 #endif
 #include "oled_driver.h"
