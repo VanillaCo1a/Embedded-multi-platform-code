@@ -1,12 +1,12 @@
 #include "oled_driver.h"
 /***    本文件包含: 
-            1. IO操作宏
-            2. 各对象结构体定义
-            3. OLED输出流控制函数
-            4. MPU_OLED引脚配置
-            5. I2C/SPI模拟通信配置
-            6. I2C/SPI通信底层函数
-            7. OLED器件驱动函数                  ***/
+                IO操作宏
+                各对象结构体定义
+                OLED输出流控制函数
+                MPU_OLED引脚配置
+                I2C/SPI模拟通信配置
+                I2C/SPI通信底层函数
+                OLED器件驱动函数                  ***/
 
 
 
@@ -29,8 +29,15 @@
 ////////////////////////////////////////////////////////////////////////////
 //      各对象结构体定义
 //OLED对象定义                      通信类型, 通信方式, 芯片型号, 硬件地址, 通信句柄, 引脚对象
-Oled_Typedef OLED[OLED_NUM] = { {OLED_I2C, OLED_ANALOG, OLED_SSD1306, OLED_I2CADDR1,    NULL,   NULL},
-                                //{OLED_SPI, OLED_HARDWARE, OLED_SSD1306, NULL,           &hspi1, NULL},
+Oled_Typedef OLED[OLED_NUM] = { {OLED_SPI, OLED_HARDWARE, OLED_SSD1306, OLED_I2CADDR1, &hspi3,  NULL},
+                                {OLED_I2C, OLED_ANALOG, OLED_SSD1306, OLED_I2CADDR1, NULL,      NULL},
+                                {OLED_SPI, OLED_HARDWARE, OLED_SSD1306, OLED_I2CADDR1, &hspi3,  NULL},
+                                {OLED_SPI, OLED_HARDWARE, OLED_SH1106, OLED_I2CADDR1, &hspi3,   NULL},
+                                {OLED_I2C, OLED_HARDWARE, OLED_SH1106, OLED_I2CADDR1, &hi2c1,   NULL},
+                                {OLED_I2C, OLED_ANALOG, OLED_SSD1306, OLED_I2CADDR1, NULL,      NULL},
+                                {OLED_I2C, OLED_ANALOG, OLED_SSD1306, OLED_I2CADDR1, NULL,      NULL},
+                                {OLED_I2C, OLED_ANALOG, OLED_SH1106, OLED_I2CADDR1, NULL,       NULL},
+                                {OLED_I2C, OLED_HARDWARE, OLED_SSD1306, OLED_I2CADDR1, &hi2c2,  NULL}
                                 };
 //OLED引脚对象定义, 该结构体数组内的元素与OLED数组元素按序号一一对应
 Oledio_Typedef OLEDIO[OLED_NUM] = {0};
@@ -69,36 +76,62 @@ void OLED_ioDef(void) {
     OLEDIO[0].CLK_sda_sdo =     RCC_APB2Periph_GPIOB;
     OLEDIO[0].GPIO_sda_sdo =    GPIOB;
     OLEDIO[0].PIN_sda_sdo =     GPIO_Pin_1;
-    //OLEDIO[1].CLK_scl_sclk =    RCC_APB2Periph_GPIOB;
-    //OLEDIO[1].GPIO_scl_sclk =   GPIOB;
-    //OLEDIO[1].PIN_scl_sclk =    GPIO_Pin_0;
-    //OLEDIO[1].CLK_sda_sdo =     RCC_APB2Periph_GPIOB;
-    //OLEDIO[1].GPIO_sda_sdo =    GPIOB;
-    //OLEDIO[1].PIN_sda_sdo =     GPIO_Pin_1;
-    //OLEDIO[1].CLK_rst =         RCC_APB2Periph_GPIOB;
-    //OLEDIO[1].GPIO_rst =        GPIOB;
-    //OLEDIO[1].PIN_rst =         GPIO_Pin_2;
-    //OLEDIO[1].CLK_dc =          RCC_APB2Periph_GPIOB;
-    //OLEDIO[1].GPIO_dc =         GPIOB;
-    //OLEDIO[1].PIN_dc =          GPIO_Pin_3;
-    //OLEDIO[1].CLK_cs =          RCC_APB2Periph_GPIOB;
-    //OLEDIO[1].GPIO_cs =         GPIOB;
-    //OLEDIO[1].PIN_cs =          GPIO_Pin_4; 
+    OLEDIO[0].CLK_rst =         RCC_APB2Periph_GPIOB;
+    OLEDIO[0].GPIO_rst =        GPIOB;
+    OLEDIO[0].PIN_rst =         GPIO_Pin_2;
+    OLEDIO[0].CLK_dc =          RCC_APB2Periph_GPIOB;
+    OLEDIO[0].GPIO_dc =         GPIOB;
+    OLEDIO[0].PIN_dc =          GPIO_Pin_3;
+    OLEDIO[0].CLK_cs =          RCC_APB2Periph_GPIOB;
+    OLEDIO[0].GPIO_cs =         GPIOB;
+    OLEDIO[0].PIN_cs =          GPIO_Pin_4;      
     #elif (MCU_COMPILER == MCU_STM32HAL)
-    OLEDIO[0].GPIO_scl_sclk =   OLED0_SCL_SCLK_GPIO_Port;
-    OLEDIO[0].PIN_scl_sclk =    OLED0_SCL_SCLK_Pin;
-    OLEDIO[0].GPIO_sda_sdo =    OLED0_SDA_SDO_GPIO_Port;
-    OLEDIO[0].PIN_sda_sdo =     OLED0_SDA_SDO_Pin;
-    //OLEDIO[1].GPIO_scl_sclk =   OLED1_SCL_SCLK_GPIO_Port;
-    //OLEDIO[1].PIN_scl_sclk =    OLED1_SCL_SCLK_Pin;
-    //OLEDIO[1].GPIO_sda_sdo =    OLED1_SDA_SDO_GPIO_Port;
-    //OLEDIO[1].PIN_sda_sdo =     OLED1_SDA_SDO_Pin;
-    //OLEDIO[1].GPIO_rst =        OLED1_RST_GPIO_Port;
-    //OLEDIO[1].PIN_rst =         OLED1_RST_Pin;
-    //OLEDIO[1].GPIO_dc =         OLED1_DC_GPIO_Port;
-    //OLEDIO[1].PIN_dc =          OLED1_DC_Pin;
-    //OLEDIO[1].GPIO_cs =         OLED1_CS_GPIO_Port;
-    //OLEDIO[1].PIN_cs =          OLED1_CS_Pin;
+    OLEDIO[0].GPIO_scl_sclk =   OLED0_2_3_SCL_SCLK_GPIO_Port;
+    OLEDIO[0].PIN_scl_sclk =    OLED0_2_3_SCL_SCLK_Pin;
+    OLEDIO[0].GPIO_sda_sdo =    OLED0_2_3_SDA_SDO_GPIO_Port;
+    OLEDIO[0].PIN_sda_sdo =     OLED0_2_3_SDA_SDO_Pin;
+    OLEDIO[0].GPIO_rst =        OLED0_2_3_RST_GPIO_Port;
+    OLEDIO[0].PIN_rst =         OLED0_2_3_RST_Pin;
+    OLEDIO[0].GPIO_dc =         OLED0_2_3_DC_GPIO_Port;
+    OLEDIO[0].PIN_dc =          OLED0_2_3_DC_Pin;
+    OLEDIO[0].GPIO_cs =         OLED0_CS_GPIO_Port;
+    OLEDIO[0].PIN_cs =          OLED0_CS_Pin;
+    OLEDIO[1].GPIO_scl_sclk =   OLED1_SCL_SCLK_GPIO_Port;
+    OLEDIO[1].PIN_scl_sclk =    OLED1_SCL_SCLK_Pin;
+    OLEDIO[1].GPIO_sda_sdo =    OLED1_SDA_SDO_GPIO_Port;
+    OLEDIO[1].PIN_sda_sdo =     OLED1_SDA_SDO_Pin;
+    OLEDIO[2].GPIO_scl_sclk =   OLED0_2_3_SCL_SCLK_GPIO_Port;
+    OLEDIO[2].PIN_scl_sclk =    OLED0_2_3_SCL_SCLK_Pin;
+    OLEDIO[2].GPIO_sda_sdo =    OLED0_2_3_SDA_SDO_GPIO_Port;
+    OLEDIO[2].PIN_sda_sdo =     OLED0_2_3_SDA_SDO_Pin;
+    OLEDIO[2].GPIO_rst =        OLED0_2_3_RST_GPIO_Port;
+    OLEDIO[2].PIN_rst =         OLED0_2_3_RST_Pin;
+    OLEDIO[2].GPIO_dc =         OLED0_2_3_DC_GPIO_Port;
+    OLEDIO[2].PIN_dc =          OLED0_2_3_DC_Pin;
+    OLEDIO[2].GPIO_cs =         OLED2_CS_GPIO_Port;
+    OLEDIO[2].PIN_cs =          OLED2_CS_Pin;
+    OLEDIO[3].GPIO_scl_sclk =   OLED0_2_3_SCL_SCLK_GPIO_Port;
+    OLEDIO[3].PIN_scl_sclk =    OLED0_2_3_SCL_SCLK_Pin;
+    OLEDIO[3].GPIO_sda_sdo =    OLED0_2_3_SDA_SDO_GPIO_Port;
+    OLEDIO[3].PIN_sda_sdo =     OLED0_2_3_SDA_SDO_Pin;
+    OLEDIO[3].GPIO_rst =        OLED0_2_3_RST_GPIO_Port;
+    OLEDIO[3].PIN_rst =         OLED0_2_3_RST_Pin;
+    OLEDIO[3].GPIO_dc =         OLED0_2_3_DC_GPIO_Port;
+    OLEDIO[3].PIN_dc =          OLED0_2_3_DC_Pin;
+    OLEDIO[3].GPIO_cs =         OLED3_CS_GPIO_Port;
+    OLEDIO[3].PIN_cs =          OLED3_CS_Pin;
+    OLEDIO[5].GPIO_scl_sclk =   OLED5_SCL_SCLK_GPIO_Port;
+    OLEDIO[5].PIN_scl_sclk =    OLED5_SCL_SCLK_Pin;
+    OLEDIO[5].GPIO_sda_sdo =    OLED5_SDA_SDO_GPIO_Port;
+    OLEDIO[5].PIN_sda_sdo =     OLED5_SDA_SDO_Pin;
+    OLEDIO[6].GPIO_scl_sclk =   OLED6_SCL_SCLK_GPIO_Port;
+    OLEDIO[6].PIN_scl_sclk =    OLED6_SCL_SCLK_Pin;
+    OLEDIO[6].GPIO_sda_sdo =    OLED6_SDA_SDO_GPIO_Port;
+    OLEDIO[6].PIN_sda_sdo =     OLED6_SDA_SDO_Pin;
+    OLEDIO[7].GPIO_scl_sclk =   OLED7_SCL_SCLK_GPIO_Port;
+    OLEDIO[7].PIN_scl_sclk =    OLED7_SCL_SCLK_Pin;
+    OLEDIO[7].GPIO_sda_sdo =    OLED7_SDA_SDO_GPIO_Port;
+    OLEDIO[7].PIN_sda_sdo =     OLED7_SDA_SDO_Pin;
     #endif
 }
 void OLED_ioSet(void) {
@@ -277,11 +310,11 @@ void OLED_CSOut(uint8_t bit) {
         }
     }
 }
-void OLED_Delayus(uint16_t us) {
+void OLED_Delayus(int16_t nus) {
     #if (MCU_COMPILER == MCU_STM32FWLIB)
-    delayus_timer(us);
+    //Delay_us(nus);
     #elif (MCU_COMPILER == MCU_STM32HAL)
-    delayus_timer(us);
+    //HAL_delay_us(nus);  //fix it
     #endif
 }
 //通信类的实现函数, 初始化通信成员后将地址存入对应OLED结构体中
@@ -330,7 +363,7 @@ void OLED_writeByte(uint8_t data, uint8_t address) {
             //固件库的硬件I2C驱动函数,待补充
             #elif (MCU_COMPILER == MCU_STM32HAL)
             HAL_I2C_Mem_Write(((I2C_HandleTypeDef *)OLED[_outputnum].communication_handle), (OLED[_outputnum].oledaddr<<1)|0X00, address,I2C_MEMADD_SIZE_8BIT, &data,1, 0x100);
-            //HAL_FMPI2C_Mem_Write(((FMPI2C_HandleTypeDef *)OLED[_outputnum].communication_handle), (OLED[_outputnum].oledaddr<<1)|0X00, address,FMPI2C_MEMADD_SIZE_8BIT, &data,1, 0x100);
+            //HAL_FMPI2C_Mem_Write(((I2C_HandleTypeDef *)OLED[_outputnum].communication_handle), (OLED[_outputnum].oledaddr<<1)|0X00, address,FMPI2C_MEMADD_SIZE_8BIT, &data,1, 0x100);
             #endif
           #endif
         }
@@ -377,7 +410,7 @@ void OLED_writeConti(uint8_t *pdata, uint16_t size, uint8_t address) {
             //固件库的硬件I2C驱动函数,待补充
             #elif (MCU_COMPILER == MCU_STM32HAL)
             HAL_I2C_Mem_Write(((I2C_HandleTypeDef *)OLED[_outputnum].communication_handle), (OLED[_outputnum].oledaddr<<1)|0X00, address,I2C_MEMADD_SIZE_8BIT, pdata,size, 0x100);
-            //HAL_FMPI2C_Mem_Write(((FMPI2C_HandleTypeDef *)OLED[_outputnum].communication_handle), (OLED[_outputnum].oledaddr<<1)|0X00, address,FMPI2C_MEMADD_SIZE_8BIT, pdata,size, 0x100);
+            //HAL_FMPI2C_Mem_Write(((I2C_HandleTypeDef *)OLED[_outputnum].communication_handle), (OLED[_outputnum].oledaddr<<1)|0X00, address,FMPI2C_MEMADD_SIZE_8BIT, pdata,size, 0x100);
             #endif
           #endif
         }
@@ -517,8 +550,8 @@ void OLED_delayms(uint16_t ms) {//图形库普通的延时函数 需要用户自
     #if (MCU_COMPILER == MCU_STM32FWLIB)
     delayms_timer(ms);
     #elif (MCU_COMPILER == MCU_STM32HAL)
-    delayms_timer(ms);
-    //HAL_Delay(ms);
+    HAL_Delay(ms);
+    //delayms_timer(ms);
     #endif
 }
 void OLED_Confi(void) {
@@ -538,7 +571,55 @@ void OLED_Confi(void) {
     OLED_setOutputStream(0);    //配置第1个OLED
     OLED_moduleInit();
     OLED_moduleCursor(0, 0);    //设置光标和屏幕方向, 在初始化函数中已经配置过, 单独分离出来方便修改
-    OLED_moduleFlip(0, 0);
+    OLED_moduleFlip(1, 1);
     OLED_clearScreen();         //清空屏幕
     OLED_moduleOn();            //开启屏幕显示
+    OLED_setOutputStream(1);
+    OLED_moduleInit();
+    OLED_moduleCursor(0, 0);
+    OLED_moduleFlip(1, 1);
+    OLED_clearScreen();
+    OLED_moduleOn();
+    OLED_setOutputStream(2);
+    OLED_moduleInit();
+    OLED_moduleCursor(0, 0);
+    OLED_moduleFlip(1, 1);
+    OLED_clearScreen();
+    OLED_moduleOn();
+    OLED_setOutputStream(3);
+    OLED_moduleInit();
+    OLED_moduleCursor(0, 0);
+    OLED_moduleFlip(0, 0);
+    OLED_clearScreen();
+    OLED_moduleOn();
+    OLED_setOutputStream(4);
+    OLED_moduleInit();
+    OLED_moduleCursor(0, 0);
+    OLED_moduleFlip(0, 0);
+    OLED_clearScreen();
+    OLED_moduleOn();
+    OLED_setOutputStream(5);
+    OLED_moduleInit();
+    OLED_moduleCursor(0, 0);
+    OLED_moduleFlip(0, 0);
+    OLED_clearScreen();
+    OLED_moduleOn();
+    OLED_setOutputStream(6);
+    OLED_moduleInit();
+    OLED_moduleCursor(0, 0);
+    OLED_moduleFlip(0, 0);
+    OLED_clearScreen();
+    OLED_moduleOn();
+    OLED_setOutputStream(7);
+    OLED_moduleInit();
+    OLED_moduleCursor(0, 0);
+    OLED_moduleFlip(0, 0);
+    OLED_clearScreen();
+    OLED_moduleOn();
+    OLED_setOutputStream(8);
+    OLED_moduleInit();
+    OLED_moduleCursor(0, 0);
+    OLED_moduleFlip(1, 1);
+    OLED_clearScreen();
+    OLED_moduleOn();
 }

@@ -23,6 +23,7 @@ typedef struct {
     void (*delayus)(int16_t us);
 }I2C_AnalogTypedef;
 
-int8_t MODULAR_I2CWriteByte(I2C_AnalogTypedef, uint8_t, uint32_t, int8_t);
-int8_t MODULAR_I2CWrite(I2C_AnalogTypedef, uint8_t, uint8_t *, uint16_t, uint32_t, int8_t);
+int8_t MODULAR_I2CWriteByte(I2C_AnalogTypedef *, uint8_t, uint32_t, int8_t);
+int8_t MODULAR_I2CWrite(I2C_AnalogTypedef *, uint8_t, uint8_t *, uint16_t, uint32_t, int8_t);
+int8_t MODULAR_I2CWrite(I2C_AnalogTypedef *, uint8_t, uint8_t *, uint16_t, uint32_t, int8_t);
 #endif
