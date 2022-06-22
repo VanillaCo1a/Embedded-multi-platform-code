@@ -1,7 +1,6 @@
 #ifndef __DS18B20_H
 #define __DS18B20_H
 #include "device.h"
-#include "timer.h"
 #define DS18B20_NUM 1
 typedef enum {
     PARASITIC,

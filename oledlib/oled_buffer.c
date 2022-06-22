@@ -29,14 +29,14 @@ int8_t getBufferPart(void) {
 }
 //在输入的缓冲区中清除数据
 void clearBufferPart(int8_t part, uint8_t val) {
-    memset(screenBuffer[part],val,sizeof(screenBuffer));
+    memset(screenBuffer[part],val,sizeof(screenBuffer[part]));
 }
 
 
 ////////////////////////////////////////////////////////////////////////////
 //在程序选中的缓冲区中清除数据
 void clearBuffer(uint8_t val) {
-    memset(screenBuffer[getBufferPart()],val,sizeof(screenBuffer));
+    memset(screenBuffer[getBufferPart()],val,sizeof(screenBuffer[getBufferPart()]));
 }
 //从选中的缓冲区中读取8位数据
 uint8_t readByteBuffer(int32_t page, int32_t x) {

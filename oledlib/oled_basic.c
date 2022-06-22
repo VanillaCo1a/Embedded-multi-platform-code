@@ -17,7 +17,7 @@ extern uint32_t OledTimeMs;
 
 //清空当前缓存区
 void OLED_clearBuffer(void) {
-    clearBuffer(0);
+    clearBuffer(0x00);
 }
 //更新屏幕 注意此处特指刷新当前设定的屏幕数组
 void OLED_updateScreen(void) {

@@ -3,23 +3,25 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define I2CBUS_DELAY 1           //延时自身耗时1us
-#define I2CHS_SCL_HIGH_TIME 0    //I2C高速模式
-#define I2CHS_SCL_LOW_TIME 0
-#define I2CFP_SCL_HIGH_TIME 2 - I2CBUS_DELAY    //I2C快速模式plus
-#define I2CFP_SCL_LOW_TIME 0
-#define I2CFM_SCL_HIGH_TIME 2 - I2CBUS_DELAY    //I2C快速模式
-#define I2CFM_SCL_LOW_TIME 2 - I2CBUS_DELAY
-#define I2CSM_SCL_HIGH_TIME 8 - I2CBUS_DELAY    //I2C标准模式
-#define I2CSM_SCL_LOW_TIME 2 - I2CBUS_DELAY
-#define I2CLS_SCL_HIGH_TIME 98 - I2CBUS_DELAY    //I2C低速模式
-#define I2CLS_SCL_LOW_TIME 2 - I2CBUS_DELAY
-// #define I2CBUS_TIMEOUT        //是否启用时钟拉伸
-// #define I2CBUS_ARBITRATION    //是否启用总线仲裁
-// #define I2CBUS_EXCEPTION    //读取从机应答信号后, 是否进行处理
+#define TIMER_DELAY 1    //延时自身耗时1us
+
+#define I2CLS_SCL_HIGH_TIME  3     //I2C低速模式
+#define I2CLS_SCL_LOW_TIME   97    //
+#define I2CSM_SCL_HIGH_TIME  3     //I2C标准模式
+#define I2CSM_SCL_LOW_TIME   7     //
+#define I2CFM_SCL_HIGH_TIME  3     //I2C快速模式
+#define I2CFM_SCL_LOW_TIME   1     //
+#define I2CFMP_SCL_HIGH_TIME 1     //I2C快速模式plus
+#define I2CFMP_SCL_LOW_TIME  1     //FMP以上需要保证SCL低电平期间SDA有足够的时间(或更大的电流)上拉, 实测1k上拉基本稳定
+#define I2CHS_SCL_HIGH_TIME  0     //I2C高速模式
+#define I2CHS_SCL_LOW_TIME   0     //仍需要0.5us左右的延时
+#define I2CUFM_SCL_HIGH_TIME 0     //I2C超快模式
+#define I2CUFM_SCL_LOW_TIME  0     //仍需要0.3us左右的延时
+
+#define I2CBUS_EXCEPTION 0    //读取从机应答信号异常后的处理方式
 
 #define SPIBUS_SCLK_HIGH_TIME 0
-#define SPIBUS_SCLK_LOW_TIME 0
+#define SPIBUS_SCLK_LOW_TIME  0
 
 typedef enum {
     LOW,
@@ -35,14 +37,28 @@ typedef enum {
     SDA
 } I2CBUS_WireTypeDef;
 typedef enum {
-    I2CBUS_LOWSPEED,     //10kbps
-    I2CBUS_STANDARD,     //100kbps
-    I2CBUS_FAST,         //400kbps
-    I2CBUS_FASTPLUS,     //1Mbps
-    I2CBUS_HIGHSPEED,    //3.4Mbps
-    // I2CBUS_ULTRAFAST,    //5Mbps
+    I2CBUS_LOWSPEED,        //MAX10kbps
+    I2CBUS_STANDARD,        //MAX100kbps
+    I2CBUS_FASTMODE,        //MAX400kbps
+    I2CBUS_FASTMODEPLUS,    //MAX1Mbps
+    I2CBUS_HIGHSPEED,       //MAX3.4Mbps, 由于电阻上拉需要约1us, IO浮空输出在这一频率下工作不稳定且速度存在瓶颈
+    I2CBUS_ULTRAFAST,       //MAX5Mbps
 } I2CBUS_SpeedTypeDef;
-typedef struct {    //I2C模拟总线结构体
+typedef enum {
+    I2CBUS_NOERROR = 0,
+    I2CBUS_TIMEOUT = 1,
+    I2CBUS_ARBITRATION = 2,
+    I2CBUS_NOACK = 3,
+    I2CBUS_NOFOUND = 4,
+    I2CBUS_NOANSWER = 5,
+} I2CBUS_ErrorTypeDef;
+typedef enum {
+    I2CBUS_LEVER1 = 0,    //当从机未响应超时, 时钟拉伸超时, 发生总线仲裁时均进入错误处理函数
+    I2CBUS_LEVER0 = 1,    //无需从机应答, 在时钟拉伸超时后继续读写下一位, 无视发生的总线仲裁
+} I2CBUS_ErrhandTypeDef;
+typedef struct {          //I2C模拟总线结构体
+    bool clockstretch;    //是否启用时钟拉伸
+    bool arbitration;     //是否启用总线仲裁
 #ifdef I2CBUS_USEPOINTER
     void (*SCL_Set)(bool);
     void (*SDA_Set)(bool);
@@ -56,11 +72,11 @@ typedef struct {    //I2C模拟总线结构体
     int8_t (*delayus_paral)(uint16_t us);
 #endif    // I2CBUS_USEPOINTER
 } I2C_SoftHandleTypeDef;
-typedef struct {                  //I2C通信模块结构体
-    uint8_t addr;                 //模块I2C地址
-    int8_t wait;                  //模块是否必须响应
-    I2CBUS_SpeedTypeDef speed;    //模块I2C速率
-    void *bushandle;              //I2C模拟/硬件总线句柄
+typedef struct {                      //I2C总线设备结构体
+    uint8_t addr;                     //模块I2C地址
+    I2CBUS_SpeedTypeDef speed;        //模块I2C速率
+    I2CBUS_ErrhandTypeDef errhand;    //模块的错误处理方式
+    void *bushandle;                  //I2C模拟/硬件总线句柄
 } I2C_ModuleHandleTypeDef;
 ////////////////////////////////////////////////////////////////////////////
 typedef enum {
@@ -80,7 +96,7 @@ typedef struct {    //SPI模拟总线结构体
     int8_t (*delayus_paral)(uint16_t us);
 #endif    //SPIBUS_USEPOINTER
 } SPI_SoftHandleTypeDef;
-typedef struct {        //SPI通信模块结构体
+typedef struct {        //SPI总线模块结构体
     uint8_t rwtype;     //设备读写类型
     void *bushandle;    //SPI模拟/硬件总线句柄
 } SPI_ModuleHandleTypeDef;
@@ -98,11 +114,37 @@ typedef struct {           //ONEWIRE模拟总线结构体
     int8_t (*delayus_paral)(uint16_t us);
 #endif    // OWREBUS_USEPOINTER
 } ONEWIRE_SoftHandleTypeDef;
-typedef struct {        //ONEWIRE通信模块结构体
+typedef struct {
     uint64_t rom;       //模块64位ROM编码
     void *bushandle;    //ONEWIRE总线句柄
 } ONEWIRE_ModuleHandleTypeDef;
 
+
+////////////////////////////////////////////////////////////////////////////
+#ifdef DEVICE_I2C_SOFTWARE_ENABLED
+#if defined(I2CBUS_USEPOINTER)
+#define I2CBUS_SCL_Set(dir)      i2cbus.SCL_Set(dir)
+#define I2CBUS_SDA_Set(dir)      i2cbus.SDA_Set(dir)
+#define I2CBUS_SCL_Out(pot)      i2cbus.SCL_Out(pot)
+#define I2CBUS_SDA_Out(pot)      i2cbus.SDA_Out(pot)
+#define I2CBUS_SCL_In()          i2cbus.SCL_In()
+#define I2CBUS_SDA_In()          i2cbus.SDA_In()
+#define I2CBUS_Error(err)        i2cbus.error(err)
+#define I2CBUS_Delayus(us)       ({if(us) {i2cbus.delayus(us-TIMER_DELAY);} })
+#define I2CBUS_Delayms(ms)       ({if(ms) {i2cbus.delayms(ms);} })
+#define I2CBUS_Delayus_paral(us) i2cbus.delayus_paral(us)
+#else
+#define I2CBUS_SCL_Set(dir)      DEVCMNI_SCL_Set(dir)
+#define I2CBUS_SDA_Set(dir)      DEVCMNI_SDA_OWRE_Set(dir)
+#define I2CBUS_SCL_Out(pot)      DEVCMNI_SCL_SCK_Out(pot)
+#define I2CBUS_SDA_Out(pot)      DEVCMNI_SDA_SDI_OWRE_Out(pot)
+#define I2CBUS_SCL_In()          DEVCMNI_SCL_In()
+#define I2CBUS_SDA_In()          DEVCMNI_SDA_OWRE_In()
+#define I2CBUS_Error(err)        DEVCMNI_Error(err)
+#define I2CBUS_Delayus(us)       ({if(us) {DEVCMNI_Delayus(us-TIMER_DELAY);} })
+#define I2CBUS_Delayms(ms)       ({if(ms) {DEVCMNI_Delayms(ms);} })
+#define I2CBUS_Delayus_paral(us) DEVCMNI_Delayus_paral(us)
+#endif    // I2CBUS_USEPOINTER
 void DEVCMNI_SCL_Set(bool dir);
 void DEVCMNI_SDA_OWRE_Set(bool dir);
 void DEVCMNI_SCL_SCK_Out(bool pot);
@@ -116,397 +158,614 @@ void DEVCMNI_Delayus(uint16_t us);
 void DEVCMNI_Delayms(uint16_t ms);
 int8_t DEVCMNI_Delayus_paral(uint16_t us);
 ////////////////////////////////////////////////////////////////////////////
-#ifdef DEVICE_I2C_SOFTWARE_ENABLED
-#if defined(I2CBUS_USEPOINTER)
-#define I2CBUS_SCL_Set(dir) ((I2C_SoftHandleTypeDef *)modular->bushandle)->SCL_Set(dir)
-#define I2CBUS_SDA_Set(dir) ((I2C_SoftHandleTypeDef *)modular->bushandle)->SDA_Set(dir)
-#define I2CBUS_SCL_Out(pot) ((I2C_SoftHandleTypeDef *)modular->bushandle)->SCL_Out(pot)
-#define I2CBUS_SDA_Out(pot) ((I2C_SoftHandleTypeDef *)modular->bushandle)->SDA_Out(pot)
-#define I2CBUS_SCL_In() ((I2C_SoftHandleTypeDef *)modular->bushandle)->SCL_In()
-#define I2CBUS_SDA_In() ((I2C_SoftHandleTypeDef *)modular->bushandle)->SDA_In()
-#define I2CBUS_ERROR(err) ((I2C_SoftHandleTypeDef *)modular->bushandle)->error(err)
-#define I2CBUS_Delayus(us) ({if(us) {((I2C_SoftHandleTypeDef *)modular->bushandle)->delayus(us);} })
-#define I2CBUS_Delayms(ms) ({if(ms) {((I2C_SoftHandleTypeDef *)modular->bushandle)->delayms(ms);} })
-#define I2CBUS_Delayus_paral(us) ((I2C_SoftHandleTypeDef *)modular->bushandle)->delayus_paral(us)
-#else
-#define I2CBUS_SCL_Set(dir) DEVCMNI_SCL_Set(dir)
-#define I2CBUS_SDA_Set(dir) DEVCMNI_SDA_OWRE_Set(dir)
-#define I2CBUS_SCL_Out(pot) DEVCMNI_SCL_SCK_Out(pot)
-#define I2CBUS_SDA_Out(pot) DEVCMNI_SDA_SDI_OWRE_Out(pot)
-#define I2CBUS_SCL_In() DEVCMNI_SCL_In()
-#define I2CBUS_SDA_In() DEVCMNI_SDA_OWRE_In()
-#define I2CBUS_ERROR(err) DEVCMNI_Error(err)
-#define I2CBUS_Delayus(us) ({if(us) {DEVCMNI_Delayus(us);} })
-#define I2CBUS_Delayms(ms) ({if(ms) {DEVCMNI_Delayms(ms);} })
-#define I2CBUS_Delayus_paral(us) DEVCMNI_Delayus_paral(us)
-#endif    // I2CBUS_USEPOINTER
-//todo: 根据不同平台设置延时时间/根据输入频率计算延迟时间
-static uint8_t I2CBUS_SCL_LOW_TIME = 0, I2CBUS_SCL_HIGH_TIME = 0, I2CBUS_SCL_TIMEOUT = 0;
-//todo: 当发送一字节数据后从机未响应的处理机制
-static inline int8_t I2CBUS_Init(I2C_ModuleHandleTypeDef *modular, uint32_t timeout) {
-    if(modular->speed == I2CBUS_HIGHSPEED) {
-        I2CBUS_SCL_HIGH_TIME = I2CHS_SCL_HIGH_TIME;
-        I2CBUS_SCL_LOW_TIME = I2CHS_SCL_LOW_TIME;
-    } else if(modular->speed == I2CBUS_FASTPLUS) {
-        I2CBUS_SCL_HIGH_TIME = I2CFP_SCL_HIGH_TIME;
-        I2CBUS_SCL_LOW_TIME = I2CFP_SCL_LOW_TIME;
-    } else if(modular->speed == I2CBUS_FAST) {
-        I2CBUS_SCL_HIGH_TIME = I2CFM_SCL_HIGH_TIME;
-        I2CBUS_SCL_LOW_TIME = I2CFM_SCL_LOW_TIME;
+static uint32_t I2CBUS_scl_lowtime = 0, I2CBUS_scl_hightime = 0, I2CBUS_timeout = 0;
+static I2CBUS_ErrorTypeDef i2cerror = I2CBUS_NOERROR;
+static I2C_SoftHandleTypeDef i2cbus = {.clockstretch = true, .arbitration = true};
+static I2C_ModuleHandleTypeDef i2cmodular = {.addr = 0x00, .speed = I2CBUS_STANDARD, .errhand = I2CBUS_LEVER1, .bushandle = &i2cbus};
+static int8_t I2CBUS_Init(I2C_ModuleHandleTypeDef *modular, uint32_t timeout) {
+    i2cmodular = *modular;
+    i2cbus = *((I2C_SoftHandleTypeDef *)modular->bushandle);
+    i2cerror = I2CBUS_NOERROR;
+    if(i2cmodular.speed >= I2CBUS_ULTRAFAST) {
+        i2cmodular.errhand = I2CBUS_LEVER0;
+        i2cbus.clockstretch = false;
+        i2cbus.arbitration = false;
+    }
+    //todo: 根据不同平台设置延时时间/根据输入频率计算延迟时间
+    if(modular->speed == I2CBUS_ULTRAFAST) {
+        I2CBUS_scl_hightime = I2CUFM_SCL_HIGH_TIME;
+        I2CBUS_scl_lowtime = I2CUFM_SCL_LOW_TIME;
+    } else if(modular->speed == I2CBUS_HIGHSPEED) {
+        I2CBUS_scl_hightime = I2CHS_SCL_HIGH_TIME;
+        I2CBUS_scl_lowtime = I2CHS_SCL_LOW_TIME;
+    } else if(modular->speed == I2CBUS_FASTMODEPLUS) {
+        I2CBUS_scl_hightime = I2CFMP_SCL_HIGH_TIME;
+        I2CBUS_scl_lowtime = I2CFMP_SCL_LOW_TIME;
+    } else if(modular->speed == I2CBUS_FASTMODE) {
+        I2CBUS_scl_hightime = I2CFM_SCL_HIGH_TIME;
+        I2CBUS_scl_lowtime = I2CFM_SCL_LOW_TIME;
     } else if(modular->speed == I2CBUS_STANDARD) {
-        I2CBUS_SCL_HIGH_TIME = I2CSM_SCL_HIGH_TIME;
-        I2CBUS_SCL_LOW_TIME = I2CSM_SCL_LOW_TIME;
+        I2CBUS_scl_hightime = I2CSM_SCL_HIGH_TIME;
+        I2CBUS_scl_lowtime = I2CSM_SCL_LOW_TIME;
     } else if(modular->speed == I2CBUS_LOWSPEED) {
-        I2CBUS_SCL_HIGH_TIME = I2CLS_SCL_HIGH_TIME;
-        I2CBUS_SCL_LOW_TIME = I2CLS_SCL_LOW_TIME;
+        I2CBUS_scl_hightime = I2CLS_SCL_HIGH_TIME;
+        I2CBUS_scl_lowtime = I2CLS_SCL_LOW_TIME;
     }
-    I2CBUS_SCL_TIMEOUT = timeout > I2CBUS_SCL_HIGH_TIME ? timeout : I2CBUS_SCL_HIGH_TIME;
-    //初始化总线
-    I2CBUS_SCL_Out(HIGH);
-    I2CBUS_SDA_Out(HIGH);
-    I2CBUS_SCL_Set(IN);
-    I2CBUS_SDA_Set(IN);
-    if(I2CBUS_SCL_In() != HIGH || I2CBUS_SDA_In() != HIGH) {
-        return 1;    //若总线没有被释放, 返回错误值
-    }
-    I2CBUS_SCL_Set(OUT);
-    I2CBUS_SDA_Set(OUT);
-    I2CBUS_SCL_Out(LOW);
+    I2CBUS_timeout = timeout;
+
     return 0;
 }
-static inline void I2CBUS_Arbitration(I2C_ModuleHandleTypeDef *modular) {
-    I2CBUS_ERROR(1);
-}
-static inline void I2CBUS_Start(I2C_ModuleHandleTypeDef *modular) {
-    //在时钟线置高时, 数据线上的一个下降沿表示开始传输数据
-    I2CBUS_SDA_Out(HIGH);    //拉高数据线, 进行准备
-    I2CBUS_Delayus(I2CBUS_SCL_LOW_TIME);
-    I2CBUS_SCL_Out(HIGH);    //拉高时钟线
-#ifdef I2CBUS_TIMEOUT
-    I2CBUS_SCL_Set(IN);
-    while(!I2CBUS_Delayus_paral(I2CBUS_SCL_TIMEOUT))
-        if(I2CBUS_SCL_In())
-            break;
-    I2CBUS_SCL_Set(OUT);
-#endif    // I2CBUS_TIMEOUT
-#ifdef I2CBUS_ARBITRATION
-    I2CBUS_SDA_Set(IN);
-    if(!I2CBUS_SDA_In()) {
-        I2CBUS_Arbitration(modular);
+/* 以下的整个持续读写过程为原子操作, 每个函数(除Start())开始前与(除Stop())结束后总是有: SCL,SDA为IO输出模式, SCL为未释放状态(置低) */
+/* 对于进一步切割, 使同一条总线上的读写操作可以并行运行的工作, 还有待探究 */
+__STATIC_INLINE bool I2CBUS_ClockStetch(void) {    //时钟拉伸判断函数
+    if(i2cmodular.errhand == I2CBUS_LEVER0) {      //直接写下一位
+        return 0;
+    } else if(i2cmodular.errhand == I2CBUS_LEVER1) {    //等待时钟线释放直至超时
+        I2CBUS_SCL_Set(IN);
+        while(!I2CBUS_SCL_In()) {
+            if(I2CBUS_Delayus_paral(I2CBUS_timeout)) {
+                I2CBUS_SCL_Set(OUT);
+                I2CBUS_SDA_Out(HIGH);    //退出进行错误处理前, 释放数据线
+                i2cerror = I2CBUS_TIMEOUT;
+                return 1;
+            }
+        }
+        I2CBUS_SCL_Set(OUT);
     }
-    I2CBUS_SDA_Set(OUT);
-#endif                      // I2CBUS_ARBITRATION
-    I2CBUS_SDA_Out(LOW);    //拉低数据线, 产生一个下降沿
-    I2CBUS_Delayus(I2CBUS_SCL_HIGH_TIME);
-    I2CBUS_SCL_Out(LOW);    //拉低时钟线
+    return 0;
 }
-static inline void I2CBUS_Stop(I2C_ModuleHandleTypeDef *modular) {
-    //在时钟线置高时, 数据线上的一个上升沿表示停止传输数据
-    I2CBUS_SDA_Out(LOW);    //拉低数据线, 进行准备
-    I2CBUS_Delayus(I2CBUS_SCL_LOW_TIME);
-    I2CBUS_SCL_Out(HIGH);    //拉高时钟线
-#ifdef I2CBUS_TIMEOUT
-    I2CBUS_SCL_Set(IN);
-    while(!I2CBUS_Delayus_paral(I2CBUS_SCL_TIMEOUT))
-        if(I2CBUS_SCL_In())
-            break;
-    I2CBUS_SCL_Set(OUT);
-#endif                       // I2CBUS_TIMEOUT
-    I2CBUS_SDA_Out(HIGH);    //拉高数据线, 产生一个上升沿
-    I2CBUS_Delayus(I2CBUS_SCL_HIGH_TIME);
-#ifdef I2CBUS_ARBITRATION
-    I2CBUS_SDA_Set(IN);
-    if(!I2CBUS_SDA_In()) {
-        I2CBUS_Arbitration(modular);
+__STATIC_INLINE bool I2CBUS_BusArbitration(void) {    //总线仲裁判断函数
+    if(i2cmodular.errhand == I2CBUS_LEVER0) {         //直接写下一位
+        return 0;
+    } else if(i2cmodular.errhand == I2CBUS_LEVER1) {    //等待数据线释放直至超时
+        I2CBUS_SDA_Set(IN);
+        while(!I2CBUS_SDA_In()) {
+            if(I2CBUS_Delayus_paral(I2CBUS_timeout)) {
+                I2CBUS_SDA_Set(OUT);
+                I2CBUS_SCL_Out(HIGH);    //退出进行错误处理前, 释放时钟线
+                i2cerror = I2CBUS_ARBITRATION;
+                return 1;
+            }
+        }
+        I2CBUS_SDA_Set(OUT);
     }
-    I2CBUS_SDA_Set(OUT);
-#endif    // I2CBUS_ARBITRATION
+    return 0;
 }
-static inline void I2CBUS_WriteBit(I2C_ModuleHandleTypeDef *modular, bool bit) {
-    //写1位数据
-    //I2C通信建立后, 在时钟线拉低期间, 数据线可进行操作, 主机写数据; 时钟线拉高期间, 数据不可进行操作, 从机读数据
-    I2CBUS_SDA_Out(bit);    //写数据至数据线
-    I2CBUS_Delayus(I2CBUS_SCL_LOW_TIME);
-    I2CBUS_SCL_Out(HIGH);    //拉高时钟线并保持一段时间, 等待从机读取
-    I2CBUS_Delayus(I2CBUS_SCL_HIGH_TIME);
-#ifdef I2CBUS_TIMEOUT
-    I2CBUS_SCL_Set(IN);
-    while(!I2CBUS_Delayus_paral(I2CBUS_SCL_TIMEOUT))
-        if(I2CBUS_SCL_In())
-            break;
-    I2CBUS_SCL_Set(OUT);
-#endif    // I2CBUS_TIMEOUT
-#ifdef I2CBUS_ARBITRATION
-    I2CBUS_SDA_Set(IN);
-    if(bit && !I2CBUS_SDA_In()) {
-        I2CBUS_Arbitration(modular);
+static void I2CBUS_Start_(void);
+static void I2CBUS_Stop_(void);
+static bool I2CBUS_SlaveWaiting(void) {    //从机响应判断函数
+    if(i2cmodular.errhand == I2CBUS_LEVER0) {       //直接写下一字节
+        return 0;
+    } else if(i2cmodular.errhand == I2CBUS_LEVER1) {    //等待从机响应直至超时
+        while(I2CBUS_SDA_In()) {
+            if(I2CBUS_Delayus_paral(I2CBUS_timeout)) {
+                I2CBUS_SDA_Set(OUT);
+                /* 可能导致从机未响应的原因:
+                1.时钟太快, 从机跟不上未及时下拉数据线, 导致未响应
+                2.时钟线被强上拉, 从机察觉不到时序, 间接导致未响应
+                3.数据线被强上拉, 从机无法下拉数据线, 直接导致未响应
+                尝试使用释放时钟线以结束至错误处理 */
+                I2CBUS_SCL_Out(HIGH);    //退出进行错误处理前, 释放时钟线
+                i2cerror = I2CBUS_NOACK;
+                return 1;
+            }
+        }
     }
-    I2CBUS_SDA_Set(OUT);
-#endif                      // I2CBUS_ARBITRATION
-    I2CBUS_SCL_Out(LOW);    //拉低时钟线
+    return 0;
 }
-static inline bool I2CBUS_ReadBit(I2C_ModuleHandleTypeDef *modular) {
-    //读1位数据
-    //I2C通信建立后, 在时钟线拉低期间, 数据线可进行操作, 从机写数据; 时钟线拉高期间, 数据不可进行操作, 主机读数据
+static void I2CBUS_Start(void) {
+    /* 在时钟线置高时, 数据线上的一个下降沿表示开始传输数据 */
+    I2CBUS_SCL_Out(LOW);
+    I2CBUS_SDA_Out(HIGH);
+    I2CBUS_Delayus(I2CBUS_scl_lowtime);        //时钟线置低期间等待数据线电位稳定
+    __NOP();                                   //tofix:将短暂的暂停优化到延时函数内
+    __NOP();                                   //
+    __NOP();                                   //
+    __NOP();                                   //
+    __NOP();                                   //
+    if(I2CBUS_BusArbitration()) { return; }    //总线仲裁判断, 若发现数据线没有被如期置高, 则进行仲裁处理
+    I2CBUS_SCL_Out(HIGH);                      //
+    I2CBUS_Delayus(I2CBUS_scl_hightime);       //时钟线拉高后等待电位稳定
+    __NOP();                                   //tofix:将短暂的暂停优化到延时函数内
+    __NOP();                                   //
+    __NOP();                                   //
+    __NOP();                                   //
+    __NOP();                                   //
+    if(I2CBUS_ClockStetch()) { return; }       //时钟拉伸判断, 若发现时钟线没有被如期置高, 则等待直至超时进行超时处理
+    I2CBUS_SDA_Out(LOW);                       //拉低数据线, 产生一个下降沿
+    I2CBUS_Delayus(I2CBUS_scl_hightime);       //时钟线置高期间等待数据线电位稳定
+    __NOP();                                   //tofix:将短暂的暂停优化到延时函数内
+    __NOP();                                   //
+    __NOP();                                   //
+    __NOP();                                   //
+    __NOP();                                   //
+    I2CBUS_SCL_Out(LOW);                       //拉低时钟线
+}
+static void I2CBUS_Stop(void) {
+    /* 在时钟线置高时, 数据线上的一个上升沿表示停止传输数据 */
+    I2CBUS_SDA_Out(LOW);                       //拉低数据线, 进行准备
+    I2CBUS_Delayus(I2CBUS_scl_lowtime);        //时钟线置低期间等待数据线电位稳定
+    __NOP();                                   //tofix:将短暂的暂停优化到延时函数内
+    __NOP();                                   //
+    __NOP();                                   //
+    __NOP();                                   //
+    __NOP();                                   //
+    I2CBUS_SCL_Out(HIGH);                      //拉高时钟线
+    I2CBUS_Delayus(I2CBUS_scl_hightime);       //时钟线拉高后等待电位稳定
+    __NOP();                                   //tofix:将短暂的暂停优化到延时函数内
+    __NOP();                                   //
+    __NOP();                                   //
+    __NOP();                                   //
+    __NOP();                                   //
+    if(I2CBUS_ClockStetch()) { return; }       //时钟拉伸判断, 若发现时钟线没有被如期置高, 则等待直至超时进行超时处理
+    I2CBUS_SDA_Out(HIGH);                      //拉高数据线, 产生一个上升沿
+    I2CBUS_Delayus(I2CBUS_scl_hightime);       //时钟线置高期间等待数据线电位稳定
+    __NOP();                                   //tofix:将短暂的暂停优化到延时函数内
+    __NOP();                                   //
+    __NOP();                                   //
+    __NOP();                                   //
+    __NOP();                                   //
+    if(I2CBUS_BusArbitration()) { return; }    //总线仲裁判断, 若发现数据线没有被如期置高, 则进行仲裁处理
+}
+static void I2CBUS_Start_(void) {
+    /* 在时钟线置高时, 数据线上的一个下降沿表示开始传输数据 */
+    I2CBUS_SCL_Out(LOW);
+    I2CBUS_SDA_Out(HIGH);
+    I2CBUS_Delayus(I2CBUS_scl_lowtime);     //时钟线置低期间等待数据线电位稳定
+    __NOP();                                //tofix:将短暂的暂停优化到延时函数内
+    __NOP();                                //
+    __NOP();                                //
+    __NOP();                                //
+    __NOP();                                //
+    I2CBUS_SCL_Out(HIGH);                   //
+    I2CBUS_Delayus(I2CBUS_scl_hightime);    //时钟线拉高后等待电位稳定
+    __NOP();                                //tofix:将短暂的暂停优化到延时函数内
+    __NOP();                                //
+    __NOP();                                //
+    __NOP();                                //
+    __NOP();                                //
+    I2CBUS_SDA_Out(LOW);                    //拉低数据线, 产生一个下降沿
+    I2CBUS_Delayus(I2CBUS_scl_hightime);    //时钟线置高期间等待数据线电位稳定
+    __NOP();                                //tofix:将短暂的暂停优化到延时函数内
+    __NOP();                                //
+    __NOP();                                //
+    __NOP();                                //
+    __NOP();                                //
+    I2CBUS_SCL_Out(LOW);                    //拉低时钟线
+}
+static void I2CBUS_Stop_(void) {
+    /* 在时钟线置高时, 数据线上的一个上升沿表示停止传输数据 */
+    I2CBUS_SDA_Out(LOW);                    //拉低数据线, 进行准备
+    I2CBUS_Delayus(I2CBUS_scl_lowtime);     //时钟线置低期间等待数据线电位稳定
+    __NOP();                                //tofix:将短暂的暂停优化到延时函数内
+    __NOP();                                //
+    __NOP();                                //
+    __NOP();                                //
+    __NOP();                                //
+    I2CBUS_SCL_Out(HIGH);                   //拉高时钟线
+    I2CBUS_Delayus(I2CBUS_scl_hightime);    //时钟线拉高后等待电位稳定
+    __NOP();                                //tofix:将短暂的暂停优化到延时函数内
+    __NOP();                                //
+    __NOP();                                //
+    __NOP();                                //
+    __NOP();                                //
+    I2CBUS_SDA_Out(HIGH);                   //拉高数据线, 产生一个上升沿
+    I2CBUS_Delayus(I2CBUS_scl_hightime);    //时钟线置高期间等待数据线电位稳定
+    __NOP();                                //tofix:将短暂的暂停优化到延时函数内
+    __NOP();                                //
+    __NOP();                                //
+    __NOP();                                //
+    __NOP();
+}
+__STATIC_INLINE void I2CBUS_WriteBit(bool bit) {    // 写1位数据
+    /* I2C通信建立后, 在时钟线拉低期间, 数据线可进行操作, 主机写数据; 时钟线拉高期间, 数据不可进行操作, 从机读数据 */
+    I2CBUS_SDA_Out(bit);                              //写数据至数据线
+    I2CBUS_Delayus(I2CBUS_scl_lowtime);               //时钟线置低期间等待数据线电位稳定
+    __NOP();                                          //tofix:将短暂的暂停优化到延时函数内
+    __NOP();                                          //
+    __NOP();                                          //
+    __NOP();                                          //
+    __NOP();                                          //
+    if(bit && I2CBUS_BusArbitration()) { return; }    //总线仲裁判断, 若发现数据线没有被如期置高, 则进行仲裁处理
+    I2CBUS_SCL_Out(HIGH);                             //拉高时钟线并保持一段时间, 等待从机读取
+    I2CBUS_Delayus(I2CBUS_scl_hightime);              //时钟线拉高后等待电位稳定
+    __NOP();                                          //tofix:将短暂的暂停优化到延时函数内
+    __NOP();                                          //
+    __NOP();                                          //
+    __NOP();                                          //
+    __NOP();                                          //
+    if(I2CBUS_ClockStetch()) { return; }              //时钟拉伸判断, 若发现时钟线没有被如期置高, 则等待直至超时进行超时处理
+    I2CBUS_SCL_Out(LOW);                              //拉低时钟线
+}
+__STATIC_INLINE void I2CBUS_WriteBit_(bool bit) {
+    I2CBUS_SDA_Out(bit);
+    I2CBUS_Delayus(I2CBUS_scl_lowtime);
+    __NOP();    //tofix:将短暂的暂停优化到延时函数内
+    __NOP();    //
+    __NOP();    //
+    __NOP();    //
+    __NOP();    //
+    I2CBUS_SCL_Out(HIGH);
+    I2CBUS_Delayus(I2CBUS_scl_hightime);
+    __NOP();    //tofix:将短暂的暂停优化到延时函数内
+    __NOP();    //
+    __NOP();    //
+    __NOP();    //
+    __NOP();    //
+    I2CBUS_SCL_Out(LOW);
+}
+__STATIC_INLINE bool I2CBUS_ReadBit(void) {    // 读1位数据
+    /* I2C通信建立后, 在时钟线拉低期间, 数据线可进行操作, 从机写数据; 时钟线拉高期间, 数据不可进行操作, 主机读数据 */
     bool bit = 0;
-    // I2CBUS_SDA_Out(HIGH);    //释放数据总线
-    // I2CBUS_SDA_Set(IN);      //数据线设置为读取模式
-    I2CBUS_Delayus(I2CBUS_SCL_LOW_TIME);
-    I2CBUS_SCL_Out(HIGH);    //拉高时钟线并保持一段时间, 待数据稳定后读入
-#ifdef I2CBUS_TIMEOUT
-    I2CBUS_SCL_Set(IN);
-    while(!I2CBUS_Delayus_paral(I2CBUS_SCL_TIMEOUT))
-        if(I2CBUS_SCL_In())
-            break;
-    I2CBUS_SCL_Set(OUT);
-#endif    // I2CBUS_TIMEOUT
-    I2CBUS_Delayus(I2CBUS_SCL_HIGH_TIME);
-    bit = I2CBUS_SDA_In();    //从数据线读数据
-    I2CBUS_SCL_Out(LOW);      //拉低时钟线
-    // I2CBUS_SDA_Set(OUT);      //数据线设置为写入模式
+    // I2CBUS_SDA_Out(HIGH);                     //释放数据总线
+    // I2CBUS_SDA_Set(IN);                       //数据线设置为读取模式
+    I2CBUS_Delayus(I2CBUS_scl_lowtime);          //时钟线置低期间等待数据线电位稳定
+    __NOP();                                     //tofix:将短暂的暂停优化到延时函数内
+    __NOP();                                     //
+    __NOP();                                     //
+    __NOP();                                     //
+    __NOP();                                     //
+    I2CBUS_SCL_Out(HIGH);                        //拉高时钟线并保持一段时间, 待数据稳定后读入
+    I2CBUS_Delayus(I2CBUS_scl_hightime);         //时钟线拉高后等待电位稳定
+    __NOP();                                     //tofix:将短暂的暂停优化到延时函数内
+    __NOP();                                     //
+    __NOP();                                     //
+    __NOP();                                     //
+    __NOP();                                     //
+    bit = I2CBUS_SDA_In();                       //自数据线读数据
+    if(I2CBUS_ClockStetch()) { return true; }    //时钟拉伸判断, 若发现时钟线没有被如期置高, 则等待直至超时进行超时处理
+    I2CBUS_SCL_Out(LOW);                         //拉低时钟线
+    // I2CBUS_SDA_Set(OUT);                      //数据线设置为写入模式
     return bit;
 }
-////////////////////////////////////////////////////////////////////////////
-static inline int8_t I2CBUS_WriteByte(I2C_ModuleHandleTypeDef *modular, uint8_t byte) {
-    //写1字节数据, 将数据按位拆分后写入
-    for(uint8_t i = 0x80; i; i >>= 1) {
-        I2CBUS_WriteBit(modular, byte & i ? 1 : 0);
+__STATIC_INLINE bool I2CBUS_ReadBit_(void) {
+    bool bit = 0;
+    // I2CBUS_SDA_Out(HIGH);
+    // I2CBUS_SDA_Set(IN);
+    I2CBUS_Delayus(I2CBUS_scl_lowtime);
+    __NOP();    //tofix:将短暂的暂停优化到延时函数内
+    __NOP();    //
+    __NOP();    //
+    __NOP();    //
+    __NOP();    //
+    I2CBUS_SCL_Out(HIGH);
+    I2CBUS_Delayus(I2CBUS_scl_hightime);
+    __NOP();    //tofix:将短暂的暂停优化到延时函数内
+    __NOP();    //
+    __NOP();    //
+    __NOP();    //
+    __NOP();    //
+    bit = I2CBUS_SDA_In();
+    I2CBUS_SCL_Out(LOW);
+    // I2CBUS_SDA_Set(OUT);
+    return bit;
+}
+static bool I2CBUS_Write(uint8_t *pdata, uint16_t size) {    // 连续写数据, 将数据按位拆分后写入
+    /* 每写入1字节数据后等待从机应答, 写入完毕, 主机释放(即拉高)时钟线和数据线
+     一定时间内若能检测到从机拉低数据线, 说明从机应答正常, 可以继续进行通信; 否则说明从机存在问题, 需要重新建立通信 */
+    bool bit = 0;
+    for(uint16_t j = 0; j < size; j++) {
+        for(uint8_t i = 0x80; i; i >>= 1) {
+            I2CBUS_WriteBit(pdata[j] & i ? 1 : 0);
+            if(i2cerror) { return 1; }    //i2cerror非0, 说明上层因时钟超时/总线仲裁而返回
+        }
+        I2CBUS_SDA_Out(HIGH);    //释放数据总线
+        I2CBUS_SDA_Set(IN);      //数据线设置为读取模式
+        if(I2CBUS_ReadBit()) {
+            if((bit = i2cerror)) { break; }                 //i2cerror非0, 说明上层因时钟超时而返回
+            if((bit = I2CBUS_SlaveWaiting())) { break; }    //从机响应判断, 若发现数据线没有被从机拉低, 则等待直至超时进行未响应处理
+        }
+        I2CBUS_SDA_Set(OUT);
     }
-    I2CBUS_SDA_Out(HIGH);    //释放数据总线
-    I2CBUS_SDA_Set(IN);      //数据线设置为读取模式
-    //每写入1字节数据后等待从机应答, 写入完毕, 主机释放(即拉高)时钟线和数据线.
-    //一定时间内若能检测到从机拉低数据线, 说明从机应答正常, 可以继续进行通信; 否则说明从机存在问题, 需要重新建立通信
-    if(I2CBUS_ReadBit(modular) == 1) {
+    I2CBUS_SDA_Set(OUT);
+    return bit;
+}
+static bool I2CBUS_Write_(uint8_t *pdata, uint16_t size) {
+    bool bit = 0;
+    for(uint16_t j = 0; j < size; j++) {
+        for(uint8_t i = 0x80; i; i >>= 1) {
+            I2CBUS_WriteBit_(pdata[j] & i ? 1 : 0);
+        }
+        I2CBUS_SDA_Out(HIGH);
+        I2CBUS_SDA_Set(IN);
+        if(I2CBUS_ReadBit()) {
+            if((bit = I2CBUS_SlaveWaiting())) { break; }    //从机响应判断, 若发现数据线没有被从机拉低, 则等待直至超时进行未响应处理
+        }
+        I2CBUS_SDA_Set(OUT);
+    }
+    I2CBUS_SDA_Set(OUT);
+    return bit;
+}
+static void I2CBUS_Read(uint8_t *pdata, uint16_t size) {    // 连续读数据, 将数据按位读取后合并
+    /* 每读取1字节数据后主机进行应答, 读取完毕, 从机会释放(即拉高)数据线
+    主机写入1位低电平信号, 表示应答正常, 从机继续进行通信; 主机写入1位高电平信号, 表示不再接收数据, 从机停止通信 */
+    for(uint16_t j = 0; j < size; j++) {
+        I2CBUS_SDA_Out(HIGH);    //释放数据总线
+        I2CBUS_SDA_Set(IN);      //数据线设置为读取模式
+        for(uint8_t i = 0x80; i; i >>= 1) {
+            pdata[j] |= I2CBUS_ReadBit() ? i : 0x00;
+            if(i2cerror) { return; }    //i2cerror非0, 说明上层因时钟超时而返回
+        }
         I2CBUS_SDA_Set(OUT);    //数据线设置为写入模式
-        I2CBUS_Stop(modular);
-        return 1;
-    }
-    return 0;
-}
-static inline uint8_t I2CBUS_ReadByte(I2C_ModuleHandleTypeDef *modular) {
-    //读1字节数据, 将数据按位读取后合并
-    uint8_t byte = 0;
-    I2CBUS_SDA_Out(HIGH);    //释放数据总线
-    I2CBUS_SDA_Set(IN);      //数据线设置为读取模式
-    for(uint8_t i = 0x80; i; i >>= 1) {
-        byte |= I2CBUS_ReadBit(modular) ? i : 0x00;
-    }
-    I2CBUS_SDA_Set(OUT);    //数据线设置为写入模式
-    //每读取1字节数据后主机进行应答, 读取完毕, 从机会释放(即拉高)数据线.
-    //主机写入1位低电平信号, 表示应答正常, 从机继续进行通信; 主机写入1位高电平信号, 表示不再接收数据, 从机停止通信
-    I2CBUS_WriteBit(modular, 0);
-    return byte;
-}
-static inline int8_t I2CBUS_Write(I2C_ModuleHandleTypeDef *modular, uint8_t *pdata, uint16_t size) {
-    for(uint16_t j = 0; j < size; j++) {
-        for(uint8_t i = 0x80; i; i >>= 1) {
-            I2CBUS_WriteBit(modular, pdata[j] & i ? 1 : 0);
-        }
-        I2CBUS_SDA_Out(HIGH);
-        I2CBUS_SDA_Set(IN);
-        if(I2CBUS_ReadBit(modular) == 1) {
-            I2CBUS_SDA_Set(OUT);
-            I2CBUS_Stop(modular);
-            return 1;
+        if(j + 1 < size) {
+            I2CBUS_WriteBit(1);
+            if(i2cerror) { return; }    //i2cerror非0, 说明上层因时钟超时/总线仲裁而返回
+        } else {
+            I2CBUS_WriteBit(0);
         }
     }
-    return 0;
 }
-static inline void I2CBUS_Read(I2C_ModuleHandleTypeDef *modular, uint8_t *pdata, uint16_t size) {
+static void I2CBUS_Read_(uint8_t *pdata, uint16_t size) {
     for(uint16_t j = 0; j < size; j++) {
         I2CBUS_SDA_Out(HIGH);
         I2CBUS_SDA_Set(IN);
         for(uint8_t i = 0x80; i; i >>= 1) {
-            pdata[j] |= I2CBUS_ReadBit(modular) ? i : 0x00;
+            pdata[j] |= I2CBUS_ReadBit_() ? i : 0x00;
         }
         I2CBUS_SDA_Set(OUT);
         if(j + 1 < size) {
-            I2CBUS_WriteBit(modular, 1);
+            I2CBUS_WriteBit_(1);
         } else {
-            I2CBUS_WriteBit(modular, 0);
+            I2CBUS_WriteBit_(0);
         }
     }
 }
 ////////////////////////////////////////////////////////////////////////////
-__attribute__((unused)) static int8_t DEV_I2C_WriteByte(I2C_ModuleHandleTypeDef *modular, uint8_t address, uint8_t byte, int8_t skip, uint32_t timeout) {
+__attribute__((unused)) static int8_t DEV_I2C_TransmitByte(I2C_ModuleHandleTypeDef *modular, uint8_t address, uint8_t *pbyte, int8_t skip, int8_t rw, uint32_t timeout) {
+    /* 单字节读写函数, timeout应答超时,speed速度模式,rw1为读0为写 */
+    uint8_t byte;
     I2CBUS_Init(modular, timeout);
-    I2CBUS_Start(modular);
-    if(I2CBUS_WriteByte(modular, (modular->addr << 1) | 0X00) == 1) {    //发送器件地址+写命令, 将数据按位拆分后写入
-#ifdef I2CBUS_EXCEPTION
-        I2CBUS_ERROR(2);
-#else
+    if(i2cbus.clockstretch || i2cbus.arbitration) {
+        do {
+            I2CBUS_Start();
+            if(i2cerror) { break; }
+            if(skip) {
+                byte = (i2cmodular.addr << 1) | rw;
+                if(I2CBUS_Write(&byte, 1)) {    //发送器件地址+读/写命令
+                    if(i2cerror == I2CBUS_NOACK) { i2cerror = I2CBUS_NOFOUND; }
+                    break;
+                }
+            } else {
+                byte = (i2cmodular.addr << 1) | 0X00;
+                if(I2CBUS_Write(&byte, 1)) {    //发送器件地址+写命令
+                    if(i2cerror == I2CBUS_NOACK) { i2cerror = I2CBUS_NOFOUND; }
+                    break;
+                }
+                if(I2CBUS_Write(&address, 1)) {    //发送寄存器地址
+                    if(i2cerror == I2CBUS_NOACK) { i2cerror = I2CBUS_NOFOUND; }
+                    break;
+                }
+                if(rw) {
+                    I2CBUS_Start();
+                    if(i2cerror) { break; }
+                    byte = (i2cmodular.addr << 1) | 0X01;
+                    if(I2CBUS_Write(&byte, 1)) {    //发送器件地址+读命令
+                        if(i2cerror == I2CBUS_NOACK) { i2cerror = I2CBUS_NOFOUND; }
+                        break;
+                    }
+                }
+            }
+            if(rw) {
+                I2CBUS_Read(pbyte, 1);    //读一个字节
+                if(i2cerror) { break; }
+            } else {
+                if(I2CBUS_Write(pbyte, 1)) {    //写一个字节
+                    if(i2cerror == I2CBUS_NOACK) { i2cerror = I2CBUS_NOANSWER; }
+                    break;
+                }
+            }
+            I2CBUS_Stop();
+            if(i2cerror) { break; }
+            return 0;
+        } while(0);
+        I2CBUS_Error(i2cerror);
         return 1;
-#endif
-    }
-    if(!skip) {
-        if(I2CBUS_WriteByte(modular, address) == 1) {
-#ifdef I2CBUS_EXCEPTION
-            I2CBUS_ERROR(3);
-#else
-            return 1;
-#endif
+    } else {
+        I2CBUS_Start_();
+        if(skip) {
+            byte = (i2cmodular.addr << 1) | rw;
+            if(I2CBUS_Write_(&byte, 1)) {    //发送器件地址+读/写命令
+            }
+        } else {
+            byte = (i2cmodular.addr << 1) | 0X00;
+            if(I2CBUS_Write_(&byte, 1)) {    //发送器件地址+写命令
+            }
+            if(I2CBUS_Write_(&address, 1)) {    //发送寄存器地址
+            }
+            if(rw) {
+                I2CBUS_Start_();
+                byte = (i2cmodular.addr << 1) | 0X01;
+                if(I2CBUS_Write_(&byte, 1)) {    //发送器件地址+读命令
+                }
+            }
         }
+        if(rw) {
+            I2CBUS_Read_(pbyte, 1);    //读一个字节
+        } else {
+            if(I2CBUS_Write_(pbyte, 1)) {    //写一个字节
+            }
+        }
+        I2CBUS_Stop_();
+        return 0;
     }
-    if(I2CBUS_WriteByte(modular, byte) == 1) {    //发送数据
-#ifdef I2CBUS_EXCEPTION
-        I2CBUS_ERROR(3);
-#else
-        return 1;
-#endif
-    }
-    I2CBUS_Stop(modular);
-    return 0;
 }
-__attribute__((unused)) static uint8_t DEV_I2C_ReadByte(I2C_ModuleHandleTypeDef *modular, uint8_t address, int8_t skip, uint32_t timeout) {
-    uint8_t byte = 0;
+__attribute__((unused)) static int8_t DEV_I2C_Transmit(I2C_ModuleHandleTypeDef *modular, uint8_t address, uint8_t *pdata, uint16_t size, int8_t skip, int8_t rw, uint32_t timeout) {
+    /* 多字节读写函数, timeout应答超时,speed速度模式 */
+    uint8_t byte;
     I2CBUS_Init(modular, timeout);
-    if(!skip) {
-        I2CBUS_Start(modular);
-        if(I2CBUS_WriteByte(modular, (modular->addr << 1) | 0X00) == 1) {    //发送器件地址+写命令, 将数据按位拆分后写入
-#ifdef I2CBUS_EXCEPTION
-            I2CBUS_ERROR(2);
-#endif
-        }
-        if(I2CBUS_WriteByte(modular, address) == 1) {
-#ifdef I2CBUS_EXCEPTION
-            I2CBUS_ERROR(3);
-#endif
-        }
-    }
-    I2CBUS_Start(modular);
-    if(I2CBUS_WriteByte(modular, (modular->addr << 1) | 0X01) == 1) {    //发送器件地址+读命令, 将数据按位拆分后写入
-#ifdef I2CBUS_EXCEPTION
-        I2CBUS_ERROR(3);
-#endif
-    }
-    byte = I2CBUS_ReadByte(modular);
-    I2CBUS_Stop(modular);
-    return byte;
-}
-//多字节写入函数, timeout应答超时,speed速度模式
-__attribute__((unused)) static int8_t DEV_I2C_Write(I2C_ModuleHandleTypeDef *modular, uint8_t address, uint8_t *pdata, uint16_t size, int8_t skip, uint32_t timeout) {
-    I2CBUS_Init(modular, timeout);
-    I2CBUS_Start(modular);
-    if(I2CBUS_WriteByte(modular, (modular->addr << 1) | 0X00) == 1) {    //发送器件地址+写命令, 将数据按位拆分后写入
-#ifdef I2CBUS_EXCEPTION
-        I2CBUS_ERROR(2);
-#else
+    if(i2cbus.clockstretch || i2cbus.arbitration) {
+        do {
+            I2CBUS_Start();
+            if(i2cerror) { break; }
+            if(skip) {
+                byte = (i2cmodular.addr << 1) | rw;
+                if(I2CBUS_Write(&byte, 1)) {    //发送器件地址+读/写命令
+                    if(i2cerror == I2CBUS_NOACK) { i2cerror = I2CBUS_NOFOUND; }
+                    break;
+                }
+            } else {
+                byte = (i2cmodular.addr << 1) | 0X00;
+                if(I2CBUS_Write(&byte, 1)) {    //发送器件地址+写命令
+                    if(i2cerror == I2CBUS_NOACK) { i2cerror = I2CBUS_NOFOUND; }
+                    break;
+                }
+                if(I2CBUS_Write(&address, 1)) {    //发送寄存器地址
+                    if(i2cerror == I2CBUS_NOACK) { i2cerror = I2CBUS_NOFOUND; }
+                    break;
+                }
+                if(rw) {
+                    I2CBUS_Start();
+                    if(i2cerror) { break; }
+                    byte = (i2cmodular.addr << 1) | 0X01;
+                    if(I2CBUS_Write(&byte, 1)) {    //发送器件地址+读命令
+                        if(i2cerror == I2CBUS_NOACK) { i2cerror = I2CBUS_NOFOUND; }
+                        break;
+                    }
+                }
+            }
+            if(rw) {
+                I2CBUS_Read(pdata, size);    //连续读取
+                if(i2cerror) { break; }
+            } else {
+                if(I2CBUS_Write(pdata, size)) {    //连续写入
+                    if(i2cerror == I2CBUS_NOACK) { i2cerror = I2CBUS_NOANSWER; }
+                    break;
+                }
+            }
+            I2CBUS_Stop();
+            if(i2cerror) { break; }
+            return 0;
+        } while(0);
+        I2CBUS_Error(i2cerror);
         return 1;
-#endif
-    }
-    if(!skip) {
-        if(I2CBUS_WriteByte(modular, address) == 1) {
-#ifdef I2CBUS_EXCEPTION
-            I2CBUS_ERROR(3);
-#else
-            return 1;
-#endif
-        }
-    }
-    if(I2CBUS_Write(modular, pdata, size) == 1) {
-#ifdef I2CBUS_EXCEPTION
-        I2CBUS_ERROR(3);
-#else
+    } else {
+        do {
+            I2CBUS_Start();
+            if(skip) {
+                byte = (i2cmodular.addr << 1) | rw;
+                if(I2CBUS_Write_(&byte, 1)) {    //发送器件地址+读/写命令
+                    i2cerror = I2CBUS_NOFOUND;
+                    break;
+                }
+            } else {
+                byte = (i2cmodular.addr << 1) | 0X00;
+                if(I2CBUS_Write_(&byte, 1)) {    //发送器件地址+写命令
+                    i2cerror = I2CBUS_NOFOUND;
+                    break;
+                }
+                if(I2CBUS_Write_(&address, 1)) {    //发送寄存器地址
+                    i2cerror = I2CBUS_NOFOUND;
+                    break;
+                }
+                if(rw) {
+                    I2CBUS_Start();
+                    byte = (i2cmodular.addr << 1) | 0X01;
+                    if(I2CBUS_Write_(&byte, 1)) {    //发送器件地址+读命令
+                        i2cerror = I2CBUS_NOFOUND;
+                        break;
+                    }
+                }
+            }
+            if(rw) {
+                I2CBUS_Read_(pdata, size);    //连续读取
+            } else {
+                if(I2CBUS_Write_(pdata, size)) {    //连续写入
+                    i2cerror = I2CBUS_NOFOUND;
+                    break;
+                }
+            }
+            I2CBUS_Stop();
+            return 0;
+        } while(0);
+        I2CBUS_Error(i2cerror);
         return 1;
-#endif
     }
-    I2CBUS_Stop(modular);
-    return 0;
 }
-//多字节读取函数, timeout应答超时,speed速度模式
-__attribute__((unused)) static int8_t DEV_I2C_Read(I2C_ModuleHandleTypeDef *modular, uint8_t address, uint8_t *pdata, uint16_t size, int8_t skip, uint32_t timeout) {
-    I2CBUS_Init(modular, timeout);
-    if(!skip) {
-        I2CBUS_Start(modular);
-        if(I2CBUS_WriteByte(modular, (modular->addr << 1) | 0X00) == 1) {    //发送器件地址+写命令, 将数据按位拆分后写入
-#ifdef I2CBUS_EXCEPTION
-            I2CBUS_ERROR(2);
-#else
-            return 1;
-#endif
-        }
-        if(I2CBUS_WriteByte(modular, address) == 1) {
-#ifdef I2CBUS_EXCEPTION
-            I2CBUS_ERROR(3);
-#else
-            return 1;
-#endif
-        }
-    }
-    I2CBUS_Start(modular);
-    if(I2CBUS_WriteByte(modular, (modular->addr << 1) | 0X01) == 1) {    //发送器件地址+读命令, 将数据按位拆分后写入
-#ifdef I2CBUS_EXCEPTION
-        I2CBUS_ERROR(3);
-#else
-        return 1;
-#endif
-    }
-    I2CBUS_Read(modular, pdata, size);
-    I2CBUS_Stop(modular);
-    return 0;
-}
+#undef I2CBUS_SCL_Set
+#undef I2CBUS_SDA_Set
+#undef I2CBUS_SCL_Out
+#undef I2CBUS_SDA_Out
+#undef I2CBUS_SCL_In
+#undef I2CBUS_SDA_In
+#undef I2CBUS_Error
+#undef I2CBUS_Delayus
+#undef I2CBUS_Delayms
+#undef I2CBUS_Delayus_paral
 #endif    // DEVICE_I2C_SOFTWARE_ENABLED
-
 
 ////////////////////////////////////////////////////////////////////////////
 #ifdef DEVICE_SPI_SOFTWARE_ENABLED
 #if defined(SPIBUS_USEPOINTER)
-#define SPIBUS_SCK_Out(pot) ((SPI_SoftHandleTypeDef *)modular->bushandle)->SCK_Out(pot)
-#define SPIBUS_SDI_Out(pot) ((SPI_SoftHandleTypeDef *)modular->bushandle)->SDI_Out(pot)
-#define SPIBUS_SDO_In() ((SPI_SoftHandleTypeDef *)modular->bushandle)->SDO_In()
-#define SPIBUS_CS_Out(pot) ((SPI_SoftHandleTypeDef *)modular->bushandle)->CS_Out(pot)
-#define SPIBUS_ERROR(err) ((SPI_SoftHandleTypeDef *)modular->bushandle)->error(err)
-#define SPIBUS_delayus(us) ({if(us) {((SPI_SoftHandleTypeDef *)modular->bushandle)->delayus(us);} })
-#define SPIBUS_delayms(ms) ({if(ms) {((SPI_SoftHandleTypeDef *)modular->bushandle)->delayms(ms);} })
+#define SPIBUS_SCK_Out(pot)      ((SPI_SoftHandleTypeDef *)modular->bushandle)->SCK_Out(pot)
+#define SPIBUS_SDI_Out(pot)      ((SPI_SoftHandleTypeDef *)modular->bushandle)->SDI_Out(pot)
+#define SPIBUS_SDO_In()          ((SPI_SoftHandleTypeDef *)modular->bushandle)->SDO_In()
+#define SPIBUS_CS_Out(pot)       ((SPI_SoftHandleTypeDef *)modular->bushandle)->CS_Out(pot)
+#define SPIBUS_ERROR(err)        ((SPI_SoftHandleTypeDef *)modular->bushandle)->error(err)
+#define SPIBUS_delayus(us)       ({if(us) {((SPI_SoftHandleTypeDef *)modular->bushandle)->delayus(us-TIMER_DELAY);} })
+#define SPIBUS_delayms(ms)       ({if(ms) {((SPI_SoftHandleTypeDef *)modular->bushandle)->delayms(ms);} })
 #define SPIBUS_Delayus_paral(us) ((SPI_SoftHandleTypeDef *)modular->bushandle)->delayus_paral(us)
 #else
-#define SPIBUS_SCK_Out(pot) DEVCMNI_SCL_SCK_Out(pot)
-#define SPIBUS_SDI_Out(pot) DEVCMNI_SDA_SDI_OWRE_Out(pot)
-#define SPIBUS_SDO_In() DEVCMNI_SDO_In()
-#define SPIBUS_CS_Out(pot) DEVCMNI_CS_Out(pot)
-#define SPIBUS_ERROR(err) DEVCMNI_Error(err)
-#define SPIBUS_delayus(us) ({if(us) {DEVCMNI_Delayus(us);} })
-#define SPIBUS_delayms(ms) ({if(ms) {DEVCMNI_Delayms(ms);} })
+#define SPIBUS_SCK_Out(pot)      DEVCMNI_SCL_SCK_Out(pot)
+#define SPIBUS_SDI_Out(pot)      DEVCMNI_SDA_SDI_OWRE_Out(pot)
+#define SPIBUS_SDO_In()          DEVCMNI_SDO_In()
+#define SPIBUS_CS_Out(pot)       DEVCMNI_CS_Out(pot)
+#define SPIBUS_ERROR(err)        DEVCMNI_Error(err)
+#define SPIBUS_delayus(us)       ({if(us) {DEVCMNI_Delayus(us-TIMER_DELAY);} })
+#define SPIBUS_delayms(ms)       ({if(ms) {DEVCMNI_Delayms(ms);} })
 #define SPIBUS_Delayus_paral(us) DEVCMNI_Delayus_paral(us)
 #endif    // SPIBUS_USEPOINTER
-static inline void SPIBUS_Init(SPI_ModuleHandleTypeDef *modular) {
-    SPIBUS_CS_Out(HIGH);
-    SPIBUS_SCK_Out(HIGH);
-    SPIBUS_SDI_Out(HIGH);
-    SPIBUS_CS_Out(LOW);
+////////////////////////////////////////////////////////////////////////////
+static void SPIBUS_Init(SPI_ModuleHandleTypeDef *modular) {}
+/* 以下的整个持续读写过程为原子操作, 每个函数(除Start())开始前与(除Stop())结束后总是有: SCK为未释放状态 */
+/* 对于进一步切割, 使同一条总线上的读写操作可以并行运行的工作, 还有待探究 */
+static void SPIBUS_Start(SPI_ModuleHandleTypeDef *modular, int8_t skip) {
+    if(!skip) {    //如果能设置片选, 才初始化总线电位, 否则可能写入多余数据
+        SPIBUS_CS_Out(HIGH);
+        SPIBUS_SDI_Out(HIGH);
+        SPIBUS_delayus(SPIBUS_SCLK_LOW_TIME);
+        SPIBUS_SCK_Out(LOW);
+        SPIBUS_CS_Out(LOW);    //拉低片选
+    }
 }
-static inline void SPIBUS_WriteBit(SPI_ModuleHandleTypeDef *modular, bool bit) {
-    SPIBUS_SCK_Out(LOW);
+static void SPIBUS_Stop(SPI_ModuleHandleTypeDef *modular, int8_t skip) {
+    if(!skip) {
+        SPIBUS_CS_Out(HIGH);    //拉高片选
+        SPIBUS_SDI_Out(HIGH);
+        SPIBUS_delayus(SPIBUS_SCLK_HIGH_TIME);
+        SPIBUS_SCK_Out(HIGH);
+        SPIBUS_delayus(SPIBUS_SCLK_HIGH_TIME);
+    }
+}
+__STATIC_INLINE void SPIBUS_WriteBit(SPI_ModuleHandleTypeDef *modular, bool bit) {
     SPIBUS_SDI_Out(bit);
     SPIBUS_delayus(SPIBUS_SCLK_LOW_TIME);
     SPIBUS_SCK_Out(HIGH);
     SPIBUS_delayus(SPIBUS_SCLK_HIGH_TIME);
-}
-static inline bool SPIBUS_ReadBit(SPI_ModuleHandleTypeDef *modular) {
-    bool bit;
     SPIBUS_SCK_Out(LOW);
+}
+__STATIC_INLINE bool SPIBUS_ReadBit(SPI_ModuleHandleTypeDef *modular) {
+    bool bit = 0;
     SPIBUS_delayus(SPIBUS_SCLK_LOW_TIME);
     SPIBUS_SCK_Out(HIGH);
-    bit = SPIBUS_SDO_In();    //tofix: 这里应该先等后读还是先读后等, 有待测试
     SPIBUS_delayus(SPIBUS_SCLK_HIGH_TIME);
+    bit = SPIBUS_SDO_In();
+    SPIBUS_SCK_Out(LOW);
     return bit;
 }
-static inline bool SPIBUS_TransmitBit(SPI_ModuleHandleTypeDef *modular, bool bit) {
-    SPIBUS_SCK_Out(LOW);
+__STATIC_INLINE bool SPIBUS_TransmitBit(SPI_ModuleHandleTypeDef *modular, bool bit) {
     SPIBUS_SDI_Out(bit);
     SPIBUS_delayus(SPIBUS_SCLK_LOW_TIME);
     SPIBUS_SCK_Out(HIGH);
-    bit = SPIBUS_SDO_In();    //tofix: 这里应该先等后读还是先读后等, 有待测试
     SPIBUS_delayus(SPIBUS_SCLK_HIGH_TIME);
+    bit = SPIBUS_SDO_In();
+    SPIBUS_SCK_Out(LOW);
     return bit;
 }
 ////////////////////////////////////////////////////////////////////////////
 //单字节写入函数
 __attribute__((unused)) static uint8_t DEV_SPI_TransmitByte(SPI_ModuleHandleTypeDef *modular, uint8_t byte, int8_t skip, uint32_t timeout) {
     SPIBUS_Init(modular);
-    if(!skip) {
-        SPIBUS_CS_Out(LOW);    //拉低片选
-    }
+    SPIBUS_Start(modular, skip);
     if(modular->rwtype == SPIBUS_READ_WRITE) {
         for(uint8_t i = 0x80; i; i >>= 1) {
             byte |= SPIBUS_TransmitBit(modular, byte & i ? 1 : 0) ? i : 0x00;
@@ -520,17 +779,13 @@ __attribute__((unused)) static uint8_t DEV_SPI_TransmitByte(SPI_ModuleHandleType
             byte |= SPIBUS_ReadBit(modular) ? i : 0x00;
         }
     }
-    if(!skip) {
-        SPIBUS_CS_Out(HIGH);    //拉高片选
-    }
+    SPIBUS_Stop(modular, skip);
     return byte;
 }
 //多字节写入函数
 __attribute__((unused)) static void DEV_SPI_Transmit(SPI_ModuleHandleTypeDef *modular, uint8_t *pdata, uint16_t size, int8_t skip, uint32_t timeout) {
     SPIBUS_Init(modular);
-    if(!skip) {
-        SPIBUS_CS_Out(LOW);    //拉低片选
-    }
+    SPIBUS_Start(modular, skip);
     if(modular->rwtype == SPIBUS_READ_WRITE) {
         for(uint16_t j = 0; j < size; j++) {
             pdata[j] |= SPIBUS_TransmitBit(modular, pdata[j] & 0x80 ? 1 : 0) ? 0x80 : 0x00;
@@ -565,32 +820,38 @@ __attribute__((unused)) static void DEV_SPI_Transmit(SPI_ModuleHandleTypeDef *mo
             pdata[j] |= SPIBUS_ReadBit(modular) ? 0x01 : 0x00;
         }
     }
-    if(!skip) {
-        SPIBUS_CS_Out(HIGH);    //拉高片选
-    }
+    SPIBUS_Stop(modular, skip);
 }
+#undef SPIBUS_SCK_Out
+#undef SPIBUS_SDI_Out
+#undef SPIBUS_SDO_In
+#undef SPIBUS_CS_Out
+#undef SPIBUS_ERROR
+#undef SPIBUS_delayus
+#undef SPIBUS_delayms
+#undef SPIBUS_Delayus_paral
 #endif    // DEVICE_SPI_SOFTWARE_ENABLED
 
 ////////////////////////////////////////////////////////////////////////////
 #ifdef DEVICE_ONEWIRE_SOFTWARE_ENABLED
 #if defined(OWREBUS_USEPOINTER)
-#define OWREBUS_OWIO_Set(dir) ((ONEWIRE_SoftHandleTypeDef *)modular->bushandle)->OWIO_Set(dir)
-#define OWREBUS_OWIO_Out(pot) ((ONEWIRE_SoftHandleTypeDef *)modular->bushandle)->OWIO_Out(pot)
-#define OWREBUS_OWIO_In() ((ONEWIRE_SoftHandleTypeDef *)modular->bushandle)->OWIO_In()
-#define OWREBUS_ERROR(err) ((ONEWIRE_SoftHandleTypeDef *)modular->bushandle)->error(err)
-#define OWREBUS_delayus(us) ({if(us) {((ONEWIRE_SoftHandleTypeDef *)modular->bushandle)->delayus(us);} })
-#define OWREBUS_delayms(ms) ({if(ms) {((ONEWIRE_SoftHandleTypeDef *)modular->bushandle)->delayms(ms);} })
+#define OWREBUS_OWIO_Set(dir)     ((ONEWIRE_SoftHandleTypeDef *)modular->bushandle)->OWIO_Set(dir)
+#define OWREBUS_OWIO_Out(pot)     ((ONEWIRE_SoftHandleTypeDef *)modular->bushandle)->OWIO_Out(pot)
+#define OWREBUS_OWIO_In()         ((ONEWIRE_SoftHandleTypeDef *)modular->bushandle)->OWIO_In()
+#define OWREBUS_ERROR(err)        ((ONEWIRE_SoftHandleTypeDef *)modular->bushandle)->error(err)
+#define OWREBUS_delayus(us)       ({if(us) {((ONEWIRE_SoftHandleTypeDef *)modular->bushandle)->delayus(us);} })
+#define OWREBUS_delayms(ms)       ({if(ms) {((ONEWIRE_SoftHandleTypeDef *)modular->bushandle)->delayms(ms);} })
 #define OWREBUS_Delayus_paral(us) ((ONEWIRE_SoftHandleTypeDef *)modular->bushandle)->delayus_paral(us)
 #else
-#define OWREBUS_OWIO_Set(pot) DEVCMNI_SDA_OWRE_Set(pot)
-#define OWREBUS_OWIO_Out(pot) DEVCMNI_SDA_SDI_OWRE_Out(pot)
-#define OWREBUS_OWIO_In(pot) DEVCMNI_SDA_OWRE_In(pot)
-#define OWREBUS_ERROR(err) DEVCMNI_Error(err)
-#define OWREBUS_delayus(us) ({if(us) {DEVCMNI_Delayus(us);} })
-#define OWREBUS_delayms(ms) ({if(ms) {DEVCMNI_Delayms(ms);} })
+#define OWREBUS_OWIO_Set(pot)     DEVCMNI_SDA_OWRE_Set(pot)
+#define OWREBUS_OWIO_Out(pot)     DEVCMNI_SDA_SDI_OWRE_Out(pot)
+#define OWREBUS_OWIO_In(pot)      DEVCMNI_SDA_OWRE_In(pot)
+#define OWREBUS_ERROR(err)        DEVCMNI_Error(err)
+#define OWREBUS_delayus(us)       ({if(us) {DEVCMNI_Delayus(us);} })
+#define OWREBUS_delayms(ms)       ({if(ms) {DEVCMNI_Delayms(ms);} })
 #define OWREBUS_Delayus_paral(us) DEVCMNI_Delayus_paral(us)
 #endif    // OWREBUS_USEPOINTER
-static inline int8_t OWREBUS_Init(ONEWIRE_ModuleHandleTypeDef *modular) {
+__STATIC_INLINE int8_t OWREBUS_Init(ONEWIRE_ModuleHandleTypeDef *modular) {
     OWREBUS_OWIO_Out(HIGH);
     OWREBUS_OWIO_Set(IN);
     if(OWREBUS_OWIO_In() != HIGH) {
@@ -599,7 +860,7 @@ static inline int8_t OWREBUS_Init(ONEWIRE_ModuleHandleTypeDef *modular) {
     OWREBUS_OWIO_Set(OUT);
     return 0;
 }
-static inline uint8_t OWREBUS_Reset(ONEWIRE_ModuleHandleTypeDef *modular) {
+__STATIC_INLINE uint8_t OWREBUS_Reset(ONEWIRE_ModuleHandleTypeDef *modular) {
     uint8_t result = 0;
     OWREBUS_OWIO_Out(LOW);    //拉低总线480us, 发出复位信号
     OWREBUS_delayus(480);
@@ -617,7 +878,7 @@ static inline uint8_t OWREBUS_Reset(ONEWIRE_ModuleHandleTypeDef *modular) {
     OWREBUS_OWIO_Set(OUT);
     return result;
 }
-static inline void OWREBUS_WriteBit(ONEWIRE_ModuleHandleTypeDef *modular, bool bit) {
+__STATIC_INLINE void OWREBUS_WriteBit(ONEWIRE_ModuleHandleTypeDef *modular, bool bit) {
     if(bit) {
         //todo: 关中断
         OWREBUS_OWIO_Out(LOW);
@@ -632,8 +893,8 @@ static inline void OWREBUS_WriteBit(ONEWIRE_ModuleHandleTypeDef *modular, bool b
         OWREBUS_delayus(1);
     }
 }
-static inline uint8_t OWREBUS_ReadBit(ONEWIRE_ModuleHandleTypeDef *modular) {
-    bool bit;
+__STATIC_INLINE uint8_t OWREBUS_ReadBit(ONEWIRE_ModuleHandleTypeDef *modular) {
+    bool bit = 0;
     //todo: 关中断
     OWREBUS_OWIO_Out(LOW);     //拉低总线1us, 开始读时隙
     OWREBUS_delayus(1);        //若主控的主频较低, 可跳过1us的延时
@@ -654,19 +915,19 @@ static inline uint8_t OWREBUS_ReadBit(ONEWIRE_ModuleHandleTypeDef *modular) {
     OWREBUS_OWIO_Set(OUT);
     return bit;
 }
-static inline void OWREBUS_WriteByte(ONEWIRE_ModuleHandleTypeDef *modular, uint8_t byte) {
+__STATIC_INLINE void OWREBUS_WriteByte(ONEWIRE_ModuleHandleTypeDef *modular, uint8_t byte) {
     for(uint8_t i = 0x01; i; i <<= 1) {
         OWREBUS_WriteBit(modular, byte & i ? 1 : 0);
     }
 }
-static inline uint8_t OWREBUS_ReadByte(ONEWIRE_ModuleHandleTypeDef *modular) {
+__STATIC_INLINE uint8_t OWREBUS_ReadByte(ONEWIRE_ModuleHandleTypeDef *modular) {
     uint8_t byte = 0;
     for(uint8_t i = 0x01; i; i <<= 1) {
         byte |= OWREBUS_ReadBit(modular) ? i : 0x00;
     }
     return byte;
 }
-static inline void OWREBUS_Write(ONEWIRE_ModuleHandleTypeDef *modular, uint8_t *pdata, uint16_t size) {
+__STATIC_INLINE void OWREBUS_Write(ONEWIRE_ModuleHandleTypeDef *modular, uint8_t *pdata, uint16_t size) {
     for(uint16_t j = 0; j < size; j++) {
         for(uint8_t i = 0x01; i; i <<= 1) {
             OWREBUS_WriteBit(modular, pdata[j] & i ? 1 : 0);
@@ -674,7 +935,7 @@ static inline void OWREBUS_Write(ONEWIRE_ModuleHandleTypeDef *modular, uint8_t *
     }
     return;
 }
-static inline void OWREBUS_Read(ONEWIRE_ModuleHandleTypeDef *modular, uint8_t *pdata, uint16_t size) {
+__STATIC_INLINE void OWREBUS_Read(ONEWIRE_ModuleHandleTypeDef *modular, uint8_t *pdata, uint16_t size) {
     for(uint16_t j = 0; j < size; j++) {
         for(uint8_t i = 0x01; i != 0; i <<= 1) {
             pdata[j] |= OWREBUS_ReadBit(modular) ? i : 0x00;
@@ -683,26 +944,14 @@ static inline void OWREBUS_Read(ONEWIRE_ModuleHandleTypeDef *modular, uint8_t *p
     return;
 }
 ////////////////////////////////////////////////////////////////////////////
-static inline void OWREBUS_Skip(ONEWIRE_ModuleHandleTypeDef *modular) {    //ROM跳过匹配指令[限单个设备/接多个设备能同时进行的操作]
-    OWREBUS_WriteByte(modular, 0xCC);
-}
-static inline void OWREBUS_Match(ONEWIRE_ModuleHandleTypeDef *modular) {    //ROM匹配指令
-    OWREBUS_WriteByte(modular, 0x55);
-    OWREBUS_Write(modular, (uint8_t *)&modular->rom, 8);
-}
-static inline void OWREBUS_Query(ONEWIRE_ModuleHandleTypeDef *modular) {    //ROM读取指令[限单个设备]
-    OWREBUS_WriteByte(modular, 0x33);
-}
-static inline void OWREBUS_Search(ONEWIRE_ModuleHandleTypeDef *modular) {    //ROM搜索指令
-    OWREBUS_WriteByte(modular, 0xF0);
-}
-static inline void OWREBUS_AlarmSearch(ONEWIRE_ModuleHandleTypeDef *modular) {    //ROM报警搜索指令
-    OWREBUS_WriteByte(modular, 0xEC);
-}
-////////////////////////////////////////////////////////////////////////////
+#define _SKIP        0xCC    //ROM跳过匹配指令[限单个设备/接多个设备能同时进行的操作]
+#define _MATCH       0x55    //ROM匹配指令
+#define _QUERY       0x33    //ROM读取指令[限单个设备]
+#define _SEARCH      0xF0    //ROM搜索指令
+#define _ALARMSEARCH 0xEC    //ROM报警搜索指令
 /**
  * @description: 单总线协议ROM搜索/报警搜索操作
- * 在发起一个复位信号后, 根据通信模块数量, 发出ROM读取/搜索指令, 或发出ROM报警搜索指令
+ * 在发起一个复位信号后, 根据总线设备数量, 发出ROM读取/搜索指令, 或发出ROM报警搜索指令
  * @param {ONEWIRE_ModuleHandleTypeDef} *modular
  * @param {int8_t} searchtype
  * @return {*}
@@ -712,13 +961,13 @@ __attribute__((unused)) static void DEV_ONEWIRE_Search(ONEWIRE_ModuleHandleTypeD
     OWREBUS_Reset(modular);
     if(searchtype == 0) {
         if(((ONEWIRE_SoftHandleTypeDef *)modular->bushandle)->num == 1) {
-            OWREBUS_Query(modular);
+            OWREBUS_WriteByte(modular, _QUERY);
         } else if(((ONEWIRE_SoftHandleTypeDef *)modular->bushandle)->num > 1) {
-            OWREBUS_Search(modular);
+            OWREBUS_WriteByte(modular, _SEARCH);
             //...
         }
     } else {
-        OWREBUS_AlarmSearch(modular);
+        OWREBUS_WriteByte(modular, _ALARMSEARCH);
         //...
     }
 }
@@ -726,9 +975,10 @@ __attribute__((unused)) static void DEV_ONEWIRE_WriteByte(ONEWIRE_ModuleHandleTy
     OWREBUS_Init(modular);
     OWREBUS_Reset(modular);
     if(skip || ((ONEWIRE_SoftHandleTypeDef *)modular->bushandle)->num <= 1) {
-        OWREBUS_Skip(modular);
+        OWREBUS_WriteByte(modular, _SKIP);
     } else if(((ONEWIRE_SoftHandleTypeDef *)modular->bushandle)->num > 1) {
-        OWREBUS_Match(modular);
+        OWREBUS_WriteByte(modular, _MATCH);
+        OWREBUS_Write(modular, (uint8_t *)&modular->rom, 8);
     }
     OWREBUS_WriteByte(modular, byte);
 }
@@ -736,9 +986,10 @@ __attribute__((unused)) static void DEV_ONEWIRE_WriteWord(ONEWIRE_ModuleHandleTy
     OWREBUS_Init(modular);
     OWREBUS_Reset(modular);
     if(skip || ((ONEWIRE_SoftHandleTypeDef *)modular->bushandle)->num == 1) {
-        OWREBUS_Skip(modular);
+        OWREBUS_WriteByte(modular, _SKIP);
     } else if(((ONEWIRE_SoftHandleTypeDef *)modular->bushandle)->num > 1) {
-        OWREBUS_Match(modular);
+        OWREBUS_WriteByte(modular, _MATCH);
+        OWREBUS_Write(modular, (uint8_t *)&modular->rom, 8);
     }
     OWREBUS_WriteByte(modular, (uint8_t)byte);
     OWREBUS_WriteByte(modular, (uint8_t)(byte >> 8));
@@ -756,9 +1007,10 @@ __attribute__((unused)) static void DEV_ONEWIRE_Write(ONEWIRE_ModuleHandleTypeDe
     OWREBUS_Init(modular);
     OWREBUS_Reset(modular);
     if(skip || ((ONEWIRE_SoftHandleTypeDef *)modular->bushandle)->num == 1) {
-        OWREBUS_Skip(modular);
+        OWREBUS_WriteByte(modular, _SKIP);
     } else if(((ONEWIRE_SoftHandleTypeDef *)modular->bushandle)->num > 1) {
-        OWREBUS_Match(modular);
+        OWREBUS_WriteByte(modular, _MATCH);
+        OWREBUS_Write(modular, (uint8_t *)&modular->rom, 8);
     }
     OWREBUS_Write(modular, pdata, size);
     return;
@@ -768,27 +1020,6 @@ __attribute__((unused)) static void DEV_ONEWIRE_Read(ONEWIRE_ModuleHandleTypeDef
     OWREBUS_Read(modular, pdata, size);
     return;
 }
-#endif    // DEVICE_ONEWIRE_SOFTWARE_ENABLED
-
-#undef I2CBUS_SCL_Set
-#undef I2CBUS_SDA_Set
-#undef I2CBUS_SCL_Out
-#undef I2CBUS_SDA_Out
-#undef I2CBUS_SCL_In
-#undef I2CBUS_SDA_In
-#undef I2CBUS_ERROR
-#undef I2CBUS_Delayus
-#undef I2CBUS_Delayms
-#undef I2CBUS_Delayus_paral
-
-#undef SPIBUS_SCK_Out
-#undef SPIBUS_SDI_Out
-#undef SPIBUS_SDO_In
-#undef SPIBUS_CS_Out
-#undef SPIBUS_ERROR
-#undef SPIBUS_delayus
-#undef SPIBUS_delayms
-
 #undef OWREBUS_OWIO_Set
 #undef OWREBUS_OWIO_Out
 #undef OWREBUS_OWIO_In
@@ -796,4 +1027,6 @@ __attribute__((unused)) static void DEV_ONEWIRE_Read(ONEWIRE_ModuleHandleTypeDef
 #undef OWREBUS_delayus
 #undef OWREBUS_delayms
 #undef OWREBUS_Delayus_paral
+#endif    // DEVICE_ONEWIRE_SOFTWARE_ENABLED
+
 #endif    // !__PROTOCOL_H

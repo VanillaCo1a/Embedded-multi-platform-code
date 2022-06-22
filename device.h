@@ -9,9 +9,8 @@
 #include <stdbool.h>
 #include <math.h>
 
-#if !defined(STM32HAL) && !defined(STM32FWLIBF1) && !defined(STM32FWLIBF4) && \
-    !defined(STC89C51) && !defined(TC264) && !defined(TI) &&                  \
-    !defined(ESP32) && !defined(HC32)
+#if !defined(STM32) && !defined(STC89C) && !defined(TC264) && \
+    !defined(TI) && !defined(ESP32) && !defined(HC32)
 #define STM32
 // #define STC89C
 // #define TC264
@@ -36,26 +35,15 @@
 // #define I2CBUS_USEPOINTER
 // #define SPIBUS_USEPOINTER
 // #define OWREBUS_USEPOINTER
-#define I2C_SOFTBUS_NUM 1
-#define SPI_SOFTBUS_NUM 1
+#define I2C_SOFTBUS_NUM     1
+#define SPI_SOFTBUS_NUM     1
 #define ONEWIRE_SOFTBUS_NUM 1
-#define BUS_NUM ((I2C_SOFTBUS_NUM + SPI_SOFTBUS_NUM + ONEWIRE_SOFTBUS_NUM) << 1)
+#define BUS_NUM             ((I2C_SOFTBUS_NUM + SPI_SOFTBUS_NUM + ONEWIRE_SOFTBUS_NUM) << 1)
 
 /////////////////////////    设备控制部分    /////////////////////////
 #if defined(STM32)
 #if defined(STM32HAL)
 #include "main.h"
-#if defined(STM32F1)
-#include "stm32f1xx_hal.h"
-#elif defined(STM32F4)
-#include "stm32f4xx_hal.h"
-#elif defined(STM32F7)
-#include "stm32f7xx_hal.h"
-#elif defined(STM32G0)
-#include "stm32g0xx_hal.h"
-#elif defined(STM32H7)
-#include "stm32h7xx_hal.h"
-#endif
 #elif defined(STM32FWLIB)
 #if defined(STM32F1)
 #include "stm32f10x.h"
@@ -87,7 +75,8 @@ typedef struct {                  //设备类结构体
     devpool_size stream;          //活动设备相对序号
 } DEVS_TypeDef;
 typedef struct {                     //设备结构体
-    busypool_size state;             //设备状态值
+    busypool_size state;             //设备忙闲状态
+    int8_t error;                      //设备错误状态
     void *parameter;                 //设备参数配置
     void *io;                        //设备IO配置
     struct DEVCMNI_TypeDef *cmni;    //设备通信配置
@@ -107,7 +96,7 @@ DEV_StateTypeDef DEV_GetActState(void);
 //设备初始化
 int8_t DEV_Init(DEVS_TypeDef *devs, DEV_TypeDef dev[]);
 void DEV_ReCall(DEVS_TypeDef *devs, void (*action)(void));
-void DEV_Error(void);
+void DEV_Error(uint16_t err);
 void DEV_Confi(DEVS_TypeDef *devs, DEV_TypeDef dev[]);
 
 

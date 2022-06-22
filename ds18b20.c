@@ -4,6 +4,7 @@
  * 2. DS18B20配置初始化
  */
 #include "ds18b20.h"
+#include "timer.h"
 
 /////////////////////////    DS18B20配置结构体初始化    /////////////////////////
 //    DS18B20参数配置
@@ -27,42 +28,49 @@ DEV_TypeDef ds18b20[DS18B20_NUM] = {
 };
 
 /////////////////////////    DS18B20配置初始化    /////////////////////////
+#define _CONVERT 0x44
+#define _WR_SCRATCH 0x4E
+#define _RD_SCRATCH 0xBE
+#define _CP_TOROM 0x48
+#define _CP_FROMROM 0xB8
+#define _RD_POWER 0xB4
 //    DS18B20器件驱动函数
 void convertTemperature(int8_t alldevice) {    //开始温度转换
     DS18B20_PATypeDef *ds_pa = DEV_GetActStream()->parameter;
-    DEVCMNI_WriteByte(0x44, 0, alldevice);
+    DEVCMNI_WriteByte(_CONVERT, 0, alldevice);
     if(ds_pa->powermode == PARASITIC) {
         DEVIO_WritePin_SET(&((DEVCMNIIO_TypeDef *)DEV_GetActStream()->io)->SDA_SDI_OWRE);
-        //tofix: 定义总线设备类型, 改为将总线置忙500ms
-        DEV_SetActState(50000);    //todel
+        DEVIO_WritePin_SET(&((DEVCMNIIO_TypeDef *)DEV_GetActStream()->io)->SDA_SDI_OWRE);
+        //tofix: 定义总线设备类型, 改为将总线置忙750ms
+        DEV_SetActState(37500);    //todel
     } else if(ds_pa->powermode == EXTERNAL) {
         while(DEVCMNI_ReadBit(0x00, 0))
             ;
     }
 }
-void writeScratchpad(DS18B20_SCRTypedef *scr) {
-    DEVCMNI_WriteByte(0x4E, 0, 0);
+void writeScrpatchpad(DS18B20_SCRTypedef *scr) {
+    DEVCMNI_WriteByte(_WR_SCRATCH, 0, 0);
     DEVCMNI_Write(&((uint8_t *)scr)[2], 3, 0, 1);
 }
-void readScratchpad(DS18B20_SCRTypedef *scr) {
-    DEVCMNI_WriteByte(0xBE, 0, 0);
+void readScrpatchpad(DS18B20_SCRTypedef *scr) {
+    DEVCMNI_WriteByte(_RD_SCRATCH, 0, 0);
     DEVCMNI_Read((uint8_t *)scr, sizeof(*scr) / sizeof(uint8_t), 0x00, 0);
 }
 void copyScrToRom(void) {
     DS18B20_PATypeDef *ds_pa = DEV_GetActStream()->parameter;
-    DEVCMNI_WriteByte(0x48, 0, 0);
+    DEVCMNI_WriteByte(_CP_TOROM, 0, 0);
     if(ds_pa->powermode == PARASITIC) {
         DEVIO_WritePin_SET(&((DEVCMNIIO_TypeDef *)DEV_GetActStream()->io)->SDA_SDI_OWRE);
         //tofix: 定义总线设备类型, 改为将总线置忙10ms
-        DEV_SetActState(1000);    //todel
+        DEV_SetActState(500);    //todel
     }
 }
 void recallScrFromRom(void) {
-    DEVCMNI_WriteByte(0xB8, 0, 0);
+    DEVCMNI_WriteByte(_CP_FROMROM, 0, 0);
 }
 void readPowerSupply(void) {
     DS18B20_PATypeDef *ds_pa = DEV_GetActStream()->parameter;
-    DEVCMNI_WriteByte(0xB4, 0, 0);
+    DEVCMNI_WriteByte(_RD_POWER, 0, 0);
     if(DEVCMNI_ReadBit(0x00, 0) == 1) {
         ds_pa->powermode = EXTERNAL;
     } else {
@@ -74,16 +82,16 @@ void readPowerSupply(void) {
  * @param {int16_t} *tem
  * @return {*} 温度值(-550~1250)
  */
-int8_t getTem(int16_t *tem) {
+int8_t getTemperature(int16_t *tem) {
     DS18B20_SCRTypedef scr = {0};
     static int8_t step = 0;
     if(!step) {
         convertTemperature(1);    //ds18b20 start convert
-        step++;
+        step = !step;
     } else {
-        readScratchpad(&scr);
+        readScrpatchpad(&scr);
         *tem = (int16_t)((scr.msb << 8) | scr.lsb) * 6.25f;
-        step--;
+        step = !step;
         return 0;
     }
     return 1;
@@ -97,11 +105,9 @@ void DS18B20_Confi(void) {
     DEV_ReCall(&ds18b20s, readPowerSupply);
 }
 int8_t DS18B20_SetTem(devpool_size num) {
-    DEV_SetActStream(&ds18b20s, num);
     if(DEV_GetActState() == idle) {
-        return getTem(&temperature[num]);
+        return getTemperature(&temperature[num]);
     }
-    DEV_CloseActStream();
     return 1;
 }
 int16_t DS18B20_GetTem(devpool_size num) {

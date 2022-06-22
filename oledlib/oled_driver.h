@@ -21,6 +21,8 @@ typedef struct {
 } OLED_IOTypeDef;
 
 void OLED_Confi(void);
+void OLED_Error(void);
+void OLED_DevInit(uint8_t flip);
 void OLED_On(void);
 void OLED_Off(void);
 void OLED_Flip(int8_t, int8_t);

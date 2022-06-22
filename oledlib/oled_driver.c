@@ -36,8 +36,8 @@ OLED_IOTypeDef oled_io[OLED_NUM] = {
 };
 //    OLED通信配置
 I2C_ModuleHandleTypeDef mi2c[2] = {
-    {.addr = OLED_I2CADDR1, .speed = I2CBUS_FAST, .bushandle = &ahi2c[0]},
-    {.addr = OLED_I2CADDR1, .speed = I2CBUS_FASTPLUS, .bushandle = &hi2c1},
+    {.addr = OLED_I2CADDR1, .speed = I2CBUS_HIGHSPEED, .errhand = I2CBUS_LEVER1, .bushandle = &ahi2c[0]},
+    {.addr = OLED_I2CADDR1, .speed = I2CBUS_FASTMODEPLUS, .errhand = I2CBUS_LEVER1, .bushandle = &hi2c1},
 };
 SPI_ModuleHandleTypeDef mspi[2] = {
     {.rwtype = SPIBUS_WRITE, .bushandle = &ahspi[0]},
@@ -142,59 +142,63 @@ void OLED_WriteByte(uint8_t data, uint8_t address) {
     DEV_TypeDef *oled = DEV_GetActStream();
     OLED_IOTypeDef *oledio = (OLED_IOTypeDef *)oled->io;
     void *handle = oled->cmni->handle;
-    if(oled->cmni->protocol == I2C) {
-        if(((DEVCMNIIO_TypeDef *)oledio)->CS.GPIOx != NULL) {
-            DEVIO_WritePin_RESET(&((DEVCMNIIO_TypeDef *)oledio)->CS);
-        }
-        if(oledio->DC.GPIOx != NULL) {
-            if(((I2C_ModuleHandleTypeDef *)handle)->addr == OLED_I2CADDR1) {
+    if(DEV_GetActState() == idle) {
+        if(oled->cmni->protocol == I2C) {
+            if(((DEVCMNIIO_TypeDef *)oledio)->CS.GPIOx != NULL) {
+                DEVIO_WritePin_RESET(&((DEVCMNIIO_TypeDef *)oledio)->CS);
+            }
+            if(oledio->DC.GPIOx != NULL) {
+                if(((I2C_ModuleHandleTypeDef *)handle)->addr == OLED_I2CADDR1) {
+                    DEVIO_WritePin_RESET(&oledio->DC);
+                } else if(((I2C_ModuleHandleTypeDef *)handle)->addr == OLED_I2CADDR2) {
+                    DEVIO_WritePin_SET(&oledio->DC);
+                }
+            }
+            DEVCMNI_WriteByte(data, address, 0);
+            if(((DEVCMNIIO_TypeDef *)oledio)->CS.GPIOx != NULL) {
+                DEVIO_WritePin_SET(&((DEVCMNIIO_TypeDef *)oledio)->CS);
+            }
+        } else if(oled->cmni->protocol == SPI) {
+            if(address == 0X00) {
                 DEVIO_WritePin_RESET(&oledio->DC);
-            } else if(((I2C_ModuleHandleTypeDef *)handle)->addr == OLED_I2CADDR2) {
+            } else if(address == 0X40) {
                 DEVIO_WritePin_SET(&oledio->DC);
             }
-        }
-        DEVCMNI_WriteByte(data, address, 0);
-        if(((DEVCMNIIO_TypeDef *)oledio)->CS.GPIOx != NULL) {
-            DEVIO_WritePin_SET(&((DEVCMNIIO_TypeDef *)oledio)->CS);
-        }
-    } else if(oled->cmni->protocol == SPI) {
-        if(address == 0X00) {
-            DEVIO_WritePin_RESET(&oledio->DC);
-        } else if(address == 0X40) {
+            DEVCMNI_WriteByte(data, 0, 0);
             DEVIO_WritePin_SET(&oledio->DC);
         }
-        DEVCMNI_WriteByte(data, 0, 0);
-        DEVIO_WritePin_SET(&oledio->DC);
     }
 }
 //    OLED模拟通信连续写多字节函数
 void OLED_Write(uint8_t *pdata, uint16_t size, uint8_t address) {
     DEV_TypeDef *oled = DEV_GetActStream();
     OLED_IOTypeDef *oledio = (OLED_IOTypeDef *)oled->io;
-    void *handle = oled->cmni->handle;
-    if(oled->cmni->protocol == I2C) {
-        if(((DEVCMNIIO_TypeDef *)oledio)->CS.GPIOx != NULL) {
-            DEVIO_WritePin_RESET(&((DEVCMNIIO_TypeDef *)oledio)->CS);
-        }
-        if(oledio->DC.GPIOx != NULL) {
-            if(((I2C_ModuleHandleTypeDef *)handle)->addr == OLED_I2CADDR1) {
+    if(DEV_GetActState() == idle) {
+        void *handle = oled->cmni->handle;
+        if(oled->cmni->protocol == I2C) {
+            if(((DEVCMNIIO_TypeDef *)oledio)->CS.GPIOx != NULL) {
+                DEVIO_WritePin_RESET(&((DEVCMNIIO_TypeDef *)oledio)->CS);
+            }
+            if(oledio->DC.GPIOx != NULL) {
+                if(((I2C_ModuleHandleTypeDef *)handle)->addr == OLED_I2CADDR1) {
+                    DEVIO_WritePin_RESET(&oledio->DC);
+                } else if(((I2C_ModuleHandleTypeDef *)handle)->addr == OLED_I2CADDR2) {
+                    DEVIO_WritePin_SET(&oledio->DC);
+                }
+            }
+            DEVCMNI_Write(pdata, size, address, 0);
+            if(((DEVCMNIIO_TypeDef *)oledio)->CS.GPIOx != NULL) {
+                DEVIO_WritePin_SET(&((DEVCMNIIO_TypeDef *)oledio)->CS);
+            }
+        } else if(oled->cmni->protocol == SPI) {
+            if(address == 0X00) {
                 DEVIO_WritePin_RESET(&oledio->DC);
-            } else if(((I2C_ModuleHandleTypeDef *)handle)->addr == OLED_I2CADDR2) {
+            } else if(address == 0X40) {
                 DEVIO_WritePin_SET(&oledio->DC);
             }
-        }
-        DEVCMNI_Write(pdata, size, address, 0);
-        if(((DEVCMNIIO_TypeDef *)oledio)->CS.GPIOx != NULL) {
-            DEVIO_WritePin_SET(&((DEVCMNIIO_TypeDef *)oledio)->CS);
-        }
-    } else if(oled->cmni->protocol == SPI) {
-        if(address == 0X00) {
-            DEVIO_WritePin_RESET(&oledio->DC);
-        } else if(address == 0X40) {
+            DEVCMNI_Write(pdata, size, 0, 0);
             DEVIO_WritePin_SET(&oledio->DC);
         }
-        DEVCMNI_Write(pdata, size, 0, 0);
-        DEVIO_WritePin_SET(&oledio->DC);
     }
 }
 
@@ -266,13 +270,16 @@ void OLED_FillScreen(uint8_t (*Buffer)[SCREEN_PAGE][SCREEN_COLUMN]) {
         OLED_Write((*Buffer)[i], sizeof((*Buffer)[0]) / sizeof((*Buffer)[0][0]), 0X40);
     }
 }
-//    清屏(先清空缓存区, 再更新到屏幕)
+//    清屏(只清空屏幕)
 void OLED_ClearScreen(void) {
+    int8_t buf = getBufferPart();
+    setBufferPart(SCREEN_PART - 1);
     OLED_clearBuffer();
     OLED_updateScreen();
+    setBufferPart(buf);
 }
 //    配置器件内部寄存器  initial settings configuration
-void OLED_Init(void) {
+void OLED_Configure(void) {
     //1. 基本命令
     OLED_WriteByte(0xAE, 0X00);    //设置显示关(默认)/开: 0xAE显示关闭(睡眠模式),0xAF显示正常开启  Set Display OFF(RESET)/ON: 0xAE Display OFF(sleep mode),0xAF Display ON in normal mode
     OLED_WriteByte(0xA4, 0X00);    //设置从内存(默认)/完全显示: 0xA4从内存中显示,0xA5完全显示  Entire Display OFF(RESET)/ON: 0xA4 Output follows RAM content,0xA5 Output ignores RAM content
@@ -310,28 +317,53 @@ void OLED_Init(void) {
     OLED_WriteByte(0xDB, 0X00);    //Set VCOMH(默认0x20)
     OLED_WriteByte(0x30, 0X00);    //0x00 0.65xVcc, 0x20 0.77xVCC, 0x30 0.83xVCC
 }
+void OLED_DevInit(uint8_t flip) {
+    OLED_IOInit();
+    OLED_Reset();
+    OLED_Off();
+    OLED_Configure();
+    OLED_ClearScreen();
+    OLED_Cursor(0, 0);
+    OLED_Flip(flip, flip);
+    OLED_On();
+}
+void OLED_Error(void) {
+    if(DEV_GetActStream()->error == 1) {
+        DEV_GetActStream()->error++;
+        DEV_SetActState(10000);
+    } else if(DEV_GetActStream()->error == 2) {
+        if(DEV_GetActState() == idle) {
+            OLED_DevInit(0);
+            DEV_GetActStream()->error = 0;
+        }
+    }
+}
 void OLED_Confi(void) {
     //初始化OLED类设备, 将参数绑定到设备池中, 并初始化通信引脚
     DEV_Confi(&oleds, oled);
-    //初始化其他引脚, 复位定义RST脚的OLED
-    DEV_ReCall(&oleds, OLED_IOInit);
-    DEV_ReCall(&oleds, OLED_Reset);    //延时200ms等待OLED电源稳定
-    //对OLED类进行内部寄存器配置和清屏
-    DEV_ReCall(&oleds, OLED_Off);
-    DEV_ReCall(&oleds, OLED_Init);
-    DEV_ReCall(&oleds, OLED_ClearScreen);
-    //设置每个OLED的屏幕方向
-    if(DEV_SetActStream(&oleds, 0) == 1) {
-        DEV_Error();
-    }
-    OLED_Cursor(0, 0);    //设置光标和屏幕方向, 在初始化函数中已经配置过, 单独分离出来方便修改
-    OLED_Flip(0, 0);
-    if(DEV_SetActStream(&oleds, 1) == 1) {
-        DEV_Error();
-    }
-    OLED_Cursor(0, 0);    //设置光标和屏幕方向, 在初始化函数中已经配置过, 单独分离出来方便修改
-    OLED_Flip(1, 1);
-    //开启屏幕显示
-    DEV_ReCall(&oleds, OLED_On);
-    DEV_CloseActStream();
+    // //初始化其他引脚, 复位定义RST脚的OLED
+    // DEV_ReCall(&oleds, OLED_IOInit);
+    // DEV_ReCall(&oleds, OLED_Reset);    //延时200ms等待OLED电源稳定
+    // //对OLED类进行内部寄存器配置和清屏
+    // DEV_ReCall(&oleds, OLED_Off);
+    // DEV_ReCall(&oleds, OLED_Configure);
+    // DEV_ReCall(&oleds, OLED_ClearScreen);
+    // //设置每个OLED的屏幕方向
+    // if(DEV_SetActStream(&oleds, 0) == 1) {
+    //     DEV_Error(1);
+    // }
+    // OLED_Cursor(0, 0);    //设置光标和屏幕方向, 在初始化函数中已经配置过, 单独分离出来方便修改
+    // OLED_Flip(0, 0);
+    // if(DEV_SetActStream(&oleds, 1) == 1) {
+    //     DEV_Error(1);
+    // }
+    // OLED_Cursor(0, 0);    //设置光标和屏幕方向, 在初始化函数中已经配置过, 单独分离出来方便修改
+    // OLED_Flip(0, 0);
+    // //开启屏幕显示
+    // DEV_ReCall(&oleds, OLED_On);
+    // DEV_CloseActStream();
+    if(DEV_SetActStream(&oleds, 0) == 1) { DEV_Error(1); }
+    OLED_DevInit(0);
+    if(DEV_SetActStream(&oleds, 1) == 1) { DEV_Error(1); }
+    OLED_DevInit(0);
 }

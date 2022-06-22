@@ -7,8 +7,8 @@
 #if defined(STM32)
 #if defined(STM32HAL)
 #define TIMERERROR 0    //为了修正函数运行带来的误差, 在使用不同型号芯片前需调试计算得到数值
-#define TIMERCOUNT TIM4->CNT
-#define TIMERHANDLE htim4
+#define TIMERCOUNT TIM3->CNT
+#define TIMERHANDLE htim3
 #elif defined(STM32FWLIB)
 #define TIMERERROR 0
 #define TIMER TIM4
@@ -30,6 +30,10 @@ static __inline uint64_t TIMER_getRunTimeus(void) {
 }
 uint32_t TIMER_getRunTimems(void);
 uint32_t TIMER_getRunTimes(void);
+////////////////////////////////////////////////////////////////////////////
+void TIMER_tick(void);
+uint64_t TIMER_query(void);
+float TIMER_fps(void);
 ////////////////////////////////////////////////////////////////////////////
 /* 宏函数, 查询式定时器延时, 在代码的每个调用处定义局部静态变量和标志用于记录、查询延时
 使用了形如x=({1});的语法, 需要开启GNU扩展支持(C/C++ -> GNU extensions) */
