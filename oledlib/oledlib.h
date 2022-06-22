@@ -25,7 +25,7 @@
 //保持了可拓展性 如果换用其他类型屏
 //因注意其他配套c文件中用了这些宏定义的部分
 #define OLED_12864                      //屏幕类型
-#define SCREEN_PART (1)                 //定义几个屏幕缓冲区, 每个缓冲区均为1个屏幕大小
+#define SCREEN_PART (2)                 //定义几个屏幕缓冲区, 每个缓冲区均为1个屏幕大小
 #define SCREEN_PAGE (8)                 //总页数 (大行)
 #define SCREEN_ROW (64)                 //总行数
 #define SCREEN_COLUMN (128)             //总列数
@@ -50,8 +50,8 @@ typedef struct ROATE {
     int direct;
 }TypeRoate;
 
-#include "timer.h"
 #include "device.h"
+#include "timer.h"
 #include "oled_driver.h"
 #include "oled_buffer.h"
 #include "oled_basic.h"
