@@ -1,10 +1,9 @@
-#ifndef __PROTOCOL_H
-#define __PROTOCOL_H
+#ifndef __PROTOCOL_SOFTWARE_H
+#define __PROTOCOL_SOFTWARE_H
 #include <stdint.h>
 #include <stdbool.h>
 
-#define TIMER_DELAY 1    //延时自身耗时1us
-
+#define TIMER_DELAY                       1     //延时自身耗时1us
 #define DEVI2C_LOWSPEED_SCL_HIGH_TIME     3     //I2C低速模式
 #define DEVI2C_LOWSPEED_SCL_LOW_TIME      97    //
 #define DEVI2C_STANDARD_SCL_HIGH_TIME     3     //I2C标准模式
@@ -97,9 +96,9 @@ typedef struct {    //SPI模拟总线结构体
     int8_t (*delayus_paral)(uint16_t us);
 #endif    //DEVSPI_USEPOINTER
 } SPI_SoftHandleTypeDef;
-typedef struct {       //SPI总线模块结构体
+typedef struct {                    //SPI总线模块结构体
     DEVSPI_RWTypeTypeDef rwtype;    //设备读写类型
-    void *bus;         //SPI模拟/硬件总线句柄
+    void *bus;                      //SPI模拟/硬件总线句柄
 } SPI_ModuleHandleTypeDef;
 ////////////////////////////////////////////////////////////////////////////
 typedef struct {           //ONEWIRE模拟总线结构体
@@ -440,7 +439,7 @@ static inline bool DEVI2C_ReadBit_(void) {
     // DEVI2C_SDA_Set(OUT);
     return bit;
 }
-static bool DEVI2C_Write(uint8_t *pdata, uint16_t size) {    // 连续写数据, 将数据按位拆分后写入
+static bool DEVI2C_Write(uint8_t *pdata, size_t size) {    // 连续写数据, 将数据按位拆分后写入
     /* 每写入1字节数据后等待从机应答, 写入完毕, 主机释放(即拉高)时钟线和数据线
      一定时间内若能检测到从机拉低数据线, 说明从机应答正常, 可以继续进行通信; 否则说明从机存在问题, 需要重新建立通信 */
     bool bit = 0;
@@ -460,7 +459,7 @@ static bool DEVI2C_Write(uint8_t *pdata, uint16_t size) {    // 连续写数据,
     DEVI2C_SDA_Set(OUT);
     return bit;
 }
-static bool DEVI2C_Write_(uint8_t *pdata, uint16_t size) {
+static bool DEVI2C_Write_(uint8_t *pdata, size_t size) {
     bool bit = 0;
     for(uint16_t j = 0; j < size; j++) {
         for(uint8_t i = 0x80; i; i >>= 1) {
@@ -476,7 +475,7 @@ static bool DEVI2C_Write_(uint8_t *pdata, uint16_t size) {
     DEVI2C_SDA_Set(OUT);
     return bit;
 }
-static void DEVI2C_Read(uint8_t *pdata, uint16_t size) {    // 连续读数据, 将数据按位读取后合并
+static void DEVI2C_Read(uint8_t *pdata, size_t size) {    // 连续读数据, 将数据按位读取后合并
     /* 每读取1字节数据后主机进行应答, 读取完毕, 从机会释放(即拉高)数据线
     主机写入1位低电平信号, 表示应答正常, 从机继续进行通信; 主机写入1位高电平信号, 表示不再接收数据, 从机停止通信 */
     for(uint16_t j = 0; j < size; j++) {
@@ -495,7 +494,7 @@ static void DEVI2C_Read(uint8_t *pdata, uint16_t size) {    // 连续读数据, 
         }
     }
 }
-static void DEVI2C_Read_(uint8_t *pdata, uint16_t size) {
+static void DEVI2C_Read_(uint8_t *pdata, size_t size) {
     for(uint16_t j = 0; j < size; j++) {
         DEVI2C_SDA_Out(HIGH);
         DEVI2C_SDA_Set(IN);
@@ -589,7 +588,7 @@ __attribute__((unused)) static int8_t DEVI2C_TransmitByte(I2C_ModuleHandleTypeDe
         return 0;
     }
 }
-__attribute__((unused)) static int8_t DEVI2C_Transmit(I2C_ModuleHandleTypeDef *modular, uint8_t address, uint8_t *pdata, uint16_t size, int8_t skip, int8_t rw, uint32_t timeout) {
+__attribute__((unused)) static int8_t DEVI2C_Transmit(I2C_ModuleHandleTypeDef *modular, uint8_t address, uint8_t *pdata, size_t size, int8_t skip, int8_t rw, uint32_t timeout) {
     /* 多字节读写函数, timeout应答超时,speed速度模式 */
     uint8_t byte;
     DEVI2C_Init(modular, timeout);
@@ -783,7 +782,7 @@ __attribute__((unused)) static uint8_t DEVSPI_TransmitByte(SPI_ModuleHandleTypeD
     return byte;
 }
 //多字节写入函数
-__attribute__((unused)) static void DEVSPI_Transmit(SPI_ModuleHandleTypeDef *modular, uint8_t *pdata, uint16_t size, int8_t skip, uint32_t timeout) {
+__attribute__((unused)) static void DEVSPI_Transmit(SPI_ModuleHandleTypeDef *modular, uint8_t *pdata, size_t size, int8_t skip, uint32_t timeout) {
     DEVSPI_Init(modular);
     DEVSPI_Start(modular, skip);
     if(modular->rwtype == DEVSPI_READ_WRITE) {
@@ -1003,7 +1002,7 @@ __attribute__((unused)) static uint16_t DEVONEWIRE_ReadWord(ONEWIRE_ModuleHandle
 __attribute__((unused)) static uint8_t DEVONEWIRE_ReadBit(ONEWIRE_ModuleHandleTypeDef *modular) {
     return DEVOWRE_ReadBit(modular);
 }
-__attribute__((unused)) static void DEVONEWIRE_Write(ONEWIRE_ModuleHandleTypeDef *modular, uint8_t *pdata, uint16_t size, int8_t skip, uint32_t timeout) {
+__attribute__((unused)) static void DEVONEWIRE_Write(ONEWIRE_ModuleHandleTypeDef *modular, uint8_t *pdata, size_t size, int8_t skip, uint32_t timeout) {
     DEVOWRE_Init(modular);
     DEVOWRE_Reset(modular);
     if(skip || ((ONEWIRE_SoftHandleTypeDef *)modular->bus)->num == 1) {
@@ -1015,7 +1014,7 @@ __attribute__((unused)) static void DEVONEWIRE_Write(ONEWIRE_ModuleHandleTypeDef
     DEVOWRE_Write(modular, pdata, size);
     return;
 }
-__attribute__((unused)) static void DEVONEWIRE_Read(ONEWIRE_ModuleHandleTypeDef *modular, uint8_t *pdata, uint16_t size) {
+__attribute__((unused)) static void DEVONEWIRE_Read(ONEWIRE_ModuleHandleTypeDef *modular, uint8_t *pdata, size_t size) {
     //tofix: 单总线的读时隙只能跟随在特定的主机写指令之后吗? 当需要并发地与多个设备进行通信时, 怎样进行独立的读操作?
     DEVOWRE_Read(modular, pdata, size);
     return;
@@ -1029,4 +1028,8 @@ __attribute__((unused)) static void DEVONEWIRE_Read(ONEWIRE_ModuleHandleTypeDef 
 #undef DEVOWRE_Delayus_paral
 #endif    // DEVOWRE_SOFTWARE_ENABLED
 
-#endif    // !__PROTOCOL_H
+////////////////////////////////////////////////////////////////////////////
+#ifdef DEVUART_SOFTWARE_ENABLED
+#endif    // DEVUART_SOFTWARE_ENABLED
+
+#endif    // !__PROTOCOL_SOFTWARE_H

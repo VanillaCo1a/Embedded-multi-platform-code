@@ -14,6 +14,11 @@
 #define DEVI2C_SOFTWARE_ENABLED
 #define DEVSPI_SOFTWARE_ENABLED
 #define DEVOWRE_SOFTWARE_ENABLED
+#define DEVUART_SOFTWARE_ENABLED
+#define DEVI2C_HARDWARE_ENABLED
+#define DEVSPI_HARDWARE_ENABLED
+#define DEVOWRE_HARDWARE_ENABLED
+#define DEVUART_HARDWARE_ENABLED
 // #define DEVI2C_USEPOINTER
 // #define DEVSPI_USEPOINTER
 // #define DEVOWRE_USEPOINTER
@@ -55,7 +60,8 @@ typedef uint16_t poolsize;        //池大小的数据类型
 #include "stm32f10x.h"
 #endif
 #endif
-#include "protocol.h"
+#include "protocol_software.h"
+#include "protocol_hardware.h"
 
 
 /* 枚举 */
@@ -72,12 +78,14 @@ typedef enum {
     OLED,
     MPU6050,
     DS18B20,
+    UART,
     OTHER,
 } DEV_TypeTypeDef;
 typedef enum {
     I2C = 1,
     SPI,
     ONEWIRE,
+    USART
 } DEVCMNI_ProtocolTypeDef;
 typedef enum {
     idle = 0,
@@ -190,7 +198,7 @@ DEVIO_PinState DEVIO_ReadPin(DEVIO_TypeDef *devio);
 void DEVCMNI_WriteByte(uint8_t data, uint8_t address, bool skip);
 uint8_t DEVCMNI_ReadByte(uint8_t address, bool skip);
 bool DEVCMNI_ReadBit(uint8_t address, bool skip);
-void DEVCMNI_Write(uint8_t *pdata, uint16_t size, uint8_t address, bool skip);
-void DEVCMNI_Read(uint8_t *pdata, uint16_t size, uint8_t address, bool skip);
+bool DEVCMNI_Write(uint8_t *pdata, size_t size, uint8_t address, bool skip);
+bool DEVCMNI_Read(uint8_t *pdata, size_t size, size_t *length, uint8_t address, bool skip);
 
 #endif    // !__DEVICE_H

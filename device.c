@@ -461,6 +461,10 @@ bool DEVCMNIBUS_isNull(DEVCMNI_TypeDef *devcmni) {
             if(((ONEWIRE_ModuleHandleTypeDef *)devcmni->modular)->bus == NULL) {
                 return true;
             }
+        } else if(devcmni->protocol == USART) {
+            if(((UART_ModuleHandleTypeDef *)devcmni->modular)->bus == NULL) {
+                return true;
+            }
         }
     }
 
@@ -535,6 +539,10 @@ void DEVCMNI_BusInit(DEVCMNI_TypeDef *devcmni) {
             devbus->delayus_paral = DEVCMNI_Delayus_paral;
 #endif
         }
+    } else if(devcmni->protocol == USART) {
+        UART_ModuleHandleTypeDef *devmdlr = devcmni->modular;
+        devmdlr->bus = devcmni->bus;
+        devcmni->bus = NULL;
     }
 }
 //    I2C/SPI/ONEWIRE通信设备初始化函数
@@ -605,6 +613,7 @@ void DEVCMNI_Init(DEVCMNI_TypeDef *devcmni, DEVCMNIIO_TypeDef *devcmniio) {
             devcmniio->SDA_SDI_OWRE.Init.State = DEVIO_PIN_SET;
             DEVIO_Init(&devcmniio->SDA_SDI_OWRE);    //初始化OWIO
         }
+    } else if(devcmni->protocol == USART) {
     }
 #elif defined(STM32FWLIB)
     GPIO_InitTypeDef GPIO_InitStructure = {0};
@@ -664,6 +673,7 @@ void DEVCMNI_Init(DEVCMNI_TypeDef *devcmni, DEVCMNIIO_TypeDef *devcmniio) {
             devcmniio->SDA_SDI_OWRE.Init.State = DEVIO_PIN_SET;
             DEVIO_Init(&devcmniio->SDA_SDI_OWRE);    //初始化OWIO
         }
+    } else if(devcmni->protocol == USART) {
     }
 #endif
 }
@@ -796,7 +806,7 @@ bool DEVCMNI_ReadBit(uint8_t address, bool skip) {
     }
     return bit;
 }
-void DEVCMNI_Write(uint8_t *pdata, uint16_t size, uint8_t address, bool skip) {
+bool DEVCMNI_Write(uint8_t *pdata, size_t size, uint8_t address, bool skip) {
     DEVCMNI_TypeDef *devcmni = DEV_getActDevCmni();
     DEVCMNIIO_TypeDef *devio = &DEV_getActDevCmniIo()[_actDev->cmni.numnow];
     void *handle = devcmni->modular;
@@ -844,9 +854,16 @@ void DEVCMNI_Write(uint8_t *pdata, uint16_t size, uint8_t address, bool skip) {
             DEVONEWIRE_Write((ONEWIRE_ModuleHandleTypeDef *)handle, pdata, size, skip, 0x10);
 #endif    // DEVOWRE_SOFTWARE_ENABLED
         }
+    } else if(devcmni->protocol == USART) {
+        if(devcmni->ware == HARDWARE) {
+#if defined(DEVUART_HARDWARE_ENABLED)
+            return DEVUART_Transmit((UART_ModuleHandleTypeDef *)handle, pdata, size);
+#endif    // DEVUART_HARDWARE_ENABLED
+        }
     }
+    return true;
 }
-void DEVCMNI_Read(uint8_t *pdata, uint16_t size, uint8_t address, bool skip) {
+bool DEVCMNI_Read(uint8_t *pdata, size_t size, size_t *length, uint8_t address, bool skip) {
     DEVCMNI_TypeDef *devcmni = DEV_getActDevCmni();
     DEVCMNIIO_TypeDef *devio = &DEV_getActDevCmniIo()[_actDev->cmni.numnow];
     void *handle = devcmni->modular;
@@ -894,7 +911,14 @@ void DEVCMNI_Read(uint8_t *pdata, uint16_t size, uint8_t address, bool skip) {
             DEVONEWIRE_Read((ONEWIRE_ModuleHandleTypeDef *)handle, pdata, size);
 #endif    // DEVOWRE_SOFTWARE_ENABLED
         }
+    } else if(devcmni->protocol == USART) {
+        if(devcmni->ware == HARDWARE) {
+#if defined(DEVUART_HARDWARE_ENABLED)
+            return DEVUART_Receive((UART_ModuleHandleTypeDef *)handle, pdata, size, length);
+#endif    // DEVUART_HARDWARE_ENABLED
+        }
     }
+    return true;
 }
 
 

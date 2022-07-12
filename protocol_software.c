@@ -1,5 +1,5 @@
 #include "device.h"
-#include "protocol.h"
+#include "protocol_software.h"
 //tofix: ac5编译不支持__weak函数在别处定义为inline
 __weak void DEVCMNI_SCL_Set(bool dir) {}
 __weak void DEVCMNI_SDA_OWRE_Set(bool dir) {}

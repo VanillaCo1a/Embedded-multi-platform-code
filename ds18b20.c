@@ -54,8 +54,9 @@ void writeScrpatchpad(DS18B20_SCRTypedef *scr) {
     DEVCMNI_Write(&((uint8_t *)scr)[2], 3, 0, 1);
 }
 void readScrpatchpad(DS18B20_SCRTypedef *scr) {
+    size_t length = 0;
     DEVCMNI_WriteByte(_RD_SCRATCH, 0, 0);
-    DEVCMNI_Read((uint8_t *)scr, sizeof(*scr) / sizeof(uint8_t), 0x00, 0);
+    DEVCMNI_Read((uint8_t *)scr, sizeof(*scr) / sizeof(uint8_t), &length, 0x00, 0);
 }
 void copyScrToRom(void) {
     DS18B20_PARTypeDef *ds_pa = (DS18B20_PARTypeDef *)DEV_getActDev()->parameter;
