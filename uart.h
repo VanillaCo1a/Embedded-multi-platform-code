@@ -1,10 +1,13 @@
 #ifndef __UART_H
 #define __UART_H
-#include "head.h"
+#include "device.h"
+
+#define BUFSIZE 2000
 
 void UART_Init(void);
-void UART1_Ctrl(void);
-int8_t UART1_Transmit(void);
-void UART1_Receive(void);
+size_t UART1_ScanArray(uint8_t arr[], size_t size);
+size_t UART1_ScanString(char *str, size_t size);
+bool UART1_PrintArray(uint8_t arr[], size_t size);
+bool UART1_PrintString(char *str);
 
 #endif
