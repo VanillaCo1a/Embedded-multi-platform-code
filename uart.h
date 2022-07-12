@@ -2,7 +2,6 @@
 #define __UART_H
 #include "device.h"
 
-#define UARTNUM 1
 #define BUFSIZE 2000
 
 void UART_Init(void);

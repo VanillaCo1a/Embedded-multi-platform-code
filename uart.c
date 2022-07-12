@@ -27,61 +27,74 @@ int _write(int fd, char *pBuffer, int size) {
     return size;
 }
 
+
 /*****                  物理层&数据链路层                   *****/
+/* 定义缓冲区长度和数组下标 */
 #define UARTSIZE 2000
-static Item nodes[UARTNUM][2][UARTSIZE];
-static volatile size_t nodesSize[UARTNUM][3] = {0};
-static volatile bool signalOver[UARTNUM][2] = {1, 1};
+#define RECEIVE  0
+#define TRANSMIT 1
+typedef struct uartbuffer {
+    Item buf[2][UARTSIZE];
+    size_t size[2];
+    size_t count[2];
+    bool signal[2];
+} UartBuffer;
+static UartBuffer buart1 = {.signal = {0, 1}};
+static UART_HandleTypeDef *acthuart;
+
+static UartBuffer *UART_GetBuffer(UART_HandleTypeDef *huart) {
+    if(huart == &huart1) {
+        return &buart1;
+    }
+    return NULL;
+}
 /* 指定空间数据接收完毕/总线空闲时中断回调函数 */
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size) {
-    if(huart == &huart1) {
-        signalOver[0][0] = true;
-        nodesSize[0][0] = size;
-    }
+    UartBuffer *buart = UART_GetBuffer(huart);
+    buart->signal[RECEIVE] = true;
+    buart->size[RECEIVE] = size;
 }
 /* 数据发送完毕中断回调函数 */
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
-    if(huart == &huart1) {
-        signalOver[0][1] = true;
-    }
+    UartBuffer *buart = UART_GetBuffer(huart);
+    buart->signal[TRANSMIT] = true;
 }
-/* 根据标志位查询串口是否接收完成的函数
-若否, 则设置下次接收数据的空间, 并返回false; 若是, 返回true */
-bool LinkLayer_Receive(UART_HandleTypeDef *huart, size_t size) {
-    if(huart == &huart1) {
-        if(signalOver[0][0]) {
-            signalOver[0][0] = false;
-            nodesSize[0][2] = MIN(size, UARTSIZE);
-            return true;
-        }
-    }
-    return false;
-}
-/* 根据标志位查询串口是否发送完成的函数
+
+/* 根据标志位查询串口是否收发完成的函数
 若否, 则返回false; 若是, 则返回true */
-bool LinkLayer_Transmit(UART_HandleTypeDef *huart) {
-    if(huart == &huart1) {
-        if(signalOver[0][1]) {
-            signalOver[0][1] = false;
-            return true;
-        }
+static bool LinkLayer_UartReady(uint8_t type) {
+    UartBuffer *buart = UART_GetBuffer(acthuart);
+    if(buart->signal[type]) {
+        buart->signal[type] = false;
+        return true;
     }
     return false;
+}
+/* 开始串口接收 */
+static void LinkLayer_ReceiveStart(size_t size) {
+    UartBuffer *buart = UART_GetBuffer(acthuart);
+    size_t _size = MIN(size, UARTSIZE);
+    if(_size != 0) {
+        HAL_UARTEx_ReceiveToIdle_IT(acthuart, buart->buf[RECEIVE], _size);
+    }
+}
+/* 开始串口发送 */
+static void LinkLayer_TransmitStart(void) {
+    UartBuffer *buart = UART_GetBuffer(acthuart);
+    if(buart->size[TRANSMIT] != 0) {
+        HAL_UART_Transmit_IT(acthuart, buart->buf[TRANSMIT], buart->size[TRANSMIT]);
+    }
 }
 
 void LinkLayer_GetBuffer(Table *table) {
-    AddTableBehind(table, nodes[0][0], nodesSize[0][0]);
-    if(nodesSize[0][2] != 0) {
-        HAL_UARTEx_ReceiveToIdle_IT(&huart1, nodes[0][0], nodesSize[0][2]);
-    }
+    UartBuffer *buart = UART_GetBuffer(acthuart);
+    AddTableBehind(table, buart->buf[RECEIVE], buart->size[RECEIVE]);
 }
 void LinkLayer_SetBuffer(Table *table) {
+    UartBuffer *buart = UART_GetBuffer(acthuart);
     size_t table_size = TableItemCount(table);
-    nodesSize[0][1] = MIN(table_size, UARTSIZE);
-    DelTableFront(table, nodes[0][1], nodesSize[0][1]);
-    if(nodesSize[0][1] != 0) {
-        HAL_UART_Transmit_IT(&huart1, nodes[0][1], nodesSize[0][1]);
-    }
+    buart->size[TRANSMIT] = MIN(table_size, UARTSIZE);
+    DelTableFront(table, buart->buf[TRANSMIT], buart->size[TRANSMIT]);
 }
 
 
@@ -142,72 +155,82 @@ void ApplicationLayer_PackComputer(Table *table) {
 /*****                  用户调用                  *****/
 Node _data[2][BUFSIZE];
 Table _dataTable[2];
-void upToLayer(uint8_t uart, void (*unpack)(Table *table)) {
+void upToLayer(void (*unpack)(Table *table)) {
     if(unpack == NULL) {
         return;
     }
-    unpack(&_dataTable[0]);
+    unpack(&_dataTable[RECEIVE]);
 }
-void downToLayer(uint8_t uart, void (*pack)(Table *table)) {
+void downToLayer(void (*pack)(Table *table)) {
     if(pack == NULL) {
         return;
     }
-    pack(&_dataTable[1]);
+    pack(&_dataTable[TRANSMIT]);
 }
 
 void UART_Init(void) {
-    InitializeTable(&_dataTable[0], _data[0], sizeof(_data[0]) / sizeof(Node));
-    InitializeTable(&_dataTable[1], _data[1], sizeof(_data[1]) / sizeof(Node));
+    InitializeTable(&_dataTable[RECEIVE], _data[RECEIVE], sizeof(_data[RECEIVE]) / sizeof(Node));
+    InitializeTable(&_dataTable[TRANSMIT], _data[TRANSMIT], sizeof(_data[TRANSMIT]) / sizeof(Node));
     printf("UART1初始化完毕\r\n");
 }
 size_t UART1_ScanArray(uint8_t arr[], size_t size) {
     size_t table_size = 0;
+    acthuart = &huart1;
     /* 将待接收区域的空间设置为size, 但不大于BUFSIZE */
-    if(LinkLayer_Receive(&huart1, MIN(size, BUFSIZE))) {
-        upToLayer(1, LinkLayer_GetBuffer);
-        upToLayer(1, TransportLayer_Unpack);
-        upToLayer(1, ApplicationLayer_UnpackArray);
+    if(!LinkLayer_UartReady(RECEIVE)) {
+        LinkLayer_ReceiveStart(MIN(size, BUFSIZE));
+    } else {
+        upToLayer(LinkLayer_GetBuffer);
+        upToLayer(TransportLayer_Unpack);
+        upToLayer(ApplicationLayer_UnpackArray);
         /* 数据已经抵达应用层, 所占空间不大于之前设置的size */
-        table_size = TableItemCount(&_dataTable[0]);
-        DelTableFront(&_dataTable[0], arr, table_size);
-        EmptyTheTable(&_dataTable[0]);
+        table_size = TableItemCount(&_dataTable[RECEIVE]);
+        DelTableFront(&_dataTable[RECEIVE], arr, table_size);
+        EmptyTheTable(&_dataTable[RECEIVE]);
         return table_size;
     }
     return 0;
 }
 size_t UART1_ScanString(char *str, size_t size) {
     size_t table_size = 0;
-    if(LinkLayer_Receive(&huart1, MIN(size - 1, BUFSIZE))) {
-        upToLayer(1, LinkLayer_GetBuffer);
-        upToLayer(1, TransportLayer_Unpack);
-        upToLayer(1, ApplicationLayer_UnpackArray);
-        table_size = TableItemCount(&_dataTable[0]);
-        DelTableFront(&_dataTable[0], (Item *)str, table_size);
+    acthuart = &huart1;
+    if(!LinkLayer_UartReady(RECEIVE)) {
+        LinkLayer_ReceiveStart(MIN(size - 1, BUFSIZE));
+    } else {
+        upToLayer(LinkLayer_GetBuffer);
+        upToLayer(TransportLayer_Unpack);
+        upToLayer(ApplicationLayer_UnpackArray);
+        table_size = TableItemCount(&_dataTable[RECEIVE]);
+        DelTableFront(&_dataTable[RECEIVE], (Item *)str, table_size);
         str[table_size] = '\0';
-        EmptyTheTable(&_dataTable[0]);
+        EmptyTheTable(&_dataTable[RECEIVE]);
         return table_size;
     }
     return false;
 }
 bool UART1_PrintArray(uint8_t arr[], size_t size) {
-    if(LinkLayer_Transmit(&huart1)) {
+    acthuart = &huart1;
+    if(LinkLayer_UartReady(TRANSMIT)) {
         /* 将待发送区域的空间设置为size, 超过BUFSIZE的部分将被弃置 */
-        AddTableBehind(&_dataTable[1], arr, size);
-        downToLayer(1, ApplicationLayer_PackArray);
-        downToLayer(1, TransportLayer_Pack);
-        downToLayer(1, LinkLayer_SetBuffer);
-        EmptyTheTable(&_dataTable[1]);
+        AddTableBehind(&_dataTable[TRANSMIT], arr, size);
+        downToLayer(ApplicationLayer_PackArray);
+        downToLayer(TransportLayer_Pack);
+        downToLayer(LinkLayer_SetBuffer);
+        LinkLayer_TransmitStart();
+        EmptyTheTable(&_dataTable[TRANSMIT]);
         return true;
     }
     return false;
 }
 bool UART1_PrintString(char *str) {
-    if(LinkLayer_Transmit(&huart1)) {
-        AddTableBehind(&_dataTable[1], (Item *)str, strlen(str));
-        downToLayer(1, ApplicationLayer_PackArray);
-        downToLayer(1, TransportLayer_Pack);
-        downToLayer(1, LinkLayer_SetBuffer);
-        EmptyTheTable(&_dataTable[1]);
+    acthuart = &huart1;
+    if(LinkLayer_UartReady(TRANSMIT)) {
+        AddTableBehind(&_dataTable[TRANSMIT], (Item *)str, strlen(str));
+        downToLayer(ApplicationLayer_PackArray);
+        downToLayer(TransportLayer_Pack);
+        downToLayer(LinkLayer_SetBuffer);
+        LinkLayer_TransmitStart();
+        EmptyTheTable(&_dataTable[TRANSMIT]);
         return true;
     }
     return false;
