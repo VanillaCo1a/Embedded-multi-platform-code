@@ -4,17 +4,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-/* 宏函数 */
-#define MIN(A, B) ((A) < (B)) ? (A) : (B)
-#define MAX(A, B) ((A) > (B)) ? (A) : (B)
-
-#define BUFFERSIZE 2000
-
-////////////////////////////////////////////////////////////////////////////
 typedef struct {
     uint8_t *buf;
     volatile size_t size;
-    volatile size_t size_n;
     volatile size_t count;
     volatile bool state;
 } BufferTypedef;
@@ -26,19 +18,73 @@ typedef struct {
     void *bus;
 } UART_ModuleHandleTypeDef;
 
-#ifdef DEVI2C_HARDWARE_ENABLED
-#endif    // DEVI2C_HARDWARE_ENABLED
-
 ////////////////////////////////////////////////////////////////////////////
-#ifdef DEVSPI_HARDWARE_ENABLED
+#if defined(DEVI2C_HARDWARE_ENABLED)
+__attribute__((unused)) static DEVCMNI_StatusTypeDef DEVI2C_Transmit_H(I2C_ModuleHandleTypeDef *modular, uint8_t *pdata, size_t size, uint8_t address, bool rw, uint32_t timeout) {
+    if(rw) {
+#if defined(STM32HAL)
+#if defined(HAL_I2C_MODULE_ENABLED)
+        HAL_I2C_Mem_Read(modular->bus, (modular->addr << 1) | 0X00, address, I2C_MEMADD_SIZE_8BIT, pdata, size, timeout);
+#elif defined(HAL_FMPI2C_MODULE_ENABLED)
+        HAL_FMPI2C_Mem_Read(modular->bus, (modular->addr << 1) | 0X00, address, FMPI2C_MEMADD_SIZE_8BIT, pdata, size, timeout);
+#endif    // HAL_I2C_MODULE_ENABLED | HAL_FMPI2C_MODULE_ENABLED
+#elif defined(STM32FWLIBF1)
+    //固件库的硬件I2C驱动函数,待补充
+#endif
+    } else {
+#if defined(STM32HAL)
+#if defined(HAL_I2C_MODULE_ENABLED)
+        HAL_I2C_Mem_Write(modular->bus, (modular->addr << 1) | 0X00, address, I2C_MEMADD_SIZE_8BIT, pdata, size, timeout);
+#elif defined(HAL_FMPI2C_MODULE_ENABLED)
+        HAL_FMPI2C_Mem_Write(modular->bus, (modular->addr << 1) | 0X00, address, FMPI2C_MEMADD_SIZE_8BIT, pdata, size, timeout);
+#endif    // HAL_I2C_MODULE_ENABLED | HAL_FMPI2C_MODULE_ENABLED
+#elif defined(STM32FWLIBF1)
+    //固件库的硬件I2C驱动函数,待补充
+#endif
+    }
+    return DEVCMNI_OK;
+}
+#endif    // DEVI2C_HARDWARE_ENABLED
+////////////////////////////////////////////////////////////////////////////
+#if defined(DEVSPI_HARDWARE_ENABLED)
+__attribute__((unused)) static DEVCMNI_StatusTypeDef DEVSPI_Transmit_H(SPI_ModuleHandleTypeDef *modular, uint8_t *pdata, size_t size, bool rw, uint32_t timeout) {
+    if(modular->duplex == DEVSPI_FULL_DUPLEX) {
+        //to add
+    } else if(modular->duplex == DEVSPI_HALF_DUPLEX) {
+        if(rw) {
+#if defined(STM32HAL)
+#if defined(HAL_SPI_MODULE_ENABLED)
+            HAL_SPI_Receive(modular->bus, pdata, size, timeout);
+#elif defined(HAL_QSPI_MODULE_ENABLED)
+            //todo: SPI_Write for QSPI
+#endif    // HAL_SPI_MODULE_ENABLED | HAL_QSPI_MODULE_ENABLED
+#elif defined(STM32FWLIBF1)
+            //固件库的硬件SPI驱动函数,待补充
+#endif
+        } else {
+#if defined(STM32HAL)
+#if defined(HAL_SPI_MODULE_ENABLED)
+            HAL_SPI_Transmit(modular->bus, pdata, size, timeout);
+#elif defined(HAL_QSPI_MODULE_ENABLED)
+            //todo: SPI_Write for QSPI
+#endif    // HAL_SPI_MODULE_ENABLED | HAL_QSPI_MODULE_ENABLED
+#elif defined(STM32FWLIBF1)
+            //固件库的硬件SPI驱动函数,待补充
+#endif
+        }
+    }
+    return DEVCMNI_OK;
+}
 #endif    // DEVSPI_HARDWARE_ENABLED
 
+
+
 ////////////////////////////////////////////////////////////////////////////
-#ifdef DEVOWRE_HARDWARE_ENABLED
+#if defined(DEVOWRE_HARDWARE_ENABLED)
 #endif    // DEVOWRE_HARDWARE_ENABLED
 
 ////////////////////////////////////////////////////////////////////////////
-#ifdef DEVUART_HARDWARE_ENABLED
+#if defined(DEVUART_HARDWARE_ENABLED)
 static UART_ModuleHandleTypeDef *uartmodular;
 static void DEVUART_Init(UART_ModuleHandleTypeDef *modular) {
     uartmodular = modular;
@@ -48,10 +94,16 @@ static void DEVUART_ReceiveStart(void) {
 #if defined(STM32)
 #if defined(STM32HAL)
 #if defined(HAL_UART_MODULE_ENABLED)
-    HAL_UARTEx_ReceiveToIdle_IT(uartmodular->bus, uartmodular->receive.buf, uartmodular->receive.size_n);
+    if(uartmodular->usedma) {
+#if defined(HAL_DMA_MODULE_ENABLED)
+        HAL_UARTEx_ReceiveToIdle_DMA(uartmodular->bus, uartmodular->receive.buf, uartmodular->receive.size);
+#endif    // HAL_DMA_MODULE_ENABLED
+    } else {
+        HAL_UARTEx_ReceiveToIdle_IT(uartmodular->bus, uartmodular->receive.buf, uartmodular->receive.size);
+    }
 #endif    // HAL_UART_MODULE_ENABLED
 #elif defined(STM32FWLIB)
-    FWLIB_UARTEx_ReceiveToIdle_IT(uartmodular->bus, uartmodular->receive.buf, uartmodular->receive.size_n);
+    FWLIB_UARTEx_ReceiveToIdle_IT(uartmodular->bus, uartmodular->receive.buf, uartmodular->receive.size);
 #endif
 #endif
 }
@@ -73,45 +125,42 @@ static void DEVUART_TransmitStart(void) {
 #endif
 #endif
 }
-__attribute__((unused)) static bool DEVUART_Receive(UART_ModuleHandleTypeDef *modular, uint8_t *pdata, size_t size, size_t *length) {
+__attribute__((unused)) static DEVCMNI_StatusTypeDef DEVUART_Receive(UART_ModuleHandleTypeDef *modular, uint8_t *pdata, size_t size, size_t *length) {
     DEVUART_Init(modular);
     if(!uartmodular->receive.state) {
-        /* 将待接收区域的空间设置为size, 但不大于BUFSIZE */
-        uartmodular->receive.size_n = MIN(size, BUFFERSIZE);
+        uartmodular->receive.size = size;
         uartmodular->receive.buf = pdata;
-        if(uartmodular->receive.size_n != 0 && uartmodular->receive.buf != NULL) {
+        if(uartmodular->receive.size != 0 && uartmodular->receive.buf != NULL) {
             DEVUART_ReceiveStart();
         }
     } else {
-        *length = uartmodular->receive.size;
+        *length = uartmodular->receive.count;
+        uartmodular->receive.count = 0;
         uartmodular->receive.state = false;
-        return true;
+        return DEVCMNI_OK;
     }
-    return false;
+    return DEVCMNI_BUSY;
 }
-__attribute__((unused)) static bool DEVUART_Transmit(UART_ModuleHandleTypeDef *modular, uint8_t *pdata, size_t size) {
+__attribute__((unused)) static DEVCMNI_StatusTypeDef DEVUART_Transmit(UART_ModuleHandleTypeDef *modular, uint8_t *pdata, size_t size) {
     DEVUART_Init(modular);
     if(uartmodular->transmit.state) {
-        /* 将待发送区域的空间设置为size, 超过BUFSIZE的部分将被弃置 */
-        uartmodular->transmit.size = MIN(size, BUFFERSIZE);
+        uartmodular->transmit.size = size;
         uartmodular->transmit.buf = pdata;
         if(uartmodular->transmit.size != 0 && uartmodular->transmit.buf != NULL) {
             DEVUART_TransmitStart();
         }
         uartmodular->transmit.state = false;
-        return true;
+        return DEVCMNI_OK;
     }
-    return false;
+    return DEVCMNI_BUSY;
 }
-__attribute__((unused)) static void DEVUART_ReceiveReady(UART_ModuleHandleTypeDef *muart, size_t size) {
+__attribute__((unused)) static void DEVUART_ReceiveReady(UART_ModuleHandleTypeDef *muart, size_t count) {
     muart->receive.state = true;
-    muart->receive.size = size;
+    muart->receive.count = count;
 }
 __attribute__((unused)) static void DEVUART_TransmitReady(UART_ModuleHandleTypeDef *muart) {
     muart->transmit.state = true;
 }
 #endif    // DEVUART_HARDWARE_ENABLED
 
-#undef MIN
-#undef MAX
 #endif    // !__PROTOCOL_HARDWARE_H

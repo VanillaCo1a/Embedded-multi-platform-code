@@ -30,6 +30,12 @@ typedef enum {
     IN,
     OUT
 } Direct_TypeDef;
+typedef enum {
+    DEVCMNI_OK = 0,
+    DEVCMNI_ERROR,
+    DEVCMNI_BUSY,
+    DEVCMNI_TIMEOUT
+} DEVCMNI_StatusTypeDef;
 ////////////////////////////////////////////////////////////////////////////
 typedef enum {
     DEVI2C_SCL,
@@ -73,16 +79,16 @@ typedef struct {          //I2C模拟总线结构体
 } I2C_SoftHandleTypeDef;
 typedef struct {                      //I2C总线设备结构体
     uint8_t addr;                     //模块I2C地址
+    bool skip;                        //是否需要读/写内部寄存器
     DEVI2C_SpeedTypeDef speed;        //模块I2C速率
     DEVI2C_ErrhandTypeDef errhand;    //模块的错误处理方式
     void *bus;                        //I2C模拟/硬件总线句柄
 } I2C_ModuleHandleTypeDef;
 ////////////////////////////////////////////////////////////////////////////
 typedef enum {
-    DEVSPI_READ_WRITE,
-    DEVSPI_WRITE,
-    DEVSPI_READ,
-} DEVSPI_RWTypeTypeDef;
+    DEVSPI_FULL_DUPLEX,
+    DEVSPI_HALF_DUPLEX
+} DEVSPI_DuplexTypeTypeDef;
 typedef struct {    //SPI模拟总线结构体
     bool something;
 #ifdef DEVSPI_USEPOINTER
@@ -96,9 +102,10 @@ typedef struct {    //SPI模拟总线结构体
     int8_t (*delayus_paral)(uint16_t us);
 #endif    //DEVSPI_USEPOINTER
 } SPI_SoftHandleTypeDef;
-typedef struct {                    //SPI总线模块结构体
-    DEVSPI_RWTypeTypeDef rwtype;    //设备读写类型
-    void *bus;                      //SPI模拟/硬件总线句柄
+typedef struct {                        //SPI总线模块结构体
+    bool skip;                          //是否需要拉低片选
+    DEVSPI_DuplexTypeTypeDef duplex;    //设备工作模式
+    void *bus;                          //SPI模拟/硬件总线句柄
 } SPI_ModuleHandleTypeDef;
 ////////////////////////////////////////////////////////////////////////////
 typedef struct {           //ONEWIRE模拟总线结构体
@@ -116,6 +123,7 @@ typedef struct {           //ONEWIRE模拟总线结构体
 } ONEWIRE_SoftHandleTypeDef;
 typedef struct {
     uint64_t rom;    //模块64位ROM编码
+    bool skip;       //是否跳过ROM匹配
     void *bus;       //ONEWIRE总线句柄
 } ONEWIRE_ModuleHandleTypeDef;
 
@@ -510,93 +518,15 @@ static void DEVI2C_Read_(uint8_t *pdata, size_t size) {
     }
 }
 ////////////////////////////////////////////////////////////////////////////
-__attribute__((unused)) static int8_t DEVI2C_TransmitByte(I2C_ModuleHandleTypeDef *modular, uint8_t address, uint8_t *pbyte, int8_t skip, int8_t rw, uint32_t timeout) {
-    /* 单字节读写函数, timeout应答超时,speed速度模式,rw1为读0为写 */
+__attribute__((unused)) static DEVCMNI_StatusTypeDef DEVI2C_Transmit(I2C_ModuleHandleTypeDef *modular, uint8_t *pdata, size_t size, uint8_t address, bool rw, uint32_t timeout) {
+    /* 多字节读写函数, timeout应答超时,speed速度模式,rw1为读0为写 */
     uint8_t byte;
     DEVI2C_Init(modular, timeout);
     if(i2cbus.clockstretch || i2cbus.arbitration) {
         do {
             DEVI2C_Start();
             if(i2cerror) { break; }
-            if(skip) {
-                byte = (i2cmodular.addr << 1) | rw;
-                if(DEVI2C_Write(&byte, 1)) {    //发送器件地址+读/写命令
-                    if(i2cerror == DEVI2C_NOACK) { i2cerror = DEVI2C_NOFOUND; }
-                    break;
-                }
-            } else {
-                byte = (i2cmodular.addr << 1) | 0X00;
-                if(DEVI2C_Write(&byte, 1)) {    //发送器件地址+写命令
-                    if(i2cerror == DEVI2C_NOACK) { i2cerror = DEVI2C_NOFOUND; }
-                    break;
-                }
-                if(DEVI2C_Write(&address, 1)) {    //发送寄存器地址
-                    if(i2cerror == DEVI2C_NOACK) { i2cerror = DEVI2C_NOFOUND; }
-                    break;
-                }
-                if(rw) {
-                    DEVI2C_Start();
-                    if(i2cerror) { break; }
-                    byte = (i2cmodular.addr << 1) | 0X01;
-                    if(DEVI2C_Write(&byte, 1)) {    //发送器件地址+读命令
-                        if(i2cerror == DEVI2C_NOACK) { i2cerror = DEVI2C_NOFOUND; }
-                        break;
-                    }
-                }
-            }
-            if(rw) {
-                DEVI2C_Read(pbyte, 1);    //读一个字节
-                if(i2cerror) { break; }
-            } else {
-                if(DEVI2C_Write(pbyte, 1)) {    //写一个字节
-                    if(i2cerror == DEVI2C_NOACK) { i2cerror = DEVI2C_NOANSWER; }
-                    break;
-                }
-            }
-            DEVI2C_Stop();
-            if(i2cerror) { break; }
-            return 0;
-        } while(0);
-        DEVI2C_Error(i2cerror);
-        return 1;
-    } else {
-        DEVI2C_Start_();
-        if(skip) {
-            byte = (i2cmodular.addr << 1) | rw;
-            if(DEVI2C_Write_(&byte, 1)) {    //发送器件地址+读/写命令
-            }
-        } else {
-            byte = (i2cmodular.addr << 1) | 0X00;
-            if(DEVI2C_Write_(&byte, 1)) {    //发送器件地址+写命令
-            }
-            if(DEVI2C_Write_(&address, 1)) {    //发送寄存器地址
-            }
-            if(rw) {
-                DEVI2C_Start_();
-                byte = (i2cmodular.addr << 1) | 0X01;
-                if(DEVI2C_Write_(&byte, 1)) {    //发送器件地址+读命令
-                }
-            }
-        }
-        if(rw) {
-            DEVI2C_Read_(pbyte, 1);    //读一个字节
-        } else {
-            if(DEVI2C_Write_(pbyte, 1)) {    //写一个字节
-            }
-        }
-        DEVI2C_Stop_();
-        return 0;
-    }
-}
-__attribute__((unused)) static int8_t DEVI2C_Transmit(I2C_ModuleHandleTypeDef *modular, uint8_t address, uint8_t *pdata, size_t size, int8_t skip, int8_t rw, uint32_t timeout) {
-    /* 多字节读写函数, timeout应答超时,speed速度模式 */
-    uint8_t byte;
-    DEVI2C_Init(modular, timeout);
-    if(i2cbus.clockstretch || i2cbus.arbitration) {
-        do {
-            DEVI2C_Start();
-            if(i2cerror) { break; }
-            if(skip) {
+            if(modular->skip) {
                 byte = (i2cmodular.addr << 1) | rw;
                 if(DEVI2C_Write(&byte, 1)) {    //发送器件地址+读/写命令
                     if(i2cerror == DEVI2C_NOACK) { i2cerror = DEVI2C_NOFOUND; }
@@ -633,51 +563,37 @@ __attribute__((unused)) static int8_t DEVI2C_Transmit(I2C_ModuleHandleTypeDef *m
             }
             DEVI2C_Stop();
             if(i2cerror) { break; }
-            return 0;
+            return DEVCMNI_OK;
         } while(0);
         DEVI2C_Error(i2cerror);
-        return 1;
+        return DEVCMNI_ERROR;
     } else {
-        do {
-            DEVI2C_Start();
-            if(skip) {
-                byte = (i2cmodular.addr << 1) | rw;
-                if(DEVI2C_Write_(&byte, 1)) {    //发送器件地址+读/写命令
-                    i2cerror = DEVI2C_NOFOUND;
-                    break;
-                }
-            } else {
-                byte = (i2cmodular.addr << 1) | 0X00;
-                if(DEVI2C_Write_(&byte, 1)) {    //发送器件地址+写命令
-                    i2cerror = DEVI2C_NOFOUND;
-                    break;
-                }
-                if(DEVI2C_Write_(&address, 1)) {    //发送寄存器地址
-                    i2cerror = DEVI2C_NOFOUND;
-                    break;
-                }
-                if(rw) {
-                    DEVI2C_Start();
-                    byte = (i2cmodular.addr << 1) | 0X01;
-                    if(DEVI2C_Write_(&byte, 1)) {    //发送器件地址+读命令
-                        i2cerror = DEVI2C_NOFOUND;
-                        break;
-                    }
-                }
+        DEVI2C_Start_();
+        if(modular->skip) {
+            byte = (i2cmodular.addr << 1) | rw;
+            if(DEVI2C_Write_(&byte, 1)) {    //发送器件地址+读/写命令
+            }
+        } else {
+            byte = (i2cmodular.addr << 1) | 0X00;
+            if(DEVI2C_Write_(&byte, 1)) {    //发送器件地址+写命令
+            }
+            if(DEVI2C_Write_(&address, 1)) {    //发送寄存器地址
             }
             if(rw) {
-                DEVI2C_Read_(pdata, size);    //连续读取
-            } else {
-                if(DEVI2C_Write_(pdata, size)) {    //连续写入
-                    i2cerror = DEVI2C_NOFOUND;
-                    break;
+                DEVI2C_Start_();
+                byte = (i2cmodular.addr << 1) | 0X01;
+                if(DEVI2C_Write_(&byte, 1)) {    //发送器件地址+读命令
                 }
             }
-            DEVI2C_Stop();
-            return 0;
-        } while(0);
-        DEVI2C_Error(i2cerror);
-        return 1;
+        }
+        if(rw) {
+            DEVI2C_Read_(pdata, size);    //连续读取
+        } else {
+            if(DEVI2C_Write_(pdata, size)) {    //连续写入
+            }
+        }
+        DEVI2C_Stop_();
+        return DEVCMNI_OK;
     }
 }
 #undef DEVI2C_SCL_Set
@@ -761,31 +677,11 @@ static inline bool DEVSPI_TransmitBit(SPI_ModuleHandleTypeDef *modular, bool bit
     return bit;
 }
 ////////////////////////////////////////////////////////////////////////////
-//单字节写入函数
-__attribute__((unused)) static uint8_t DEVSPI_TransmitByte(SPI_ModuleHandleTypeDef *modular, uint8_t byte, int8_t skip, uint32_t timeout) {
+__attribute__((unused)) static DEVCMNI_StatusTypeDef DEVSPI_Transmit(SPI_ModuleHandleTypeDef *modular, uint8_t *pdata, size_t size, bool rw, uint32_t timeout) {
+    /* 多字节读写函数, timeout应答超时,rw1为读0为写 */
     DEVSPI_Init(modular);
-    DEVSPI_Start(modular, skip);
-    if(modular->rwtype == DEVSPI_READ_WRITE) {
-        for(uint8_t i = 0x80; i; i >>= 1) {
-            byte |= DEVSPI_TransmitBit(modular, byte & i ? 1 : 0) ? i : 0x00;
-        }
-    } else if(modular->rwtype == DEVSPI_WRITE) {
-        for(uint8_t i = 0x80; i; i >>= 1) {
-            DEVSPI_WriteBit(modular, byte & i ? 1 : 0);
-        }
-    } else if(modular->rwtype == DEVSPI_READ) {
-        for(uint8_t i = 0x80; i; i >>= 1) {
-            byte |= DEVSPI_ReadBit(modular) ? i : 0x00;
-        }
-    }
-    DEVSPI_Stop(modular, skip);
-    return byte;
-}
-//多字节写入函数
-__attribute__((unused)) static void DEVSPI_Transmit(SPI_ModuleHandleTypeDef *modular, uint8_t *pdata, size_t size, int8_t skip, uint32_t timeout) {
-    DEVSPI_Init(modular);
-    DEVSPI_Start(modular, skip);
-    if(modular->rwtype == DEVSPI_READ_WRITE) {
+    DEVSPI_Start(modular, modular->skip);
+    if(modular->duplex == DEVSPI_FULL_DUPLEX) {
         for(uint16_t j = 0; j < size; j++) {
             pdata[j] |= DEVSPI_TransmitBit(modular, pdata[j] & 0x80 ? 1 : 0) ? 0x80 : 0x00;
             pdata[j] |= DEVSPI_TransmitBit(modular, pdata[j] & 0x40 ? 1 : 0) ? 0x40 : 0x00;
@@ -796,30 +692,33 @@ __attribute__((unused)) static void DEVSPI_Transmit(SPI_ModuleHandleTypeDef *mod
             pdata[j] |= DEVSPI_TransmitBit(modular, pdata[j] & 0x02 ? 1 : 0) ? 0x02 : 0x00;
             pdata[j] |= DEVSPI_TransmitBit(modular, pdata[j] & 0x01 ? 1 : 0) ? 0x01 : 0x00;
         }
-    } else if(modular->rwtype == DEVSPI_WRITE) {
-        for(uint16_t j = 0; j < size; j++) {
-            DEVSPI_WriteBit(modular, pdata[j] & 0x80);
-            DEVSPI_WriteBit(modular, pdata[j] & 0x40);
-            DEVSPI_WriteBit(modular, pdata[j] & 0x20);
-            DEVSPI_WriteBit(modular, pdata[j] & 0x10);
-            DEVSPI_WriteBit(modular, pdata[j] & 0x08);
-            DEVSPI_WriteBit(modular, pdata[j] & 0x04);
-            DEVSPI_WriteBit(modular, pdata[j] & 0x02);
-            DEVSPI_WriteBit(modular, pdata[j] & 0x01);
-        }
-    } else if(modular->rwtype == DEVSPI_READ) {
-        for(uint16_t j = 0; j < size; j++) {
-            pdata[j] |= DEVSPI_ReadBit(modular) ? 0x80 : 0x00;
-            pdata[j] |= DEVSPI_ReadBit(modular) ? 0x40 : 0x00;
-            pdata[j] |= DEVSPI_ReadBit(modular) ? 0x20 : 0x00;
-            pdata[j] |= DEVSPI_ReadBit(modular) ? 0x10 : 0x00;
-            pdata[j] |= DEVSPI_ReadBit(modular) ? 0x08 : 0x00;
-            pdata[j] |= DEVSPI_ReadBit(modular) ? 0x04 : 0x00;
-            pdata[j] |= DEVSPI_ReadBit(modular) ? 0x02 : 0x00;
-            pdata[j] |= DEVSPI_ReadBit(modular) ? 0x01 : 0x00;
+    } else if(modular->duplex == DEVSPI_HALF_DUPLEX) {
+        if(rw) {
+            for(uint16_t j = 0; j < size; j++) {
+                pdata[j] |= DEVSPI_ReadBit(modular) ? 0x80 : 0x00;
+                pdata[j] |= DEVSPI_ReadBit(modular) ? 0x40 : 0x00;
+                pdata[j] |= DEVSPI_ReadBit(modular) ? 0x20 : 0x00;
+                pdata[j] |= DEVSPI_ReadBit(modular) ? 0x10 : 0x00;
+                pdata[j] |= DEVSPI_ReadBit(modular) ? 0x08 : 0x00;
+                pdata[j] |= DEVSPI_ReadBit(modular) ? 0x04 : 0x00;
+                pdata[j] |= DEVSPI_ReadBit(modular) ? 0x02 : 0x00;
+                pdata[j] |= DEVSPI_ReadBit(modular) ? 0x01 : 0x00;
+            }
+        } else {
+            for(uint16_t j = 0; j < size; j++) {
+                DEVSPI_WriteBit(modular, pdata[j] & 0x80);
+                DEVSPI_WriteBit(modular, pdata[j] & 0x40);
+                DEVSPI_WriteBit(modular, pdata[j] & 0x20);
+                DEVSPI_WriteBit(modular, pdata[j] & 0x10);
+                DEVSPI_WriteBit(modular, pdata[j] & 0x08);
+                DEVSPI_WriteBit(modular, pdata[j] & 0x04);
+                DEVSPI_WriteBit(modular, pdata[j] & 0x02);
+                DEVSPI_WriteBit(modular, pdata[j] & 0x01);
+            }
         }
     }
-    DEVSPI_Stop(modular, skip);
+    DEVSPI_Stop(modular, modular->skip);
+    return DEVCMNI_OK;
 }
 #undef DEVSPI_SCK_Out
 #undef DEVSPI_SDI_Out
@@ -926,7 +825,7 @@ static inline uint8_t DEVOWRE_ReadByte(ONEWIRE_ModuleHandleTypeDef *modular) {
     }
     return byte;
 }
-static inline void DEVOWRE_Write(ONEWIRE_ModuleHandleTypeDef *modular, uint8_t *pdata, uint16_t size) {
+static inline void DEVOWRE_Write(ONEWIRE_ModuleHandleTypeDef *modular, uint8_t *pdata, size_t size) {
     for(uint16_t j = 0; j < size; j++) {
         for(uint8_t i = 0x01; i; i <<= 1) {
             DEVOWRE_WriteBit(modular, pdata[j] & i ? 1 : 0);
@@ -934,7 +833,7 @@ static inline void DEVOWRE_Write(ONEWIRE_ModuleHandleTypeDef *modular, uint8_t *
     }
     return;
 }
-static inline void DEVOWRE_Read(ONEWIRE_ModuleHandleTypeDef *modular, uint8_t *pdata, uint16_t size) {
+static inline void DEVOWRE_Read(ONEWIRE_ModuleHandleTypeDef *modular, uint8_t *pdata, size_t size) {
     for(uint16_t j = 0; j < size; j++) {
         for(uint8_t i = 0x01; i != 0; i <<= 1) {
             pdata[j] |= DEVOWRE_ReadBit(modular) ? i : 0x00;
@@ -970,54 +869,26 @@ __attribute__((unused)) static void DEVONEWIRE_Search(ONEWIRE_ModuleHandleTypeDe
         //...
     }
 }
-__attribute__((unused)) static void DEVONEWIRE_WriteByte(ONEWIRE_ModuleHandleTypeDef *modular, uint8_t byte, int8_t skip, uint32_t timeout) {
+__attribute__((unused)) static DEVCMNI_StatusTypeDef DEVONEWIRE_ReadBit(ONEWIRE_ModuleHandleTypeDef *modular, bool *bit) {
+    *bit = DEVOWRE_ReadBit(modular);
+    return DEVCMNI_OK;
+}
+__attribute__((unused)) static DEVCMNI_StatusTypeDef DEVONEWIRE_Write(ONEWIRE_ModuleHandleTypeDef *modular, uint8_t *pdata, size_t size, uint32_t timeout) {
     DEVOWRE_Init(modular);
     DEVOWRE_Reset(modular);
-    if(skip || ((ONEWIRE_SoftHandleTypeDef *)modular->bus)->num <= 1) {
-        DEVOWRE_WriteByte(modular, _SKIP);
-    } else if(((ONEWIRE_SoftHandleTypeDef *)modular->bus)->num > 1) {
-        DEVOWRE_WriteByte(modular, _MATCH);
-        DEVOWRE_Write(modular, (uint8_t *)&modular->rom, 8);
-    }
-    DEVOWRE_WriteByte(modular, byte);
-}
-__attribute__((unused)) static void DEVONEWIRE_WriteWord(ONEWIRE_ModuleHandleTypeDef *modular, uint16_t byte, int8_t skip, uint32_t timeout) {
-    DEVOWRE_Init(modular);
-    DEVOWRE_Reset(modular);
-    if(skip || ((ONEWIRE_SoftHandleTypeDef *)modular->bus)->num == 1) {
-        DEVOWRE_WriteByte(modular, _SKIP);
-    } else if(((ONEWIRE_SoftHandleTypeDef *)modular->bus)->num > 1) {
-        DEVOWRE_WriteByte(modular, _MATCH);
-        DEVOWRE_Write(modular, (uint8_t *)&modular->rom, 8);
-    }
-    DEVOWRE_WriteByte(modular, (uint8_t)byte);
-    DEVOWRE_WriteByte(modular, (uint8_t)(byte >> 8));
-}
-__attribute__((unused)) static uint8_t DEVONEWIRE_ReadByte(ONEWIRE_ModuleHandleTypeDef *modular) {
-    return DEVOWRE_ReadByte(modular);
-}
-__attribute__((unused)) static uint16_t DEVONEWIRE_ReadWord(ONEWIRE_ModuleHandleTypeDef *modular) {
-    return (uint16_t)DEVOWRE_ReadByte(modular) | ((uint16_t)DEVOWRE_ReadByte(modular) << 8);
-}
-__attribute__((unused)) static uint8_t DEVONEWIRE_ReadBit(ONEWIRE_ModuleHandleTypeDef *modular) {
-    return DEVOWRE_ReadBit(modular);
-}
-__attribute__((unused)) static void DEVONEWIRE_Write(ONEWIRE_ModuleHandleTypeDef *modular, uint8_t *pdata, size_t size, int8_t skip, uint32_t timeout) {
-    DEVOWRE_Init(modular);
-    DEVOWRE_Reset(modular);
-    if(skip || ((ONEWIRE_SoftHandleTypeDef *)modular->bus)->num == 1) {
+    if(modular->skip || ((ONEWIRE_SoftHandleTypeDef *)modular->bus)->num == 1) {
         DEVOWRE_WriteByte(modular, _SKIP);
     } else if(((ONEWIRE_SoftHandleTypeDef *)modular->bus)->num > 1) {
         DEVOWRE_WriteByte(modular, _MATCH);
         DEVOWRE_Write(modular, (uint8_t *)&modular->rom, 8);
     }
     DEVOWRE_Write(modular, pdata, size);
-    return;
+    return DEVCMNI_OK;
 }
-__attribute__((unused)) static void DEVONEWIRE_Read(ONEWIRE_ModuleHandleTypeDef *modular, uint8_t *pdata, size_t size) {
+__attribute__((unused)) static DEVCMNI_StatusTypeDef DEVONEWIRE_Read(ONEWIRE_ModuleHandleTypeDef *modular, uint8_t *pdata, size_t size) {
     //tofix: 单总线的读时隙只能跟随在特定的主机写指令之后吗? 当需要并发地与多个设备进行通信时, 怎样进行独立的读操作?
     DEVOWRE_Read(modular, pdata, size);
-    return;
+    return DEVCMNI_OK;
 }
 #undef DEVOWRE_OWIO_Set
 #undef DEVOWRE_OWIO_Out

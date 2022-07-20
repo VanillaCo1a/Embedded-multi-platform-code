@@ -29,8 +29,9 @@ OLED_IOTypeDef oled_io[OLED_NUM] = {
 //    OLED通信配置
 I2C_SoftHandleTypeDef ahi2c = {.clockstretch = true, .arbitration = true};
 SPI_SoftHandleTypeDef ahspi = {};
-I2C_ModuleHandleTypeDef mi2c[] = {{.addr = OLED_I2CADDR1, .speed = DEVI2C_HIGHSPEED, .errhand = DEVI2C_LEVER1}};
-SPI_ModuleHandleTypeDef mspi[] = {{.rwtype = DEVSPI_WRITE}};
+I2C_ModuleHandleTypeDef mi2c[] = {
+    {.addr = OLED_I2CADDR1, .skip = false, .speed = DEVI2C_HIGHSPEED, .errhand = DEVI2C_LEVER1}};
+SPI_ModuleHandleTypeDef mspi[] = {{.skip = false, .duplex = DEVSPI_HALF_DUPLEX}};
 OLED_CMNITypeDef oled_cmni[] = {
     {{.protocol = I2C, .ware = SOFTWARE, .bus = &ahi2c, .modular = mi2c}},
     {{.protocol = I2C, .ware = HARDWARE, .bus = &hi2c1, .modular = mi2c}},
@@ -43,8 +44,17 @@ OLED_CMNITypeDef oled_cmni[] = {
 void DEVIO_InitCallBack(void);
 DEVS_TypeDef oleds = {.type = OLED};
 DEV_TypeDef oled[OLED_NUM] = {
-    {.parameter = &oled_parameter[0], .io = {.num = SIZE_OLEDIO, .confi = (DEVIO_TypeDef *)&oled_io[0], .init = DEVIO_InitCallBack}, .cmni = {.num = SIZE_OLEDCMNI, .confi = (DEVCMNI_TypeDef *)&oled_cmni[2], .init = NULL}},
-    {.parameter = &oled_parameter[1], .io = {.num = SIZE_OLEDIO, .confi = (DEVIO_TypeDef *)&oled_io[1], .init = DEVIO_InitCallBack}, .cmni = {.num = SIZE_OLEDCMNI, .confi = (DEVCMNI_TypeDef *)&oled_cmni[0], .init = NULL}}};
+    {
+        .parameter = &oled_parameter[0],
+        .io = {.num = SIZE_OLEDIO, .confi = (DEVIO_TypeDef *)&oled_io[0], .init = DEVIO_InitCallBack},
+        .cmni = {.num = SIZE_OLEDCMNI, .confi = (DEVCMNI_TypeDef *)&oled_cmni[2], .init = NULL},
+    },
+    {
+        .parameter = &oled_parameter[1],
+        .io = {.num = SIZE_OLEDIO, .confi = (DEVIO_TypeDef *)&oled_io[1], .init = DEVIO_InitCallBack},
+        .cmni = {.num = SIZE_OLEDCMNI, .confi = (DEVCMNI_TypeDef *)&oled_cmni[0], .init = NULL},
+    }};
+    
 //    OLEDIO配置回调函数
 void DEVIO_InitCallBack(void) {
     //可复用于I2C和SPI通信的OLED引脚定义(*为必须接IO由芯片控制): SCL_SCK*,SDA_SDI_OWRE*,CS,DC(*SPI),RST
@@ -105,7 +115,7 @@ void OLED_WriteByte(uint8_t data, uint8_t address) {
                     DEVIO_SetPin(&((OLED_IOTypeDef *)DEV_getActDevIo())->DC);
                 }
             }
-            DEVCMNI_WriteByte(data, address, 0);
+            DEVCMNI_WriteByte(data, address);
             if(((DEVCMNIIO_TypeDef *)((OLED_IOTypeDef *)DEV_getActDevIo()))->CS.GPIOx != NULL) {
                 DEVIO_SetPin(&((DEVCMNIIO_TypeDef *)((OLED_IOTypeDef *)DEV_getActDevIo()))->CS);
             }
@@ -115,7 +125,7 @@ void OLED_WriteByte(uint8_t data, uint8_t address) {
             } else if(address == 0X40) {
                 DEVIO_SetPin(&((OLED_IOTypeDef *)DEV_getActDevIo())->DC);
             }
-            DEVCMNI_WriteByte(data, 0, 0);
+            DEVCMNI_WriteByte(data, 0);
             DEVIO_SetPin(&((OLED_IOTypeDef *)DEV_getActDevIo())->DC);
         }
     }
@@ -135,7 +145,7 @@ void OLED_Write(uint8_t *pdata, uint16_t size, uint8_t address) {
                     DEVIO_SetPin(&((OLED_IOTypeDef *)DEV_getActDevIo())->DC);
                 }
             }
-            DEVCMNI_Write(pdata, size, address, 0);
+            DEVCMNI_Write(pdata, size, address);
             if(((DEVCMNIIO_TypeDef *)((OLED_IOTypeDef *)DEV_getActDevIo()))->CS.GPIOx != NULL) {
                 DEVIO_SetPin(&((DEVCMNIIO_TypeDef *)((OLED_IOTypeDef *)DEV_getActDevIo()))->CS);
             }
@@ -145,7 +155,7 @@ void OLED_Write(uint8_t *pdata, uint16_t size, uint8_t address) {
             } else if(address == 0X40) {
                 DEVIO_SetPin(&((OLED_IOTypeDef *)DEV_getActDevIo())->DC);
             }
-            DEVCMNI_Write(pdata, size, 0, 0);
+            DEVCMNI_Write(pdata, size, 0);
             DEVIO_SetPin(&((OLED_IOTypeDef *)DEV_getActDevIo())->DC);
         }
     }

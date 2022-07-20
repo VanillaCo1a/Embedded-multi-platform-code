@@ -614,6 +614,7 @@ void DEVCMNI_Init(DEVCMNI_TypeDef *devcmni, DEVCMNIIO_TypeDef *devcmniio) {
             DEVIO_Init(&devcmniio->SDA_SDI_OWRE);    //初始化OWIO
         }
     } else if(devcmni->protocol == USART) {
+        //...
     }
 #elif defined(STM32FWLIB)
     GPIO_InitTypeDef GPIO_InitStructure = {0};
@@ -674,61 +675,25 @@ void DEVCMNI_Init(DEVCMNI_TypeDef *devcmni, DEVCMNIIO_TypeDef *devcmniio) {
             DEVIO_Init(&devcmniio->SDA_SDI_OWRE);    //初始化OWIO
         }
     } else if(devcmni->protocol == USART) {
+        //...
     }
 #endif
 }
 //    I2C/SPI/ONEWIRE通信驱动函数
-void DEVCMNI_WriteByte(uint8_t byte, uint8_t address, bool skip) {
+bool DEVCMNI_ReadBit(uint8_t address) {
+    bool bit = 0;
     DEVCMNI_TypeDef *devcmni = DEV_getActDevCmni();
-    DEVCMNIIO_TypeDef *devio = &DEV_getActDevCmniIo()[_actDev->cmni.numnow];
     void *handle = devcmni->modular;
-    if(devcmni->protocol == I2C) {
-        if(devcmni->ware == SOFTWARE) {
-#if defined(DEVI2C_SOFTWARE_ENABLED)
-            DEVI2C_Transmit((I2C_ModuleHandleTypeDef *)handle, address, &byte, 1, skip, 0, 0x10);
-#endif    // DEVI2C_SOFTWARE_ENABLED
-        } else if(devcmni->ware == HARDWARE) {
-#if defined(STM32HAL)
-#if defined(HAL_I2C_MODULE_ENABLED)
-            HAL_I2C_Mem_Write(((I2C_ModuleHandleTypeDef *)handle)->bus, (((I2C_ModuleHandleTypeDef *)handle)->addr << 1) | 0X00, address, I2C_MEMADD_SIZE_8BIT, &byte, 1, 0x10);
-#elif defined(HAL_FMPI2C_MODULE_ENABLED)
-            HAL_FMPI2C_Mem_Write(((I2C_ModuleHandleTypeDef *)handle)->bus, (((I2C_ModuleHandleTypeDef *)handle)->addr << 1) | 0X00, address, FMPI2C_MEMADD_SIZE_8BIT, &byte, 1, 0x10);
-#endif    // HAL_I2C_MODULE_ENABLED | HAL_FMPI2C_MODULE_ENABLED
-#elif defined(STM32FWLIBF1)
-            //固件库的硬件I2C驱动函数,待补充
-#endif
-        }
-    } else if(devcmni->protocol == SPI) {
-        if(devcmni->ware == SOFTWARE) {
-#if defined(DEVSPI_SOFTWARE_ENABLED)
-            DEVSPI_Transmit((SPI_ModuleHandleTypeDef *)handle, &byte, 1, skip, 0x10);
-#endif    // DEVSPI_SOFTWARE_ENABLED
-        } else if(devcmni->ware == HARDWARE) {
-            if(devio->CS.GPIOx != NULL) {
-                DEVIO_ResetPin(&devio->CS);
-            }
-#if defined(STM32HAL)
-#if defined(HAL_SPI_MODULE_ENABLED)
-            HAL_SPI_Transmit(((SPI_ModuleHandleTypeDef *)handle)->bus, &byte, 1, 0x10);
-#elif defined(HAL_QSPI_MODULE_ENABLED)
-            //todo: SPI_Write for QSPI
-#endif    // HAL_SPI_MODULE_ENABLED | HAL_QSPI_MODULE_ENABLED
-#elif defined(STM32FWLIBF1)
-            //固件库的硬件SPI驱动函数,待补充
-#endif
-            if(devio->CS.GPIOx != NULL) {
-                DEVIO_SetPin(&devio->CS);
-            }
-        }
-    } else if(devcmni->protocol == ONEWIRE) {
+    if(devcmni->protocol == ONEWIRE) {
         if(devcmni->ware == SOFTWARE) {
 #if defined(DEVOWRE_SOFTWARE_ENABLED)
-            DEVONEWIRE_Write((ONEWIRE_ModuleHandleTypeDef *)handle, &byte, 1, skip, 0x10);
+            DEVONEWIRE_ReadBit((ONEWIRE_ModuleHandleTypeDef *)handle, &bit);
 #endif    // DEVOWRE_SOFTWARE_ENABLED
         }
     }
+    return bit;
 }
-uint8_t DEVCMNI_ReadByte(uint8_t address, bool skip) {
+uint8_t DEVCMNI_ReadByte(uint8_t address) {
     uint8_t byte = 0;
     DEVCMNI_TypeDef *devcmni = DEV_getActDevCmni();
     DEVCMNIIO_TypeDef *devio = &DEV_getActDevCmniIo()[_actDev->cmni.numnow];
@@ -736,40 +701,32 @@ uint8_t DEVCMNI_ReadByte(uint8_t address, bool skip) {
     if(devcmni->protocol == I2C) {
         if(devcmni->ware == SOFTWARE) {
 #if defined(DEVI2C_SOFTWARE_ENABLED)
-            DEVI2C_Transmit((I2C_ModuleHandleTypeDef *)handle, address, &byte, 1, skip, 1, 0x10);
+            DEVI2C_Transmit((I2C_ModuleHandleTypeDef *)handle, &byte, 1, address, 1, 0x10);
 #endif    // DEVI2C_SOFTWARE_ENABLED
         } else if(devcmni->ware == HARDWARE) {
-#if defined(STM32HAL)
-#if defined(HAL_I2C_MODULE_ENABLED)
-            HAL_I2C_Mem_Read(((I2C_ModuleHandleTypeDef *)handle)->bus, (((I2C_ModuleHandleTypeDef *)handle)->addr << 1) | 0X00, address, I2C_MEMADD_SIZE_8BIT, &byte, 1, 0x10);
-#elif defined(HAL_FMPI2C_MODULE_ENABLED)
-            HAL_FMPI2C_Mem_Read(((I2C_ModuleHandleTypeDef *)handle)->bus, (((I2C_ModuleHandleTypeDef *)handle)->addr << 1) | 0X00, address, FMPI2C_MEMADD_SIZE_8BIT, &byte, 1, 0x10);
-#endif    // HAL_I2C_MODULE_ENABLED | HAL_FMPI2C_MODULE_ENABLED
-#elif defined(STM32FWLIBF1)
-            //固件库的硬件I2C驱动函数,待补充
-#endif
+#if defined(DEVI2C_HARDWARE_ENABLED)
+            DEVI2C_Transmit_H((I2C_ModuleHandleTypeDef *)handle, &byte, 1, address, 1, 0x10);
+#endif    // DEVI2C_HARDWARE_ENABLED
         }
     } else if(devcmni->protocol == SPI) {
         if(devcmni->ware == SOFTWARE) {
 #if defined(DEVSPI_SOFTWARE_ENABLED)
-            DEVSPI_Transmit((SPI_ModuleHandleTypeDef *)handle, &byte, 1, skip, 0x10);
+            DEVSPI_Transmit((SPI_ModuleHandleTypeDef *)handle, &byte, 1, 1, 0x10);
 #endif    // DEVSPI_SOFTWARE_ENABLED
         } else if(devcmni->ware == HARDWARE) {
-            if(devio->CS.GPIOx != NULL) {
-                DEVIO_ResetPin(&devio->CS);
+#if defined(DEVSPI_HARDWARE_ENABLED)
+            if(!((SPI_ModuleHandleTypeDef *)handle)->skip) {
+                if(devio->CS.GPIOx != NULL) {
+                    DEVIO_ResetPin(&devio->CS);
+                }
             }
-#if defined(STM32HAL)
-#if defined(HAL_SPI_MODULE_ENABLED)
-            HAL_SPI_Receive(((SPI_ModuleHandleTypeDef *)handle)->bus, &byte, 1, 0x10);
-#elif defined(HAL_QSPI_MODULE_ENABLED)
-            //todo: SPI_Write for QSPI
-#endif    // HAL_SPI_MODULE_ENABLED | HAL_QSPI_MODULE_ENABLED
-#elif defined(STM32FWLIBF1)
-            //固件库的硬件SPI驱动函数,待补充
-#endif
-            if(devio->CS.GPIOx != NULL) {
-                DEVIO_SetPin(&devio->CS);
+            DEVSPI_Transmit_H((SPI_ModuleHandleTypeDef *)handle, &byte, 1, 1, 0x10);
+            if(!((SPI_ModuleHandleTypeDef *)handle)->skip) {
+                if(devio->CS.GPIOx != NULL) {
+                    DEVIO_SetPin(&devio->CS);
+                }
             }
+#endif    // DEVSPI_HARDWARE_ENABLED
         }
     } else if(devcmni->protocol == ONEWIRE) {
         if(devcmni->ware == SOFTWARE) {
@@ -780,145 +737,147 @@ uint8_t DEVCMNI_ReadByte(uint8_t address, bool skip) {
     }
     return byte;
 }
-bool DEVCMNI_ReadBit(uint8_t address, bool skip) {
-    bool bit = 0;
-    DEVCMNI_TypeDef *devcmni = DEV_getActDevCmni();
-    //DEVCMNIIO_TypeDef *devio = &DEV_getActDevCmniIo()[_actDev->cmni.numnow];
-    void *handle = devcmni->modular;
-    if(devcmni->protocol == I2C) {
-        if(devcmni->ware == SOFTWARE) {
-#if defined(DEVI2C_SOFTWARE_ENABLED)
-            //..
-#endif    // DEVI2C_SOFTWARE_ENABLED
-        }
-    } else if(devcmni->protocol == SPI) {
-        if(devcmni->ware == SOFTWARE) {
-#if defined(DEVSPI_SOFTWARE_ENABLED)
-            //..
-#endif    // DEVSPI_SOFTWARE_ENABLED
-        }
-    } else if(devcmni->protocol == ONEWIRE) {
-        if(devcmni->ware == SOFTWARE) {
-#if defined(DEVOWRE_SOFTWARE_ENABLED)
-            bit = DEVONEWIRE_ReadBit((ONEWIRE_ModuleHandleTypeDef *)handle);
-#endif    // DEVOWRE_SOFTWARE_ENABLED
-        }
-    }
-    return bit;
-}
-bool DEVCMNI_Write(uint8_t *pdata, size_t size, uint8_t address, bool skip) {
+void DEVCMNI_WriteByte(uint8_t byte, uint8_t address) {
     DEVCMNI_TypeDef *devcmni = DEV_getActDevCmni();
     DEVCMNIIO_TypeDef *devio = &DEV_getActDevCmniIo()[_actDev->cmni.numnow];
     void *handle = devcmni->modular;
     if(devcmni->protocol == I2C) {
         if(devcmni->ware == SOFTWARE) {
 #if defined(DEVI2C_SOFTWARE_ENABLED)
-            DEVI2C_Transmit((I2C_ModuleHandleTypeDef *)handle, address, pdata, size, skip, 0, 0x10);
+            DEVI2C_Transmit((I2C_ModuleHandleTypeDef *)handle, &byte, 1, address, 0, 0x10);
 #endif    // DEVI2C_SOFTWARE_ENABLED
         } else if(devcmni->ware == HARDWARE) {
-#if defined(STM32HAL)
-#if defined(HAL_I2C_MODULE_ENABLED)
-            HAL_I2C_Mem_Write(((I2C_ModuleHandleTypeDef *)handle)->bus, (((I2C_ModuleHandleTypeDef *)handle)->addr << 1) | 0X00, address, I2C_MEMADD_SIZE_8BIT, pdata, size, 0x10);
-#elif defined(HAL_FMPI2C_MODULE_ENABLED)
-            HAL_FMPI2C_Mem_Write(((I2C_ModuleHandleTypeDef *)handle)->bus, (((I2C_ModuleHandleTypeDef *)handle)->addr << 1) | 0X00, address, FMPI2C_MEMADD_SIZE_8BIT, pdata, size, 0x10);
-#endif    // HAL_I2C_MODULE_ENABLED | HAL_FMPI2C_MODULE_ENABLED
-#elif defined(STM32FWLIBF1)
-            //固件库的硬件I2C驱动函数,待补充
-#endif
+#if defined(DEVI2C_HARDWARE_ENABLED)
+            DEVI2C_Transmit_H((I2C_ModuleHandleTypeDef *)handle, &byte, 1, address, 0, 0x10);
+#endif    // DEVI2C_HARDWARE_ENABLED
         }
     } else if(devcmni->protocol == SPI) {
         if(devcmni->ware == SOFTWARE) {
 #if defined(DEVSPI_SOFTWARE_ENABLED)
-            DEVSPI_Transmit(((SPI_ModuleHandleTypeDef *)handle), pdata, size, skip, 0x10);
+            DEVSPI_Transmit((SPI_ModuleHandleTypeDef *)handle, &byte, 1, 0, 0x10);
 #endif    // DEVSPI_SOFTWARE_ENABLED
         } else if(devcmni->ware == HARDWARE) {
-            if(devio->CS.GPIOx != NULL) {
-                DEVIO_ResetPin(&devio->CS);
+#if defined(DEVSPI_HARDWARE_ENABLED)
+            if(!((SPI_ModuleHandleTypeDef *)handle)->skip) {
+                if(devio->CS.GPIOx != NULL) {
+                    DEVIO_ResetPin(&devio->CS);
+                }
             }
-#if defined(STM32HAL)
-#if defined(HAL_SPI_MODULE_ENABLED)
-            HAL_SPI_Transmit(((SPI_ModuleHandleTypeDef *)handle)->bus, pdata, size, 0x10);
-#elif defined(HAL_QSPI_MODULE_ENABLED)
-            //todo: SPI_Write for QSPI
-#endif    // HAL_SPI_MODULE_ENABLED | HAL_QSPI_MODULE_ENABLED
-#elif defined(STM32FWLIBF1)
-            //固件库的硬件SPI驱动函数,待补充
-#endif
-            if(devio->CS.GPIOx != NULL) {
-                DEVIO_SetPin(&devio->CS);
+            DEVSPI_Transmit_H((SPI_ModuleHandleTypeDef *)handle, &byte, 1, 0, 0x10);
+            if(!((SPI_ModuleHandleTypeDef *)handle)->skip) {
+                if(devio->CS.GPIOx != NULL) {
+                    DEVIO_SetPin(&devio->CS);
+                }
             }
+#endif    // DEVSPI_HARDWARE_ENABLED
         }
     } else if(devcmni->protocol == ONEWIRE) {
         if(devcmni->ware == SOFTWARE) {
 #if defined(DEVOWRE_SOFTWARE_ENABLED)
-            DEVONEWIRE_Write((ONEWIRE_ModuleHandleTypeDef *)handle, pdata, size, skip, 0x10);
+            DEVONEWIRE_Write((ONEWIRE_ModuleHandleTypeDef *)handle, &byte, 1, 0x10);
 #endif    // DEVOWRE_SOFTWARE_ENABLED
         }
-    } else if(devcmni->protocol == USART) {
-        if(devcmni->ware == HARDWARE) {
-#if defined(DEVUART_HARDWARE_ENABLED)
-            return DEVUART_Transmit((UART_ModuleHandleTypeDef *)handle, pdata, size);
-#endif    // DEVUART_HARDWARE_ENABLED
-        }
     }
-    return true;
 }
-bool DEVCMNI_Read(uint8_t *pdata, size_t size, size_t *length, uint8_t address, bool skip) {
+bool DEVCMNI_Read(uint8_t *pdata, size_t size, size_t *length, uint8_t address) {
     DEVCMNI_TypeDef *devcmni = DEV_getActDevCmni();
     DEVCMNIIO_TypeDef *devio = &DEV_getActDevCmniIo()[_actDev->cmni.numnow];
     void *handle = devcmni->modular;
+    bool res = true;
     if(devcmni->protocol == I2C) {
         if(devcmni->ware == SOFTWARE) {
 #if defined(DEVI2C_SOFTWARE_ENABLED)
-            DEVI2C_Transmit((I2C_ModuleHandleTypeDef *)handle, address, pdata, size, skip, 1, 0x10);
+            res = !DEVI2C_Transmit((I2C_ModuleHandleTypeDef *)handle, pdata, size, address, 1, 0x10);
 #endif    // DEVI2C_SOFTWARE_ENABLED
         } else if(devcmni->ware == HARDWARE) {
-#if defined(STM32HAL)
-#if defined(HAL_I2C_MODULE_ENABLED)
-            HAL_I2C_Mem_Read(((I2C_ModuleHandleTypeDef *)handle)->bus, (((I2C_ModuleHandleTypeDef *)handle)->addr << 1) | 0X00, address, I2C_MEMADD_SIZE_8BIT, pdata, size, 0x10);
-#elif defined(HAL_FMPI2C_MODULE_ENABLED)
-            HAL_FMPI2C_Mem_Read(((I2C_ModuleHandleTypeDef *)handle)->bus, (((I2C_ModuleHandleTypeDef *)handle)->addr << 1) | 0X00, address, FMPI2C_MEMADD_SIZE_8BIT, pdata, size, 0x10);
-#endif    // HAL_I2C_MODULE_ENABLED | HAL_FMPI2C_MODULE_ENABLED
-#elif defined(STM32FWLIBF1)
-            //固件库的硬件I2C驱动函数,待补充
-#endif
+#if defined(DEVI2C_HARDWARE_ENABLED)
+            res = !DEVI2C_Transmit_H((I2C_ModuleHandleTypeDef *)handle, pdata, size, address, 1, 0x10);
+#endif    // DEVI2C_HARDWARE_ENABLED
         }
     } else if(devcmni->protocol == SPI) {
         if(devcmni->ware == SOFTWARE) {
 #if defined(DEVSPI_SOFTWARE_ENABLED)
-            DEVSPI_Transmit(((SPI_ModuleHandleTypeDef *)handle), pdata, size, skip, 0x10);
+            res = !DEVSPI_Transmit(((SPI_ModuleHandleTypeDef *)handle), pdata, size, 1, 0x10);
 #endif    // DEVSPI_SOFTWARE_ENABLED
         } else if(devcmni->ware == HARDWARE) {
-            if(devio->CS.GPIOx != NULL) {
-                DEVIO_ResetPin(&devio->CS);
+#if defined(DEVSPI_HARDWARE_ENABLED)
+            if(!((SPI_ModuleHandleTypeDef *)handle)->skip) {
+                if(devio->CS.GPIOx != NULL) {
+                    DEVIO_ResetPin(&devio->CS);
+                }
             }
-#if defined(STM32HAL)
-#if defined(HAL_SPI_MODULE_ENABLED)
-            HAL_SPI_Receive(((SPI_ModuleHandleTypeDef *)handle)->bus, pdata, size, 0x10);
-#elif defined(HAL_QSPI_MODULE_ENABLED)
-            //todo: SPI_Write for QSPI
-#endif    // HAL_SPI_MODULE_ENABLED | HAL_QSPI_MODULE_ENABLED
-#elif defined(STM32FWLIBF1)
-            //固件库的硬件SPI驱动函数,待补充
-#endif
-            if(devio->CS.GPIOx != NULL) {
-                DEVIO_SetPin(&devio->CS);
+            res = !DEVSPI_Transmit_H(((SPI_ModuleHandleTypeDef *)handle), pdata, size, 1, 0x10);
+            if(!((SPI_ModuleHandleTypeDef *)handle)->skip) {
+                if(devio->CS.GPIOx != NULL) {
+                    DEVIO_SetPin(&devio->CS);
+                }
             }
+#endif    // DEVSPI_HARDWARE_ENABLED
         }
     } else if(devcmni->protocol == ONEWIRE) {
         if(devcmni->ware == SOFTWARE) {
 #if defined(DEVOWRE_SOFTWARE_ENABLED)
-            DEVONEWIRE_Read((ONEWIRE_ModuleHandleTypeDef *)handle, pdata, size);
+            res = !DEVONEWIRE_Read((ONEWIRE_ModuleHandleTypeDef *)handle, pdata, size);
 #endif    // DEVOWRE_SOFTWARE_ENABLED
         }
     } else if(devcmni->protocol == USART) {
         if(devcmni->ware == HARDWARE) {
 #if defined(DEVUART_HARDWARE_ENABLED)
-            return DEVUART_Receive((UART_ModuleHandleTypeDef *)handle, pdata, size, length);
+            res = !DEVUART_Receive((UART_ModuleHandleTypeDef *)handle, pdata, size, length);
 #endif    // DEVUART_HARDWARE_ENABLED
         }
     }
-    return true;
+    return res;
+}
+bool DEVCMNI_Write(uint8_t *pdata, size_t size, uint8_t address) {
+    DEVCMNI_TypeDef *devcmni = DEV_getActDevCmni();
+    DEVCMNIIO_TypeDef *devio = &DEV_getActDevCmniIo()[_actDev->cmni.numnow];
+    void *handle = devcmni->modular;
+    bool res = true;
+    if(devcmni->protocol == I2C) {
+        if(devcmni->ware == SOFTWARE) {
+#if defined(DEVI2C_SOFTWARE_ENABLED)
+            res = !DEVI2C_Transmit((I2C_ModuleHandleTypeDef *)handle, pdata, size, address, 0, 0x10);
+#endif    // DEVI2C_SOFTWARE_ENABLED
+        } else if(devcmni->ware == HARDWARE) {
+#if defined(DEVI2C_HARDWARE_ENABLED)
+            res = !DEVI2C_Transmit_H((I2C_ModuleHandleTypeDef *)handle, pdata, size, address, 0, 0x10);
+#endif    // DEVI2C_HARDWARE_ENABLED
+        }
+    } else if(devcmni->protocol == SPI) {
+        if(devcmni->ware == SOFTWARE) {
+#if defined(DEVSPI_SOFTWARE_ENABLED)
+            res = !DEVSPI_Transmit(((SPI_ModuleHandleTypeDef *)handle), pdata, size, 0, 0x10);
+#endif    // DEVSPI_SOFTWARE_ENABLED
+        } else if(devcmni->ware == HARDWARE) {
+#if defined(DEVSPI_HARDWARE_ENABLED)
+            if(!((SPI_ModuleHandleTypeDef *)handle)->skip) {
+                if(devio->CS.GPIOx != NULL) {
+                    DEVIO_ResetPin(&devio->CS);
+                }
+            }
+            res = !DEVSPI_Transmit_H(((SPI_ModuleHandleTypeDef *)handle), pdata, size, 0, 0x10);
+            if(!((SPI_ModuleHandleTypeDef *)handle)->skip) {
+                if(devio->CS.GPIOx != NULL) {
+                    DEVIO_SetPin(&devio->CS);
+                }
+            }
+#endif    // DEVSPI_HARDWARE_ENABLED
+        }
+    } else if(devcmni->protocol == ONEWIRE) {
+        if(devcmni->ware == SOFTWARE) {
+#if defined(DEVOWRE_SOFTWARE_ENABLED)
+            res = !DEVONEWIRE_Write((ONEWIRE_ModuleHandleTypeDef *)handle, pdata, size, 0x10);
+#endif    // DEVOWRE_SOFTWARE_ENABLED
+        }
+    } else if(devcmni->protocol == USART) {
+        if(devcmni->ware == HARDWARE) {
+#if defined(DEVUART_HARDWARE_ENABLED)
+            res = !DEVUART_Transmit((UART_ModuleHandleTypeDef *)handle, pdata, size);
+#endif    // DEVUART_HARDWARE_ENABLED
+        }
+    }
+    return res;
 }
 
 

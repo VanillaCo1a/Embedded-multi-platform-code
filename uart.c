@@ -30,12 +30,20 @@ UART_ModuleHandleTypeDef *UART_GetModular(void *bus) {
 /* 指定空间数据接收完毕中断回调函数 */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
     UART_ModuleHandleTypeDef *muart = UART_GetModular(huart);
-    DEVUART_ReceiveReady(muart, muart->receive.size_n);
+    if(huart->RxState == HAL_UART_STATE_READY || huart->hdmarx->State == HAL_DMA_STATE_READY) {
+        /* 判断句柄标志位, 是否为数据接收完毕 */
+        DEVUART_ReceiveReady(muart, muart->receive.size);
+    }
 }
-/* 指定空间数据接收完毕/总线空闲时中断回调函数 */
+/* 指定空间数据半接收/接收完毕/总线空闲时中断回调函数 */
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size) {
     UART_ModuleHandleTypeDef *muart = UART_GetModular(huart);
-    DEVUART_ReceiveReady(muart, size);
+    if(huart->RxState == HAL_UART_STATE_READY || huart->hdmarx->State == HAL_DMA_STATE_READY) {
+        /* 判断句柄标志位, 是否为数据接收完毕/总线空闲 */
+        DEVUART_ReceiveReady(muart, size);
+    } else if(size == muart->receive.size / 2) {
+        /* 其他情况则为数据半接收完毕, 稳妥起见再对接收长度进行一次判断 */
+    }
 }
 /* 数据发送完毕中断回调函数 */
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
@@ -46,7 +54,7 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
 /* 指定空间数据接收完毕中断回调函数 */
 void FWLIB_UART_RxCpltCallback(USART_TypeDef *USARTx) {
     UART_ModuleHandleTypeDef *muart = UART_GetModular(USARTx);
-    DEVUART_ReceiveReady(muart, muart->receive.size_n);
+    DEVUART_ReceiveReady(muart, muart->receive.size);
 }
 /* 指定空间数据接收完毕/总线空闲时中断回调函数 */
 void FWLIB_UARTEx_RxEventCallback(USART_TypeDef *USARTx, uint16_t size) {
@@ -74,12 +82,14 @@ void UART_Init(void) {
 }
 
 bool UART1_ScanArray(uint8_t arr[], size_t size, size_t *length) {
-    return DEVCMNI_Read(arr, size, length, 0xFF, 0);
+    DEV_setActStream(&uarts, 0);
+    return DEVCMNI_Read(arr, size, length, 0xFF);
 }
 bool UART1_ScanString(char *str, size_t size) {
     bool res = false;
     size_t length;
-    res = DEVCMNI_Read((uint8_t *)str, size - 1, &length, 0xFF, 0);
+    DEV_setActStream(&uarts, 0);
+    res = DEVCMNI_Read((uint8_t *)str, size - 1, &length, 0xFF);
     if(res) {
         str[length] = '\0';
     }
@@ -87,24 +97,30 @@ bool UART1_ScanString(char *str, size_t size) {
 }
 void UART1_PrintArray(uint8_t arr[], size_t size) {
     DEV_setActStream(&uarts, 0);
-    while(!DEVCMNI_Write(arr, size, 0xFF, 0)) continue;
+    while(!DEVCMNI_Write(arr, size, 0xFF)) continue;
 }
 void UART1_PrintString(char *str) {
     DEV_setActStream(&uarts, 0);
-    while(!DEVCMNI_Write((uint8_t *)str, strlen(str), 0xFF, 0)) continue;
+    while(!DEVCMNI_Write((uint8_t *)str, strlen(str), 0xFF)) continue;
 }
 
 /* printf重定向 */
 int fputc(int ch, FILE *f) {
     /* 这里需要加一个volatile, 不然会被AC6编译优化掉 */
     volatile bool res = 0;
+    DEVS_TypeDef *devs = DEV_getActDevs();
+    poolsize dev = DEV_getActStream();
     DEV_setActStream(&uarts, 0);
-    while(!(res = DEVCMNI_Write((uint8_t *)&ch, 1, 0xFF, 0))) continue;
+    while(!(res = DEVCMNI_Write((uint8_t *)&ch, 1, 0xFF))) continue;
+    DEV_setActStream(devs, dev);
     return ch;
 }
 int _write(int fd, char *pBuffer, int size) {
     volatile bool res = 0;
+    DEVS_TypeDef *devs = DEV_getActDevs();
+    poolsize dev = DEV_getActStream();
     DEV_setActStream(&uarts, 0);
-    while(!(res = DEVCMNI_Write((uint8_t *)pBuffer, size, 0xFF, 0))) continue;
+    while(!(res = DEVCMNI_Write((uint8_t *)pBuffer, size, 0xFF))) continue;
+    DEV_setActStream(devs, dev);
     return size;
 }
