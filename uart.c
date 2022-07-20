@@ -39,62 +39,107 @@ typedef struct uartbuffer {
     size_t count[2];
     bool signal[2];
 } UartBuffer;
-static UartBuffer buart1 = {.signal = {0, 1}};
-static UART_HandleTypeDef *acthuart;
+typedef struct {
+    void *handle;
+    UartBuffer buffer;
+} DevUart_HandleTypeDef;
 
-static UartBuffer *UART_GetBuffer(UART_HandleTypeDef *huart) {
-    if(huart == &huart1) {
-        return &buart1;
-    }
-    return NULL;
-}
+static DevUart_HandleTypeDef muart1 = {
+#if defined(STM32)
+#if defined(STM32HAL)
+    .handle = &huart1,
+#elif defined(STM32FWLIB)
+    .handle = USART1,
+#endif
+#endif
+    .buffer = {.signal = {0, 1}},
+};
+static DevUart_HandleTypeDef *actmuart;
+static UartBuffer *UART_GetBuffer(void *handle);
+
+/* 中断回调函数 */
+#if defined(STM32)
+#if defined(STM32HAL)
 /* 指定空间数据接收完毕/总线空闲时中断回调函数 */
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size) {
-    UartBuffer *buart = UART_GetBuffer(huart);
-    buart->signal[RECEIVE] = true;
-    buart->size[RECEIVE] = size;
+    UartBuffer *buffer = UART_GetBuffer(huart);
+    buffer->signal[RECEIVE] = true;
+    buffer->size[RECEIVE] = size;
 }
 /* 数据发送完毕中断回调函数 */
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
-    UartBuffer *buart = UART_GetBuffer(huart);
-    buart->signal[TRANSMIT] = true;
+    UartBuffer *buffer = UART_GetBuffer(huart);
+    buffer->signal[TRANSMIT] = true;
 }
+#elif defined(STM32FWLIB)
+/* 指定空间数据接收完毕/总线空闲时中断回调函数 */
+void FWLIB_UARTEx_RxEventCallback(USART_TypeDef *USARTx, uint16_t size) {
+    UartBuffer *buffer = UART_GetBuffer(USARTx);
+    buffer->signal[RECEIVE] = true;
+    buffer->size[RECEIVE] = size;
+}
+/* 数据发送完毕中断回调函数 */
+void FWLIB_UART_TxCpltCallback(USART_TypeDef *USARTx) {
+    UartBuffer *buffer = UART_GetBuffer(USARTx);
+    buffer->signal[TRANSMIT] = true;
+}
+#endif
+#endif
 
 /* 根据标志位查询串口是否收发完成的函数
 若否, 则返回false; 若是, 则返回true */
 static bool LinkLayer_UartReady(uint8_t type) {
-    UartBuffer *buart = UART_GetBuffer(acthuart);
-    if(buart->signal[type]) {
-        buart->signal[type] = false;
+    UartBuffer *buffer = &actmuart->buffer;
+    if(buffer->signal[type]) {
+        buffer->signal[type] = false;
         return true;
     }
     return false;
 }
+/* 获取串口句柄对应的缓冲区 */
+static UartBuffer *UART_GetBuffer(void *handle) {
+    if(handle == muart1.handle) {
+        return &muart1.buffer;
+    }
+    return NULL;
+}
 /* 开始串口接收 */
 static void LinkLayer_ReceiveStart(size_t size) {
-    UartBuffer *buart = UART_GetBuffer(acthuart);
+    UartBuffer *buffer = &actmuart->buffer;
     size_t _size = MIN(size, UARTSIZE);
     if(_size != 0) {
-        HAL_UARTEx_ReceiveToIdle_IT(acthuart, buart->buf[RECEIVE], _size);
+#if defined(STM32)
+#if defined(STM32HAL)
+        HAL_UARTEx_ReceiveToIdle_IT(actmuart->handle, buffer->buf[RECEIVE], _size);
+#elif defined(STM32FWLIB)
+        FWLIB_UARTEx_ReceiveToIdle_IT(actmuart->handle, buffer->buf[RECEIVE], _size);
+#endif
+#endif
     }
 }
 /* 开始串口发送 */
 static void LinkLayer_TransmitStart(void) {
-    UartBuffer *buart = UART_GetBuffer(acthuart);
-    if(buart->size[TRANSMIT] != 0) {
-        HAL_UART_Transmit_IT(acthuart, buart->buf[TRANSMIT], buart->size[TRANSMIT]);
+    UartBuffer *buffer = &actmuart->buffer;
+    if(buffer->size[TRANSMIT] != 0) {
+#if defined(STM32)
+#if defined(STM32HAL)
+        HAL_UART_Transmit_IT(actmuart->handle, buffer->buf[TRANSMIT], buffer->size[TRANSMIT]);
+#elif defined(STM32FWLIB)
+        FWLIB_UART_Transmit_IT(actmuart->handle, buffer->buf[TRANSMIT], buffer->size[TRANSMIT]);
+#endif
+#endif
     }
 }
 
 void LinkLayer_GetBuffer(Table *table) {
-    UartBuffer *buart = UART_GetBuffer(acthuart);
-    AddTableBehind(table, buart->buf[RECEIVE], buart->size[RECEIVE]);
+    UartBuffer *buffer = &actmuart->buffer;
+    AddTableBehind(table, buffer->buf[RECEIVE], buffer->size[RECEIVE]);
 }
 void LinkLayer_SetBuffer(Table *table) {
-    UartBuffer *buart = UART_GetBuffer(acthuart);
+    UartBuffer *buffer = &actmuart->buffer;
     size_t table_size = TableItemCount(table);
-    buart->size[TRANSMIT] = MIN(table_size, UARTSIZE);
-    DelTableFront(table, buart->buf[TRANSMIT], buart->size[TRANSMIT]);
+    buffer->size[TRANSMIT] = MIN(table_size, UARTSIZE);
+    DelTableFront(table, buffer->buf[TRANSMIT], buffer->size[TRANSMIT]);
 }
 
 
@@ -169,13 +214,19 @@ void downToLayer(void (*pack)(Table *table)) {
 }
 
 void UART_Init(void) {
+#if defined(STM32)
+#if defined(STM32HAL)
+#elif defined(STM32FWLIB)
+    USART1_Confi();
+#endif
+#endif
     InitializeTable(&_dataTable[RECEIVE], _data[RECEIVE], sizeof(_data[RECEIVE]) / sizeof(Node));
     InitializeTable(&_dataTable[TRANSMIT], _data[TRANSMIT], sizeof(_data[TRANSMIT]) / sizeof(Node));
     printf("UART1初始化完毕\r\n");
 }
 size_t UART1_ScanArray(uint8_t arr[], size_t size) {
     size_t table_size = 0;
-    acthuart = &huart1;
+    actmuart = &muart1;
     /* 将待接收区域的空间设置为size, 但不大于BUFSIZE */
     if(!LinkLayer_UartReady(RECEIVE)) {
         LinkLayer_ReceiveStart(MIN(size, BUFSIZE));
@@ -193,7 +244,7 @@ size_t UART1_ScanArray(uint8_t arr[], size_t size) {
 }
 size_t UART1_ScanString(char *str, size_t size) {
     size_t table_size = 0;
-    acthuart = &huart1;
+    actmuart = &muart1;
     if(!LinkLayer_UartReady(RECEIVE)) {
         LinkLayer_ReceiveStart(MIN(size - 1, BUFSIZE));
     } else {
@@ -209,7 +260,7 @@ size_t UART1_ScanString(char *str, size_t size) {
     return false;
 }
 bool UART1_PrintArray(uint8_t arr[], size_t size) {
-    acthuart = &huart1;
+    actmuart = &muart1;
     if(LinkLayer_UartReady(TRANSMIT)) {
         /* 将待发送区域的空间设置为size, 超过BUFSIZE的部分将被弃置 */
         AddTableBehind(&_dataTable[TRANSMIT], arr, size);
@@ -223,7 +274,7 @@ bool UART1_PrintArray(uint8_t arr[], size_t size) {
     return false;
 }
 bool UART1_PrintString(char *str) {
-    acthuart = &huart1;
+    actmuart = &muart1;
     if(LinkLayer_UartReady(TRANSMIT)) {
         AddTableBehind(&_dataTable[TRANSMIT], (Item *)str, strlen(str));
         downToLayer(ApplicationLayer_PackArray);
