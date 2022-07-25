@@ -103,62 +103,60 @@ void DEVIO_InitCallBack(void) {
 //对于不同的通信方式的OLED, 区别主要在于此处的IO操作, 上层的操作基本相同
 void OLED_WriteByte(uint8_t data, uint8_t address) {
     void *handle = DEV_getActDevCmni()->modular;
-    if(DEV_getActState() == idle) {
-        if(DEV_getActDevCmni()->protocol == I2C) {
-            if(((DEVCMNIIO_TypeDef *)((OLED_IOTypeDef *)DEV_getActDevIo()))->CS.GPIOx != NULL) {
-                DEVIO_ResetPin(&((DEVCMNIIO_TypeDef *)((OLED_IOTypeDef *)DEV_getActDevIo()))->CS);
-            }
-            if(((OLED_IOTypeDef *)DEV_getActDevIo())->DC.GPIOx != NULL) {
-                if(((I2C_ModuleHandleTypeDef *)handle)->addr == OLED_I2CADDR1) {
-                    DEVIO_ResetPin(&((OLED_IOTypeDef *)DEV_getActDevIo())->DC);
-                } else if(((I2C_ModuleHandleTypeDef *)handle)->addr == OLED_I2CADDR2) {
-                    DEVIO_SetPin(&((OLED_IOTypeDef *)DEV_getActDevIo())->DC);
-                }
-            }
-            DEVCMNI_WriteByte(data, address);
-            if(((DEVCMNIIO_TypeDef *)((OLED_IOTypeDef *)DEV_getActDevIo()))->CS.GPIOx != NULL) {
-                DEVIO_SetPin(&((DEVCMNIIO_TypeDef *)((OLED_IOTypeDef *)DEV_getActDevIo()))->CS);
-            }
-        } else if(DEV_getActDevCmni()->protocol == SPI) {
-            if(address == 0X00) {
+    if(DEV_getActDevCmni()->protocol == I2C) {
+        if(((DEVCMNIIO_TypeDef *)((OLED_IOTypeDef *)DEV_getActDevIo()))->CS.GPIOx != NULL) {
+            DEVIO_ResetPin(&((DEVCMNIIO_TypeDef *)((OLED_IOTypeDef *)DEV_getActDevIo()))->CS);
+        }
+        if(((OLED_IOTypeDef *)DEV_getActDevIo())->DC.GPIOx != NULL) {
+            if(((I2C_ModuleHandleTypeDef *)handle)->addr == OLED_I2CADDR1) {
                 DEVIO_ResetPin(&((OLED_IOTypeDef *)DEV_getActDevIo())->DC);
-            } else if(address == 0X40) {
+            } else if(((I2C_ModuleHandleTypeDef *)handle)->addr == OLED_I2CADDR2) {
                 DEVIO_SetPin(&((OLED_IOTypeDef *)DEV_getActDevIo())->DC);
             }
-            DEVCMNI_WriteByte(data, 0);
+        }
+        DEVCMNI_WriteByte(data, address);
+        if(((DEVCMNIIO_TypeDef *)((OLED_IOTypeDef *)DEV_getActDevIo()))->CS.GPIOx != NULL) {
+            DEVIO_SetPin(&((DEVCMNIIO_TypeDef *)((OLED_IOTypeDef *)DEV_getActDevIo()))->CS);
+        }
+    } else if(DEV_getActDevCmni()->protocol == SPI) {
+        if(address == 0X00) {
+            DEVIO_ResetPin(&((OLED_IOTypeDef *)DEV_getActDevIo())->DC);
+        } else if(address == 0X40) {
             DEVIO_SetPin(&((OLED_IOTypeDef *)DEV_getActDevIo())->DC);
         }
+        DEVCMNI_WriteByte(data, 0);
+        DEVIO_SetPin(&((OLED_IOTypeDef *)DEV_getActDevIo())->DC);
     }
 }
 //    OLED模拟通信连续写多字节函数
-void OLED_Write(uint8_t *pdata, uint16_t size, uint8_t address) {
-    if(DEV_getActState() == idle) {
-        void *handle = DEV_getActDevCmni()->modular;
-        if(DEV_getActDevCmni()->protocol == I2C) {
-            if(((DEVCMNIIO_TypeDef *)((OLED_IOTypeDef *)DEV_getActDevIo()))->CS.GPIOx != NULL) {
-                DEVIO_ResetPin(&((DEVCMNIIO_TypeDef *)((OLED_IOTypeDef *)DEV_getActDevIo()))->CS);
-            }
-            if(((OLED_IOTypeDef *)DEV_getActDevIo())->DC.GPIOx != NULL) {
-                if(((I2C_ModuleHandleTypeDef *)handle)->addr == OLED_I2CADDR1) {
-                    DEVIO_ResetPin(&((OLED_IOTypeDef *)DEV_getActDevIo())->DC);
-                } else if(((I2C_ModuleHandleTypeDef *)handle)->addr == OLED_I2CADDR2) {
-                    DEVIO_SetPin(&((OLED_IOTypeDef *)DEV_getActDevIo())->DC);
-                }
-            }
-            DEVCMNI_Write(pdata, size, address);
-            if(((DEVCMNIIO_TypeDef *)((OLED_IOTypeDef *)DEV_getActDevIo()))->CS.GPIOx != NULL) {
-                DEVIO_SetPin(&((DEVCMNIIO_TypeDef *)((OLED_IOTypeDef *)DEV_getActDevIo()))->CS);
-            }
-        } else if(DEV_getActDevCmni()->protocol == SPI) {
-            if(address == 0X00) {
+bool OLED_Write(uint8_t *pdata, uint16_t size, uint8_t address) {
+    bool res = false;
+    void *handle = DEV_getActDevCmni()->modular;
+    if(DEV_getActDevCmni()->protocol == I2C) {
+        if(((DEVCMNIIO_TypeDef *)((OLED_IOTypeDef *)DEV_getActDevIo()))->CS.GPIOx != NULL) {
+            DEVIO_ResetPin(&((DEVCMNIIO_TypeDef *)((OLED_IOTypeDef *)DEV_getActDevIo()))->CS);
+        }
+        if(((OLED_IOTypeDef *)DEV_getActDevIo())->DC.GPIOx != NULL) {
+            if(((I2C_ModuleHandleTypeDef *)handle)->addr == OLED_I2CADDR1) {
                 DEVIO_ResetPin(&((OLED_IOTypeDef *)DEV_getActDevIo())->DC);
-            } else if(address == 0X40) {
+            } else if(((I2C_ModuleHandleTypeDef *)handle)->addr == OLED_I2CADDR2) {
                 DEVIO_SetPin(&((OLED_IOTypeDef *)DEV_getActDevIo())->DC);
             }
-            DEVCMNI_Write(pdata, size, 0);
+        }
+        res = DEVCMNI_Write(pdata, size, address);
+        if(((DEVCMNIIO_TypeDef *)((OLED_IOTypeDef *)DEV_getActDevIo()))->CS.GPIOx != NULL) {
+            DEVIO_SetPin(&((DEVCMNIIO_TypeDef *)((OLED_IOTypeDef *)DEV_getActDevIo()))->CS);
+        }
+    } else if(DEV_getActDevCmni()->protocol == SPI) {
+        if(address == 0X00) {
+            DEVIO_ResetPin(&((OLED_IOTypeDef *)DEV_getActDevIo())->DC);
+        } else if(address == 0X40) {
             DEVIO_SetPin(&((OLED_IOTypeDef *)DEV_getActDevIo())->DC);
         }
+        res = DEVCMNI_Write(pdata, size, 0);
+        DEVIO_SetPin(&((OLED_IOTypeDef *)DEV_getActDevIo())->DC);
     }
+    return res;
 }
 
 /////////////////////////    OLED配置初始化    /////////////////////////

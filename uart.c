@@ -14,60 +14,6 @@ DEVCMNI_TypeDef uart1_cmni = {.protocol = USART, .ware = HARDWARE, .modular = &m
 DEVS_TypeDef uarts = {.type = UART};
 DEV_TypeDef uart[UART_NUM] = {
     {.parameter = NULL, .io = {0}, .cmni = {.num = 1, .confi = (DEVCMNI_TypeDef *)&uart1_cmni, .init = NULL}}};
-/* 获取串口句柄对应通信句柄 */
-UART_ModuleHandleTypeDef *UART_GetModular(void *bus) {
-    for(size_t i = 0; i < uarts.size; i++) {
-        if(((UART_ModuleHandleTypeDef *)uart[i].cmni.confi->modular)->bus == bus) {
-            return uart[i].cmni.confi->modular;
-        }
-    }
-    return NULL;
-}
-
-/* 中断回调函数 */
-#if defined(STM32)
-#if defined(STM32HAL)
-/* 指定空间数据接收完毕中断回调函数 */
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-    UART_ModuleHandleTypeDef *muart = UART_GetModular(huart);
-    if(huart->RxState == HAL_UART_STATE_READY || huart->hdmarx->State == HAL_DMA_STATE_READY) {
-        /* 判断句柄标志位, 是否为数据接收完毕 */
-        DEVUART_ReceiveReady(muart, muart->receive.size);
-    }
-}
-/* 指定空间数据半接收/接收完毕/总线空闲时中断回调函数 */
-void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size) {
-    UART_ModuleHandleTypeDef *muart = UART_GetModular(huart);
-    if(huart->RxState == HAL_UART_STATE_READY || huart->hdmarx->State == HAL_DMA_STATE_READY) {
-        /* 判断句柄标志位, 是否为数据接收完毕/总线空闲 */
-        DEVUART_ReceiveReady(muart, size);
-    } else if(size == muart->receive.size / 2) {
-        /* 其他情况则为数据半接收完毕, 稳妥起见再对接收长度进行一次判断 */
-    }
-}
-/* 数据发送完毕中断回调函数 */
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
-    UART_ModuleHandleTypeDef *muart = UART_GetModular(huart);
-    DEVUART_TransmitReady(muart);
-}
-#elif defined(STM32FWLIB)
-/* 指定空间数据接收完毕中断回调函数 */
-void FWLIB_UART_RxCpltCallback(USART_TypeDef *USARTx) {
-    UART_ModuleHandleTypeDef *muart = UART_GetModular(USARTx);
-    DEVUART_ReceiveReady(muart, muart->receive.size);
-}
-/* 指定空间数据接收完毕/总线空闲时中断回调函数 */
-void FWLIB_UARTEx_RxEventCallback(USART_TypeDef *USARTx, uint16_t size) {
-    UART_ModuleHandleTypeDef *muart = UART_GetModular(USARTx);
-    DEVUART_ReceiveReady(muart, size);
-}
-/* 数据发送完毕中断回调函数 */
-void FWLIB_UART_TxCpltCallback(USART_TypeDef *USARTx) {
-    UART_ModuleHandleTypeDef *muart = UART_GetModular(USARTx);
-    DEVUART_TransmitReady(muart);
-}
-#endif
-#endif
 
 /* 串口初始化函数 */
 void UART_Init(void) {

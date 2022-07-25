@@ -1,4 +1,3 @@
-#include "uart.h"
 #include "usart.h"
 
 #if defined(STM32)
@@ -77,107 +76,18 @@ void USART1_Confi(void) {
     USART_Cmd(USART1, ENABLE);    //使能/失能串口通讯; 此处使能串口1
 }
 
-#ifndef UNUSED
-#define UNUSED(X) (void)X /* To avoid gcc/g++ warnings */
-#endif                    // !UNUSED(X)
 
-static void UART_Receive_IT_(USART_TypeDef *USARTx);
-static void UART_EndReceive_IT_(USART_TypeDef *USARTx);
-static void UART_Transmit_IT_(USART_TypeDef *USARTx);
-static void UART_EndTransmit_IT_(USART_TypeDef *USARTx);
-void USART1_IRQHandler(void) {
-    /* 串口接收判断 */
-    if(USART_GetITStatus(USART1, USART_IT_RXNE) != RESET) {
-        UART_Receive_IT_(USART1);
-    }
-    /* 串口接收完毕判断 */
-    if(USART_GetITStatus(USART1, USART_IT_IDLE) != RESET) {
-        UART_EndReceive_IT_(USART1);
-    }
-    /* 串口发送判断 */
-    if(USART_GetITStatus(USART1, USART_IT_TXE) != RESET) {
-        UART_Transmit_IT_(USART1);
-    }
-    /* 串口发送完毕判断 */
-    if(USART_GetITStatus(USART1, USART_IT_TC) != RESET) {
-        UART_EndTransmit_IT_(USART1);
-    }
-}
 
-UART_ModuleHandleTypeDef *UART_GetModular(void *bus);
-
-/* 中断式串口接收处理函数, 移植自hal库 */
-__attribute__((unused)) static void UART_Receive_IT_(USART_TypeDef *USARTx) {
-    __IO uint16_t byte;
-    UART_ModuleHandleTypeDef *muart = UART_GetModular(USARTx);
-    /* 读DR以清空RXNE标志位 且 读一字节数据 */
-    muart->receive.buf[muart->receive.count] = USART_ReceiveData(USARTx);
-    if(++muart->receive.count == muart->receive.size) {
-        /* 关闭总线接收触发中断 */
-        USART_ITConfig(USARTx, USART_IT_RXNE, DISABLE);
-        if(muart->checkidle) {
-            /* 关闭总线空闲触发中断 */
-            USART_ITConfig(USARTx, USART_IT_IDLE, DISABLE);
-            /* 按序读SR和DR以清空IDLE标志位 */
-            if(USART_GetITStatus(USARTx, USART_IT_IDLE)) {
-                byte = USART_ReceiveData(USARTx);
-            }
-            /* 调用回调函数 */
-            FWLIB_UARTEx_RxEventCallback(USARTx, muart->receive.count);
-            /* 恢复串口接收配置 */
-            muart->checkidle = false;
-        } else {
-            /* 按序读SR和DR以清空IDLE标志位 */
-            if(USART_GetITStatus(USARTx, USART_IT_IDLE)) {
-                byte = USART_ReceiveData(USARTx);
-            }
-            /* 调用回调函数 */
-            FWLIB_UART_RxCpltCallback(USARTx);
+/* 获取串口句柄对应通信句柄 */
+extern DEVS_TypeDef uarts;
+extern DEV_TypeDef uart[];
+static UART_ModuleHandleTypeDef *UART_GetModular(void *bus) {
+    for(size_t i = 0; i < uarts.size; i++) {
+        if(((UART_ModuleHandleTypeDef *)uart[i].cmni.confi->modular)->bus == bus) {
+            return uart[i].cmni.confi->modular;
         }
     }
-}
-
-/* 中断式串口接收完毕处理函数, 移植自hal库 */
-__attribute__((unused)) static void UART_EndReceive_IT_(USART_TypeDef *USARTx) {
-    __IO uint16_t byte;
-    UART_ModuleHandleTypeDef *muart = UART_GetModular(USARTx);
-    /* 按序读SR和DR以清空IDLE标志位 */
-    byte = USART_ReceiveData(USARTx);
-    if(muart->checkidle) {
-        /* 关闭总线接收触发中断 */
-        USART_ITConfig(USARTx, USART_IT_RXNE, DISABLE);
-        /* 关闭总线空闲触发中断 */
-        USART_ITConfig(USARTx, USART_IT_IDLE, DISABLE);
-        /* 调用回调函数 */
-        FWLIB_UARTEx_RxEventCallback(USARTx, muart->receive.count);
-        /* 恢复串口接收配置 */
-        muart->checkidle = false;
-    }
-}
-
-/* 中断式串口发送处理函数, 移植自hal库 */
-__attribute__((unused)) static void UART_Transmit_IT_(USART_TypeDef *USARTx) {
-    __IO uint16_t byte;
-    UART_ModuleHandleTypeDef *modular = UART_GetModular(USARTx);
-    if(modular->transmit.count < modular->transmit.size) {
-        byte = modular->transmit.buf[modular->transmit.count++];
-        /* 写DR以清空TXE标志位 且 写一字节数据 且 首次写时清空上一轮发送完成的TC标志位 */
-        USART_SendData(USARTx, byte);
-    } else {
-        /* 发送写入完毕, 关TXE中断, 开TC中断 */
-        USART_ITConfig(USARTx, USART_IT_TXE, DISABLE);
-        USART_ITConfig(USARTx, USART_IT_TC, ENABLE);
-        modular->transmit.count = 0;
-    }
-}
-
-/* 中断式串口发送完毕处理函数, 移植自hal库 */
-__attribute__((unused)) static void UART_EndTransmit_IT_(USART_TypeDef *USARTx) {
-    UART_ModuleHandleTypeDef *modular = UART_GetModular(USARTx);
-    /* 发送完成, 关TC中断, 置相应软件标志 */
-    USART_ITConfig(USARTx, USART_IT_TC, DISABLE);
-    /* 调用回调函数 */
-    FWLIB_UART_TxCpltCallback(modular->bus);
+    return NULL;
 }
 
 /* 中断式串口接收函数, 移植自hal库 */
@@ -217,6 +127,108 @@ int8_t FWLIB_UART_Transmit_IT(USART_TypeDef *USARTx, uint8_t *pdata, uint16_t si
     return 0;
 }
 
+
+static void UART_Receive_IT_(USART_TypeDef *USARTx);
+static void UART_EndReceive_IT_(USART_TypeDef *USARTx);
+static void UART_Transmit_IT_(USART_TypeDef *USARTx);
+static void UART_EndTransmit_IT_(USART_TypeDef *USARTx);
+void USART1_IRQHandler(void) {
+    /* 串口接收判断 */
+    if(USART_GetITStatus(USART1, USART_IT_RXNE) != RESET) {
+        UART_Receive_IT_(USART1);
+    }
+    /* 串口接收完毕判断 */
+    if(USART_GetITStatus(USART1, USART_IT_IDLE) != RESET) {
+        UART_EndReceive_IT_(USART1);
+    }
+    /* 串口发送判断 */
+    if(USART_GetITStatus(USART1, USART_IT_TXE) != RESET) {
+        UART_Transmit_IT_(USART1);
+    }
+    /* 串口发送完毕判断 */
+    if(USART_GetITStatus(USART1, USART_IT_TC) != RESET) {
+        UART_EndTransmit_IT_(USART1);
+    }
+}
+
+/* 中断式串口接收处理函数, 移植自hal库 */
+static void UART_Receive_IT_(USART_TypeDef *USARTx) {
+    __IO uint16_t byte;
+    UART_ModuleHandleTypeDef *muart = UART_GetModular(USARTx);
+    /* 读DR以清空RXNE标志位 且 读一字节数据 */
+    muart->receive.buf[muart->receive.count] = USART_ReceiveData(USARTx);
+    if(++muart->receive.count == muart->receive.size) {
+        /* 关闭总线接收触发中断 */
+        USART_ITConfig(USARTx, USART_IT_RXNE, DISABLE);
+        if(muart->checkidle) {
+            /* 关闭总线空闲触发中断 */
+            USART_ITConfig(USARTx, USART_IT_IDLE, DISABLE);
+            /* 按序读SR和DR以清空IDLE标志位 */
+            if(USART_GetITStatus(USARTx, USART_IT_IDLE)) {
+                byte = USART_ReceiveData(USARTx);
+            }
+            /* 调用回调函数 */
+            FWLIB_UARTEx_RxEventCallback(USARTx, muart->receive.count);
+            /* 恢复串口接收配置 */
+            muart->checkidle = false;
+        } else {
+            /* 按序读SR和DR以清空IDLE标志位 */
+            if(USART_GetITStatus(USARTx, USART_IT_IDLE)) {
+                byte = USART_ReceiveData(USARTx);
+            }
+            /* 调用回调函数 */
+            FWLIB_UART_RxCpltCallback(USARTx);
+        }
+    }
+}
+
+/* 中断式串口接收完毕处理函数, 移植自hal库 */
+static void UART_EndReceive_IT_(USART_TypeDef *USARTx) {
+    __IO uint16_t byte;
+    UART_ModuleHandleTypeDef *muart = UART_GetModular(USARTx);
+    /* 按序读SR和DR以清空IDLE标志位 */
+    byte = USART_ReceiveData(USARTx);
+    if(muart->checkidle) {
+        /* 关闭总线接收触发中断 */
+        USART_ITConfig(USARTx, USART_IT_RXNE, DISABLE);
+        /* 关闭总线空闲触发中断 */
+        USART_ITConfig(USARTx, USART_IT_IDLE, DISABLE);
+        /* 调用回调函数 */
+        FWLIB_UARTEx_RxEventCallback(USARTx, muart->receive.count);
+        /* 恢复串口接收配置 */
+        muart->checkidle = false;
+    }
+}
+
+/* 中断式串口发送处理函数, 移植自hal库 */
+static void UART_Transmit_IT_(USART_TypeDef *USARTx) {
+    __IO uint16_t byte;
+    UART_ModuleHandleTypeDef *modular = UART_GetModular(USARTx);
+    if(modular->transmit.count < modular->transmit.size) {
+        byte = modular->transmit.buf[modular->transmit.count++];
+        /* 写DR以清空TXE标志位 且 写一字节数据 且 首次写时清空上一轮发送完成的TC标志位 */
+        USART_SendData(USARTx, byte);
+    } else {
+        /* 发送写入完毕, 关TXE中断, 开TC中断 */
+        USART_ITConfig(USARTx, USART_IT_TXE, DISABLE);
+        USART_ITConfig(USARTx, USART_IT_TC, ENABLE);
+        modular->transmit.count = 0;
+    }
+}
+
+/* 中断式串口发送完毕处理函数, 移植自hal库 */
+static void UART_EndTransmit_IT_(USART_TypeDef *USARTx) {
+    UART_ModuleHandleTypeDef *modular = UART_GetModular(USARTx);
+    /* 发送完成, 关TC中断, 置相应软件标志 */
+    USART_ITConfig(USARTx, USART_IT_TC, DISABLE);
+    /* 调用回调函数 */
+    FWLIB_UART_TxCpltCallback(modular->bus);
+}
+
+
+#ifndef UNUSED
+#define UNUSED(X) (void)X /* To avoid gcc/g++ warnings */
+#endif                    // !UNUSED(X)
 
 /* 指定空间数据接收完毕中断回调函数, 移植自hal库 */
 __weak void FWLIB_UART_RxCpltCallback(USART_TypeDef *USARTx) {

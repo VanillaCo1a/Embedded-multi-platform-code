@@ -36,7 +36,9 @@ typedef enum {
     DEVCMNI_BUSY,
     DEVCMNI_TIMEOUT
 } DEVCMNI_StatusTypeDef;
-////////////////////////////////////////////////////////////////////////////
+
+
+/***  SOFTWARE STRUCTURE DEFINITION & FUNCTION DECLARAION OF I2C DEVICE COMMUNITCATION  ***/
 typedef enum {
     DEVI2C_SCL,
     DEVI2C_SDA
@@ -84,7 +86,9 @@ typedef struct {                      //I2C总线设备结构体
     DEVI2C_ErrhandTypeDef errhand;    //模块的错误处理方式
     void *bus;                        //I2C模拟/硬件总线句柄
 } I2C_ModuleHandleTypeDef;
-////////////////////////////////////////////////////////////////////////////
+
+
+/***  SOFTWARE STRUCTURE DEFINITION & FUNCTION DECLARAION OF SPI DEVICE COMMUNITCATION  ***/
 typedef enum {
     DEVSPI_FULL_DUPLEX,
     DEVSPI_HALF_DUPLEX
@@ -107,7 +111,9 @@ typedef struct {                        //SPI总线模块结构体
     DEVSPI_DuplexTypeTypeDef duplex;    //设备工作模式
     void *bus;                          //SPI模拟/硬件总线句柄
 } SPI_ModuleHandleTypeDef;
-////////////////////////////////////////////////////////////////////////////
+
+
+/***  SOFTWARE STRUCTURE DEFINITION & FUNCTION DECLARAION OF 1-WIRE DEVICE COMMUNITCATION  ***/
 typedef struct {           //ONEWIRE模拟总线结构体
     uint64_t num;          //总线上的设备数量
     int8_t flag_search;    //总线在最近一段时间内是否进行过搜索以更新设备数量
@@ -139,7 +145,9 @@ void DEVCMNI_Error(int8_t err);
 void DEVCMNI_Delayus(uint64_t us);
 void DEVCMNI_Delayms(uint64_t ms);
 int8_t DEVCMNI_Delayus_paral(uint64_t us);
-////////////////////////////////////////////////////////////////////////////
+
+
+/***  SOFTWARE IMPLEMENTATION FUNCTION OF I2C DEVICE COMMUNITCATION  ***/
 #ifdef DEVI2C_SOFTWARE_ENABLED
 #if defined(DEVI2C_USEPOINTER)
 #define DEVI2C_SCL_Set(dir)      i2cbus.SCL_Set(dir)
@@ -164,7 +172,7 @@ int8_t DEVCMNI_Delayus_paral(uint64_t us);
 #define DEVI2C_Delayms(ms)       ({if(ms) {DEVCMNI_Delayms(ms);} })
 #define DEVI2C_Delayus_paral(us) DEVCMNI_Delayus_paral(us)
 #endif    // DEVI2C_USEPOINTER
-////////////////////////////////////////////////////////////////////////////
+
 static uint32_t DEVI2C_scl_lowtime = 0, DEVI2C_scl_hightime = 0, DEVI2C_timeout = 0;
 static DEVI2C_ErrorTypeDef i2cerror = DEVI2C_NOERROR;
 static I2C_SoftHandleTypeDef i2cbus = {.clockstretch = true, .arbitration = true};
@@ -517,7 +525,7 @@ static void DEVI2C_Read_(uint8_t *pdata, size_t size) {
         }
     }
 }
-////////////////////////////////////////////////////////////////////////////
+
 __attribute__((unused)) static DEVCMNI_StatusTypeDef DEVI2C_Transmit(I2C_ModuleHandleTypeDef *modular, uint8_t *pdata, size_t size, uint8_t address, bool rw, uint32_t timeout) {
     /* 多字节读写函数, timeout应答超时,speed速度模式,rw1为读0为写 */
     uint8_t byte;
@@ -606,9 +614,11 @@ __attribute__((unused)) static DEVCMNI_StatusTypeDef DEVI2C_Transmit(I2C_ModuleH
 #undef DEVI2C_Delayus
 #undef DEVI2C_Delayms
 #undef DEVI2C_Delayus_paral
+
 #endif    // DEVI2C_SOFTWARE_ENABLED
 
-////////////////////////////////////////////////////////////////////////////
+
+/***  SOFTWARE IMPLEMENTATION FUNCTION OF SPI DEVICE COMMUNITCATION  ***/
 #ifdef DEVSPI_SOFTWARE_ENABLED
 #if defined(DEVSPI_USEPOINTER)
 #define DEVSPI_SCK_Out(pot)      ((SPI_SoftHandleTypeDef *)modular->bus)->SCK_Out(pot)
@@ -629,7 +639,7 @@ __attribute__((unused)) static DEVCMNI_StatusTypeDef DEVI2C_Transmit(I2C_ModuleH
 #define DEVSPI_delayms(ms)       ({if(ms) {DEVCMNI_Delayms(ms);} })
 #define DEVSPI_Delayus_paral(us) DEVCMNI_Delayus_paral(us)
 #endif    // DEVSPI_USEPOINTER
-////////////////////////////////////////////////////////////////////////////
+
 static void DEVSPI_Init(SPI_ModuleHandleTypeDef *modular) {}
 /* 以下的整个持续读写过程为原子操作, 每个函数(除Start())开始前与(除Stop())结束后总是有: SCK为未释放状态 */
 /* 对于进一步切割, 使同一条总线上的读写操作可以并行运行的工作, 还有待探究 */
@@ -676,7 +686,7 @@ static inline bool DEVSPI_TransmitBit(SPI_ModuleHandleTypeDef *modular, bool bit
     DEVSPI_SCK_Out(LOW);
     return bit;
 }
-////////////////////////////////////////////////////////////////////////////
+
 __attribute__((unused)) static DEVCMNI_StatusTypeDef DEVSPI_Transmit(SPI_ModuleHandleTypeDef *modular, uint8_t *pdata, size_t size, bool rw, uint32_t timeout) {
     /* 多字节读写函数, timeout应答超时,rw1为读0为写 */
     DEVSPI_Init(modular);
@@ -728,9 +738,11 @@ __attribute__((unused)) static DEVCMNI_StatusTypeDef DEVSPI_Transmit(SPI_ModuleH
 #undef DEVSPI_delayus
 #undef DEVSPI_delayms
 #undef DEVSPI_Delayus_paral
+
 #endif    // DEVSPI_SOFTWARE_ENABLED
 
-////////////////////////////////////////////////////////////////////////////
+
+/***  SOFTWARE IMPLEMENTATION FUNCTION OF 1-WIRE DEVICE COMMUNITCATION  ***/
 #ifdef DEVOWRE_SOFTWARE_ENABLED
 #if defined(DEVOWRE_USEPOINTER)
 #define DEVOWRE_OWIO_Set(dir)     ((ONEWIRE_SoftHandleTypeDef *)modular->bus)->OWIO_Set(dir)
@@ -749,6 +761,7 @@ __attribute__((unused)) static DEVCMNI_StatusTypeDef DEVSPI_Transmit(SPI_ModuleH
 #define DEVOWRE_delayms(ms)       ({if(ms) {DEVCMNI_Delayms(ms);} })
 #define DEVOWRE_Delayus_paral(us) DEVCMNI_Delayus_paral(us)
 #endif    // DEVOWRE_USEPOINTER
+
 static inline int8_t DEVOWRE_Init(ONEWIRE_ModuleHandleTypeDef *modular) {
     DEVOWRE_OWIO_Out(HIGH);
     DEVOWRE_OWIO_Set(IN);
@@ -841,7 +854,7 @@ static inline void DEVOWRE_Read(ONEWIRE_ModuleHandleTypeDef *modular, uint8_t *p
     }
     return;
 }
-////////////////////////////////////////////////////////////////////////////
+
 #define _SKIP        0xCC    //ROM跳过匹配指令[限单个设备/接多个设备能同时进行的操作]
 #define _MATCH       0x55    //ROM匹配指令
 #define _QUERY       0x33    //ROM读取指令[限单个设备]
@@ -899,8 +912,10 @@ __attribute__((unused)) static DEVCMNI_StatusTypeDef DEVONEWIRE_Read(ONEWIRE_Mod
 #undef DEVOWRE_Delayus_paral
 #endif    // DEVOWRE_SOFTWARE_ENABLED
 
-////////////////////////////////////////////////////////////////////////////
+
+/***  SOFTWARE IMPLEMENTATION FUNCTION OF UART DEVICE COMMUNITCATION  ***/
 #ifdef DEVUART_SOFTWARE_ENABLED
+
 #endif    // DEVUART_SOFTWARE_ENABLED
 
 #endif    // !__PROTOCOL_SOFTWARE_H
