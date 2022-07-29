@@ -177,6 +177,51 @@ void OLED_Chinese(uint8_t y, uint8_t x, uint8_t *cn) {
         cn += 2;                            //此处打完一个字，接下来寻找第二个字
     }
 }
+void OLED_Printf(uint8_t y, uint8_t x, const char *str, ...) {
+    uint8_t i, j;
+    va_list args;
+    char *pstr = oled_va_buf;
+    va_start(args, str);
+    vsnprintf(oled_va_buf, oled_bufSize, (char *)str, args);
+    va_end(args);
+
+    //if(code == 0) {
+        // todo: add gbk coding print
+    //} else if(code == 1) {
+        while (*pstr != '\0') {
+            /* Count there are how many bit '1' before bit '0' */
+            j = 0;
+            for(i=0x80; i>0x00; i>>=1) {
+                if(0x00 != (*pstr&i)) {
+                    j++;
+                } else {
+                    break;
+                }
+            }
+            if(j == 0) {
+                /* Check is a num or a char */
+                if(*pstr >= '0' && *pstr <= '9') {
+                    OLED_PrintCharin(&y, &x, pstr, 0);
+                } else {
+                    OLED_PrintCharin(&y, &x, pstr, 0);
+                }
+                pstr++;
+            } else if(j == 3) {
+                OLED_PrintCharin(&y, &x, pstr, 1);
+                pstr += 3;
+            } else {
+                /* Check whether there is bit '0' */
+                if(j == 8) {
+                    /* error byte, jump it */
+                    pstr++;
+                } else {
+                    /* Unknown word, just jump it */
+                    pstr += j;
+                }
+            }
+        }
+    //}
+}
 //画一幅画
 //起点坐标x y 图像取模数组 图像宽高w h
 void OLED_Bitmap(int32_t y, int32_t x, uint8_t w, uint8_t h, const uint8_t *bitmap) {

@@ -1,7 +1,7 @@
 #ifndef __DS18B20_H
 #define __DS18B20_H
 #include "device.h"
-#define DS18B20_NUM 1
+
 typedef enum {
     PARASITIC,
     EXTERNAL,
@@ -28,7 +28,10 @@ typedef struct {
     uint8_t resvd2;
     uint8_t crc;
 } DS18B20_SCRTypedef;
-void DS18B20_Confi(void);
+
+void DS18B20_Init(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize uSize, int16_t temp[], int8_t state[]);
+void DS18B20_Deinit(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize size);
+
 int8_t DS18B20_SetTem(poolsize num);
 int16_t DS18B20_GetTem(poolsize num);
 

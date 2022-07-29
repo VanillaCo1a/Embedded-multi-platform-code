@@ -1,7 +1,6 @@
 #ifndef __OLED_DRIVER_H
 #define __OLED_DRIVER_H
 #include "oledlib.h"
-#define OLED_NUM 2
 typedef enum {
     OLED_SSD1306,
     OLED_SH1106
@@ -23,7 +22,10 @@ typedef struct {
     OledChip_TypeDef chip;
 } OLED_PARTypeDef;
 
-void OLED_Confi(void);
+extern char *oled_va_buf;
+extern size_t oled_bufSize;
+
+void OLED_Init(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize uSize, char *buf, size_t bSize);
 void OLED_Error(void);
 void OLED_DevInit(uint8_t flip);
 void OLED_On(void);

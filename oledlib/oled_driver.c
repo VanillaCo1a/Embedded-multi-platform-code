@@ -1,60 +1,46 @@
-/*
- * 本文件包含:
- * 1. OLED配置结构体初始化
- * 2. OLED的I2C/SPI通信IO初始化
- * 3. OLED的I2C/SPI通信驱动
- * 4. OLED配置初始化
- */
 #include "oled_driver.h"
 
-/////////////////////////    OLED配置结构体初始化    /////////////////////////
-//    OLED参数配置
-OLED_PARTypeDef oled_parameter[OLED_NUM] = {
-    {.chip = OLED_SSD1306},
-    {.chip = OLED_SSD1306}};
-//    OLEDIO配置
-OLED_IOTypeDef oled_io[OLED_NUM] = {
+/***  OLED类, 初始化实例的样例如下:
+#define SIZE_OLEDIO   sizeof(OLED_IOTypeDef) / sizeof(DEVIO_TypeDef)
+#define SIZE_OLEDCMNI sizeof(OLED_CMNITypeDef) / sizeof(DEVCMNI_TypeDef)
+void DEVIO_InitCallBack(void);
+static OLED_PARTypeDef oled_parameter[] = {{.chip = OLED_SSD1306}};
+static OLED_IOTypeDef oled_io[] = {
 #if defined(STM32HAL)
-    {{.SCL_SCK = {OLED0_SCK_GPIO_Port, OLED0_SCK_Pin},
-      .SDA_SDI_OWRE = {OLED0_SDI_GPIO_Port, OLED0_SDI_Pin},
-      .CS = {OLED0_CS_GPIO_Port, OLED0_CS_Pin}},
-     .DC = {OLED0_DC_GPIO_Port, OLED0_DC_Pin}},
-    {{.SCL_SCK = {OLED1_SCL_GPIO_Port, OLED1_SCL_Pin},
-      .SDA_SDI_OWRE = {OLED1_SDA_GPIO_Port, OLED1_SDA_Pin}}},
+    {{.SCL_SCK = {BOARD_OLED_SPI2_SCK_GPIO_Port, BOARD_OLED_SPI2_SCK_Pin},
+      .SDA_SDI_OWRE = {BOARD_OLED_SPI2_SDI_GPIO_Port, BOARD_OLED_SPI2_SDI_Pin},
+      .CS = {BOARD_OLED_CS_GPIO_Port, BOARD_OLED_CS_Pin}},
+     .DC = {BOARD_OLED_DC_GPIO_Port, BOARD_OLED_DC_Pin},
+     .RST = {NULL, 0x00}},
 #elif defined(STM32FWLIBF1)
     {{.SCL_SCK = {RCC_APB2Periph_GPIOB, GPIOB, GPIO_Pin_12},
       .SDA_SDI_OWRE = {RCC_APB2Periph_GPIOB, GPIOB, GPIO_Pin_13}}},
 #endif
 };
-//    OLED通信配置
-I2C_SoftHandleTypeDef ahi2c = {.clockstretch = true, .arbitration = true};
-SPI_SoftHandleTypeDef ahspi = {};
-I2C_ModuleHandleTypeDef mi2c[] = {
+static I2C_SoftHandleTypeDef ahi2c = {.clockstretch = true, .arbitration = true};
+static SPI_SoftHandleTypeDef ahspi = {};
+static I2C_ModuleHandleTypeDef mi2c[] = {
     {.addr = OLED_I2CADDR1, .skip = false, .speed = DEVI2C_HIGHSPEED, .errhand = DEVI2C_LEVER1}};
-SPI_ModuleHandleTypeDef mspi[] = {{.skip = false, .duplex = DEVSPI_HALF_DUPLEX}};
-OLED_CMNITypeDef oled_cmni[] = {
+static SPI_ModuleHandleTypeDef mspi[] = {{.skip = false, .duplex = DEVSPI_HALF_DUPLEX}};
+static OLED_CMNITypeDef oled_cmni[] = {
     {{.protocol = I2C, .ware = SOFTWARE, .bus = &ahi2c, .modular = mi2c}},
     {{.protocol = I2C, .ware = HARDWARE, .bus = &hi2c1, .modular = mi2c}},
     {{.protocol = SPI, .ware = SOFTWARE, .bus = &ahspi, .modular = mspi}},
     {{.protocol = SPI, .ware = HARDWARE, .bus = &hspi2, .modular = mspi}}};
+static DEVS_TypeDef oleds = {.type = OLED};
+static DEV_TypeDef oled[] = {
+    {.parameter = &oled_parameter[0],
+     .io = {.num = SIZE_OLEDIO, .confi = (DEVIO_TypeDef *)&oled_io[0], .init = DEVIO_InitCallBack},
+     .cmni = {.num = SIZE_OLEDCMNI, .confi = (DEVCMNI_TypeDef *)&oled_cmni[1], .init = NULL}}};     ***/
 
-//    OLED设备结构体
-#define SIZE_OLEDIO   sizeof(OLED_IOTypeDef) / sizeof(DEVIO_TypeDef)
-#define SIZE_OLEDCMNI sizeof(OLED_CMNITypeDef) / sizeof(DEVCMNI_TypeDef)
-void DEVIO_InitCallBack(void);
-DEVS_TypeDef oleds = {.type = OLED};
-DEV_TypeDef oled[OLED_NUM] = {
-    {
-        .parameter = &oled_parameter[0],
-        .io = {.num = SIZE_OLEDIO, .confi = (DEVIO_TypeDef *)&oled_io[0], .init = DEVIO_InitCallBack},
-        .cmni = {.num = SIZE_OLEDCMNI, .confi = (DEVCMNI_TypeDef *)&oled_cmni[2], .init = NULL},
-    },
-    {
-        .parameter = &oled_parameter[1],
-        .io = {.num = SIZE_OLEDIO, .confi = (DEVIO_TypeDef *)&oled_io[1], .init = DEVIO_InitCallBack},
-        .cmni = {.num = SIZE_OLEDCMNI, .confi = (DEVCMNI_TypeDef *)&oled_cmni[0], .init = NULL},
-    }};
-    
+
+DEVS_TypeDef *oleds = NULL;
+DEV_TypeDef *oled = NULL;
+poolsize oledSize = 0;
+
+char *oled_va_buf = NULL;
+size_t oled_bufSize = 0;
+
 //    OLEDIO配置回调函数
 void DEVIO_InitCallBack(void) {
     //可复用于I2C和SPI通信的OLED引脚定义(*为必须接IO由芯片控制): SCL_SCK*,SDA_SDI_OWRE*,CS,DC(*SPI),RST
@@ -93,6 +79,23 @@ void DEVIO_InitCallBack(void) {
 #elif defined(STM32FWLIB)
 #endif
 }
+
+/* OLED构造函数 */
+void OLED_Init(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize uSize, char *buf, size_t bSize) {
+    oleds = devs;
+    oled = dev;
+    oledSize = uSize;
+    oled_va_buf = buf;
+    oled_bufSize = bSize;
+    /* 初始化OLED类设备, 将参数绑定到设备池中, 并初始化通信引脚 */
+    DEV_Init(oleds, oled, oledSize);
+
+    if(DEV_setActStream(oleds, 0) == 1) { DEV_Error(1); }
+    OLED_DevInit(((OLED_PARTypeDef *)DEV_getActDev()->parameter)->flip);
+}
+
+/* TODO: OLED析构函数 */
+void OLED_Deinit(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize size) {}
 
 
 /////////////////////////   OLED的 I2C/SPI通信驱动    /////////////////////////
@@ -293,33 +296,4 @@ void OLED_Error(void) {
             DEV_getActDev()->error = 0;
         }
     }
-}
-void OLED_Confi(void) {
-    //初始化OLED类设备, 将参数绑定到设备池中, 并初始化通信引脚
-    DEV_Init(&oleds, oled, OLED_NUM);
-    // //初始化其他引脚, 复位定义RST脚的OLED
-    // DEV_doAction(&oleds, OLED_IOInit);
-    // DEV_doAction(&oleds, OLED_Reset);    //延时200ms等待OLED电源稳定
-    // //对OLED类进行内部寄存器配置和清屏
-    // DEV_doAction(&oleds, OLED_Off);
-    // DEV_doAction(&oleds, OLED_Configure);
-    // DEV_doAction(&oleds, OLED_ClearScreen);
-    // //设置每个OLED的屏幕方向
-    // if(DEV_setActStream(&oleds, 0) == 1) {
-    //     DEV_Error(1);
-    // }
-    // OLED_Cursor(0, 0);    //设置光标和屏幕方向, 在初始化函数中已经配置过, 单独分离出来方便修改
-    // OLED_Flip(0, 0);
-    // if(DEV_setActStream(&oleds, 1) == 1) {
-    //     DEV_Error(1);
-    // }
-    // OLED_Cursor(0, 0);    //设置光标和屏幕方向, 在初始化函数中已经配置过, 单独分离出来方便修改
-    // OLED_Flip(0, 0);
-    // //开启屏幕显示
-    // DEV_doAction(&oleds, OLED_On);
-    // DEV_closeActStream();
-    if(DEV_setActStream(&oleds, 0) == 1) { DEV_Error(1); }
-    OLED_DevInit(0);
-    if(DEV_setActStream(&oleds, 1) == 1) { DEV_Error(1); }
-    OLED_DevInit(0);
 }
