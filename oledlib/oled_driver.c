@@ -55,7 +55,7 @@ DEV_TypeDef oled[OLED_NUM] = {
         .cmni = {.num = SIZE_OLEDCMNI, .confi = (DEVCMNI_TypeDef *)&oled_cmni[0], .init = NULL},
     }};
     
-//    OLEDIO配置回调函数
+/* OLEDIO配置回调函数 */
 void DEVIO_InitCallBack(void) {
     //可复用于I2C和SPI通信的OLED引脚定义(*为必须接IO由芯片控制): SCL_SCK*,SDA_SDI_OWRE*,CS,DC(*SPI),RST
     //I2C/SPI通信的基础通信引脚(在device.c中初始化): SCL*,SDA*/SCK*,SDI*,CS
@@ -95,41 +95,13 @@ void DEVIO_InitCallBack(void) {
 }
 
 
-/////////////////////////   OLED的 I2C/SPI通信驱动    /////////////////////////
+/***  OLED I2C/SPI通信驱动  ***/
 //[四脚OLED]只能进行I2C通信, 没有其他控制引脚
 //[七脚OLED][I2C]CS:片选,默认置高,通信时置低, DC:I2C地址选择,在通信时根据当前OLEDI2C地址配置电位
 //[七脚OLED][SPI]DC*:命令/数据选择,在通信时根据写往OLED内命令/数据寄存器配置电位
-//    OLED模拟通信写字节函数
-//对于不同的通信方式的OLED, 区别主要在于此处的IO操作, 上层的操作基本相同
-void OLED_WriteByte(uint8_t data, uint8_t address) {
-    void *handle = DEV_getActDevCmni()->modular;
-    if(DEV_getActDevCmni()->protocol == I2C) {
-        if(((DEVCMNIIO_TypeDef *)((OLED_IOTypeDef *)DEV_getActDevIo()))->CS.GPIOx != NULL) {
-            DEVIO_ResetPin(&((DEVCMNIIO_TypeDef *)((OLED_IOTypeDef *)DEV_getActDevIo()))->CS);
-        }
-        if(((OLED_IOTypeDef *)DEV_getActDevIo())->DC.GPIOx != NULL) {
-            if(((I2C_ModuleHandleTypeDef *)handle)->addr == OLED_I2CADDR1) {
-                DEVIO_ResetPin(&((OLED_IOTypeDef *)DEV_getActDevIo())->DC);
-            } else if(((I2C_ModuleHandleTypeDef *)handle)->addr == OLED_I2CADDR2) {
-                DEVIO_SetPin(&((OLED_IOTypeDef *)DEV_getActDevIo())->DC);
-            }
-        }
-        DEVCMNI_WriteByte(data, address);
-        if(((DEVCMNIIO_TypeDef *)((OLED_IOTypeDef *)DEV_getActDevIo()))->CS.GPIOx != NULL) {
-            DEVIO_SetPin(&((DEVCMNIIO_TypeDef *)((OLED_IOTypeDef *)DEV_getActDevIo()))->CS);
-        }
-    } else if(DEV_getActDevCmni()->protocol == SPI) {
-        if(address == 0X00) {
-            DEVIO_ResetPin(&((OLED_IOTypeDef *)DEV_getActDevIo())->DC);
-        } else if(address == 0X40) {
-            DEVIO_SetPin(&((OLED_IOTypeDef *)DEV_getActDevIo())->DC);
-        }
-        DEVCMNI_WriteByte(data, 0);
-        DEVIO_SetPin(&((OLED_IOTypeDef *)DEV_getActDevIo())->DC);
-    }
-}
-//    OLED模拟通信连续写多字节函数
-bool OLED_Write(uint8_t *pdata, uint16_t size, uint8_t address) {
+
+/* OLED连续写函数 */
+static bool OLED_Write(uint8_t *pdata, uint16_t size, uint8_t address) {
     bool res = false;
     void *handle = DEV_getActDevCmni()->modular;
     if(DEV_getActDevCmni()->protocol == I2C) {
@@ -159,84 +131,15 @@ bool OLED_Write(uint8_t *pdata, uint16_t size, uint8_t address) {
     return res;
 }
 
-/////////////////////////    OLED配置初始化    /////////////////////////
-//    图形库普通的延时函数 需要用户自己配置
-void OLED_delayms(uint16_t ms) {
-#if defined(STM32HAL)
-#ifdef __TIMER_H
-    delayms_timer(ms);
-#else
-    HAL_Delay(ms);
-#endif
-#elif defined(STM32FWLIBF1)
-    delayms_timer(ms);
-#endif
+/* OLED写字节函数 */
+static void OLED_WriteByte(uint8_t data, uint8_t address) {
+    OLED_Write(&data, 1, address);
 }
-//    OLED的驱动函数, 将前面的配置IO口,通信等操作封装集成为OLED驱动, 供外部调用
-void OLED_Reset(void) {
-    if((((OLED_IOTypeDef *)DEV_getActDevIo()))->RST.GPIOx != 0x00) {
-        DEVIO_ResetPin(&(((OLED_IOTypeDef *)DEV_getActDevIo()))->RST);
-    }
-    OLED_delayms(200);
-    if((((OLED_IOTypeDef *)DEV_getActDevIo()))->RST.GPIOx != 0x00) {
-        DEVIO_SetPin(&(((OLED_IOTypeDef *)DEV_getActDevIo()))->RST);
-    }
-}
-void OLED_On(void) {               //OLED唤醒
-    OLED_WriteByte(0X8D, 0X00);    //设置电荷泵
-    OLED_WriteByte(0X14, 0X00);    //开启电荷泵
-    OLED_WriteByte(0XAF, 0X00);    //开启OLED显示
-}
-void OLED_Off(void) {              //OLED休眠
-    OLED_WriteByte(0XAE, 0X00);    //关闭OLED显示
-    OLED_WriteByte(0X8D, 0X00);    //设置电荷泵
-    OLED_WriteByte(0X10, 0X00);    //关闭电荷泵
-}
-void OLED_Flip(int8_t horizontal, int8_t vertical) {
-    if(horizontal == 0) {
-        OLED_WriteByte(0xA1, 0X00);
-    } else {
-        OLED_WriteByte(0xA0, 0X00);
-    }
-    if(vertical == 0) {
-        OLED_WriteByte(0xC8, 0X00);
-    } else {
-        OLED_WriteByte(0xC0, 0X00);
-    }
-}
-//    设置器件内部光标, 格式为(页,列)
-void OLED_Cursor(uint8_t page, uint8_t col) {
-    OLED_PARTypeDef *oled_par = (OLED_PARTypeDef *)DEV_getActDev()->parameter;
-    uint8_t col_temp = col + ((oled_par->chip == OLED_SH1106) ? 0x02 : 0x00);    //对于SH1106芯片的屏幕, 显存起始地址为0x02
-    uint8_t cursor[3] = {
-        0xB0 | (page),                      //设置显示起始页地址(0~7)
-        0x00 | (col_temp & 0x0F),           //设置显示起始列地址低4位(0~F)
-        0x10 | ((col_temp & 0xF0) >> 4),    //设置显示起始列地址高4位(0~7(8 ))
-    };
-    OLED_Write(cursor, 3, 0X00);
-}
-//    在指定坐标处直接刷新一个字节(页中的某一列,上低下高), 由于要重设光标,较为缓慢
-void OLED_directByte(uint8_t page, uint8_t col, uint8_t data) {
-    OLED_Cursor(page, col);
-    OLED_WriteByte(data, 0X40);
-}
-//    使用I2C/SPI从缓存区读取对应位置数据, 用连续页写入的方式刷新整个屏幕
-void OLED_FillScreen(uint8_t (*Buffer)[SCREEN_PAGE][SCREEN_COLUMN]) {
-    for(int8_t i = 0; i < sizeof(*Buffer) / sizeof((*Buffer)[0]); i++) {
-        OLED_Cursor(i, 0);
-        OLED_Write((*Buffer)[i], sizeof((*Buffer)[0]) / sizeof((*Buffer)[0][0]), 0X40);
-    }
-}
-//    清屏(只清空屏幕)
-void OLED_ClearScreen(void) {
-    int8_t buf = getBufferPart();
-    setBufferPart(SCREEN_PART - 1);
-    OLED_clearBuffer();
-    OLED_updateScreen();
-    setBufferPart(buf);
-}
-//    配置器件内部寄存器  initial settings configuration
-void OLED_Configure(void) {
+
+
+/***  OLED的驱动函数, 将前面的配置IO口,通信等操作封装集成为OLED驱动, 供外部调用  ***/
+/* 配置器件内部寄存器  initial settings configuration */
+static void OLED_Configure(void) {
     //1. 基本命令
     OLED_WriteByte(0xAE, 0X00);    //设置显示关(默认)/开: 0xAE显示关闭(睡眠模式),0xAF显示正常开启  Set Display OFF(RESET)/ON: 0xAE Display OFF(sleep mode),0xAF Display ON in normal mode
     OLED_WriteByte(0xA4, 0X00);    //设置从内存(默认)/完全显示: 0xA4从内存中显示,0xA5完全显示  Entire Display OFF(RESET)/ON: 0xA4 Output follows RAM content,0xA5 Output ignores RAM content
@@ -274,26 +177,32 @@ void OLED_Configure(void) {
     OLED_WriteByte(0xDB, 0X00);    //Set VCOMH(默认0x20)
     OLED_WriteByte(0x30, 0X00);    //0x00 0.65xVcc, 0x20 0.77xVCC, 0x30 0.83xVCC
 }
+
+/* OLED初始化函数 */
 void OLED_DevInit(uint8_t flip) {
-    OLED_Reset();
     OLED_Off();
+    OLED_Reset();
     OLED_Configure();
-    OLED_ClearScreen();
-    OLED_Cursor(0, 0);
+    OLED_Clear();
     OLED_Flip(flip, flip);
+    OLED_SetCursor(0, 0);
     OLED_On();
 }
+
+/* OLED错误处理函数 */
 void OLED_Error(void) {
     if(DEV_getActDev()->error == 1) {
         DEV_getActDev()->error++;
         DEV_setActState(10000);
     } else if(DEV_getActDev()->error == 2) {
         if(DEV_getActState() == idle) {
-            OLED_DevInit(0);
+            OLED_DevInit(((OLED_PARTypeDef *)DEV_getActDev()->parameter)->flip);
             DEV_getActDev()->error = 0;
         }
     }
 }
+
+/* OLED构造函数 */
 void OLED_Confi(void) {
     //初始化OLED类设备, 将参数绑定到设备池中, 并初始化通信引脚
     DEV_Init(&oleds, oled, OLED_NUM);
@@ -322,4 +231,79 @@ void OLED_Confi(void) {
     OLED_DevInit(0);
     if(DEV_setActStream(&oleds, 1) == 1) { DEV_Error(1); }
     OLED_DevInit(0);
+}
+
+/* OLED开启屏幕函数 */
+void OLED_On(void) {               //OLED唤醒
+    OLED_WriteByte(0X8D, 0X00);    //设置电荷泵
+    OLED_WriteByte(0X14, 0X00);    //开启电荷泵
+    OLED_WriteByte(0XAF, 0X00);    //开启OLED显示
+}
+
+/* OLED关闭屏幕函数 */
+void OLED_Off(void) {              //OLED休眠
+    OLED_WriteByte(0XAE, 0X00);    //关闭OLED显示
+    OLED_WriteByte(0X8D, 0X00);    //设置电荷泵
+    OLED_WriteByte(0X10, 0X00);    //关闭电荷泵
+}
+
+/* OLED复位函数 */
+void OLED_Reset(void) {
+    if((((OLED_IOTypeDef *)DEV_getActDevIo()))->RST.GPIOx != 0x00) {
+        DEVIO_ResetPin(&(((OLED_IOTypeDef *)DEV_getActDevIo()))->RST);
+    }
+    DEV_setActState(10000);
+    if((((OLED_IOTypeDef *)DEV_getActDevIo()))->RST.GPIOx != 0x00) {
+        DEVIO_SetPin(&(((OLED_IOTypeDef *)DEV_getActDevIo()))->RST);
+    }
+}
+
+/* OLED设置屏幕翻转函数 */
+void OLED_Flip(int8_t horizontal, int8_t vertical) {
+    if(horizontal == 0) {
+        OLED_WriteByte(0xA1, 0X00);
+    } else {
+        OLED_WriteByte(0xA0, 0X00);
+    }
+    if(vertical == 0) {
+        OLED_WriteByte(0xC8, 0X00);
+    } else {
+        OLED_WriteByte(0xC0, 0X00);
+    }
+}
+
+/* 清屏(只清空屏幕) */
+void OLED_Clear(void) {
+    int8_t buf = getBufferPart();
+    setBufferPart(SCREEN_PART - 1);
+    OLED_clearBuffer();
+    OLED_updateScreen();
+    setBufferPart(buf);
+}
+
+/* OLED设置器件内部光标函数, 格式为(页,列) */
+void OLED_SetCursor(uint8_t page, uint8_t col) {
+    OLED_PARTypeDef *oled_par = (OLED_PARTypeDef *)DEV_getActDev()->parameter;
+    /* 对于SH1106芯片的屏幕, 显存起始地址为0x02 */
+    uint8_t col_temp = col + ((oled_par->chip == OLED_SH1106) ? 0x02 : 0x00);
+    uint8_t cursor[3] = {
+        0xB0 | (page),                      //设置显示起始页地址(0~7)
+        0x00 | (col_temp & 0x0F),           //设置显示起始列地址低4位(0~F)
+        0x10 | ((col_temp & 0xF0) >> 4),    //设置显示起始列地址高4位(0~7(8 ))
+    };
+    OLED_Write(cursor, 3, 0X00);
+}
+
+/* 使用I2C/SPI从缓存区读取对应位置数据, 用连续页写入的方式刷新整个屏幕 */
+void OLED_Fill(uint8_t (*Buffer)[SCREEN_PAGE][SCREEN_COLUMN]) {
+    for(int8_t i = 0; i < sizeof(*Buffer) / sizeof((*Buffer)[0]); i++) {
+        OLED_SetCursor(i, 0);
+        OLED_Write((*Buffer)[i], sizeof((*Buffer)[0]) / sizeof((*Buffer)[0][0]), 0X40);
+    }
+}
+
+/* 在指定坐标处直接刷新一个字节(页中的某一列,上低下高), 由于要重设光标,较为缓慢 */
+void OLED_FillByte(uint8_t page, uint8_t col, uint8_t data) {
+    OLED_SetCursor(page, col);
+    OLED_WriteByte(data, 0X40);
 }

@@ -21,16 +21,21 @@ typedef struct {
 } OLED_CMNITypeDef;
 typedef struct {
     OledChip_TypeDef chip;
+    bool flip;
 } OLED_PARTypeDef;
 
 void OLED_Confi(void);
 void OLED_Error(void);
 void OLED_DevInit(uint8_t flip);
+
 void OLED_On(void);
 void OLED_Off(void);
+void OLED_Reset(void);
 void OLED_Flip(int8_t, int8_t);
-void OLED_FillScreen(uint8_t (*Buffer)[SCREEN_PAGE][SCREEN_COLUMN]);
-void OLED_DirectByte(uint8_t, uint8_t, uint8_t);
-void OLED_ClearScreen(void);
+void OLED_Clear(void);
+
+void OLED_SetCursor(uint8_t page, uint8_t col);
+void OLED_Fill(uint8_t (*Buffer)[SCREEN_PAGE][SCREEN_COLUMN]);
+void OLED_FillByte(uint8_t, uint8_t, uint8_t);
 
 #endif
