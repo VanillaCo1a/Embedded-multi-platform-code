@@ -26,10 +26,10 @@ DEV_StatusTypeDef DEVI2C_Transmit_H(
 #if defined(STM32HAL)
 #if defined(HAL_I2C_MODULE_ENABLED)
         rc = (DEVCMNI_StatusTypeDef)HAL_I2C_Mem_Read(
-            modular->bus, (modular->addr << 1) | 0X00, address, I2C_MEMADD_SIZE_8BIT, pdata, size, timeout);
+            modular->cmni.bus, (modular->addr << 1) | 0X00, address, I2C_MEMADD_SIZE_8BIT, pdata, size, timeout);
 #elif defined(HAL_FMPI2C_MODULE_ENABLED)
         rc = (DEVCMNI_StatusTypeDef)HAL_FMPI2C_Mem_Read(
-            modular->bus, (modular->addr << 1) | 0X00, address, FMPI2C_MEMADD_SIZE_8BIT, pdata, size, timeout);
+            modular->cmni.bus, (modular->addr << 1) | 0X00, address, FMPI2C_MEMADD_SIZE_8BIT, pdata, size, timeout);
 #endif    // HAL_I2C_MODULE_ENABLED | HAL_FMPI2C_MODULE_ENABLED
 #elif defined(STM32FWLIBF1)
         //固件库的硬件I2C驱动函数,待补充
@@ -38,10 +38,10 @@ DEV_StatusTypeDef DEVI2C_Transmit_H(
 #if defined(STM32HAL)
 #if defined(HAL_I2C_MODULE_ENABLED)
         rc = (DEVCMNI_StatusTypeDef)HAL_I2C_Mem_Write(
-            modular->bus, (modular->addr << 1) | 0X00, address, I2C_MEMADD_SIZE_8BIT, pdata, size, timeout);
+            modular->cmni.bus, (modular->addr << 1) | 0X00, address, I2C_MEMADD_SIZE_8BIT, pdata, size, timeout);
 #elif defined(HAL_FMPI2C_MODULE_ENABLED)
         rc = (DEVCMNI_StatusTypeDef)HAL_FMPI2C_Mem_Write(
-            modular->bus, (modular->addr << 1) | 0X00, address, FMPI2C_MEMADD_SIZE_8BIT, pdata, size, timeout);
+            modular->cmni.bus, (modular->addr << 1) | 0X00, address, FMPI2C_MEMADD_SIZE_8BIT, pdata, size, timeout);
 #endif    // HAL_I2C_MODULE_ENABLED | HAL_FMPI2C_MODULE_ENABLED
 #elif defined(STM32FWLIBF1)
         //固件库的硬件I2C驱动函数,待补充
@@ -70,7 +70,7 @@ DEV_StatusTypeDef DEVSPI_Transmit_H(
         if(rw) {
 #if defined(STM32HAL)
 #if defined(HAL_SPI_MODULE_ENABLED)
-            rc = (DEVCMNI_StatusTypeDef)HAL_SPI_Receive(modular->bus, pdata, size, timeout);
+            rc = (DEVCMNI_StatusTypeDef)HAL_SPI_Receive(modular->cmni.bus, pdata, size, timeout);
 #elif defined(HAL_QSPI_MODULE_ENABLED)
             //todo: SPI_Write for QSPI
 #endif    // HAL_SPI_MODULE_ENABLED | HAL_QSPI_MODULE_ENABLED
@@ -80,7 +80,7 @@ DEV_StatusTypeDef DEVSPI_Transmit_H(
         } else {
 #if defined(STM32HAL)
 #if defined(HAL_SPI_MODULE_ENABLED)
-            rc = (DEVCMNI_StatusTypeDef)HAL_SPI_Transmit(modular->bus, pdata, size, timeout);
+            rc = (DEVCMNI_StatusTypeDef)HAL_SPI_Transmit(modular->cmni.bus, pdata, size, timeout);
 #elif defined(HAL_QSPI_MODULE_ENABLED)
             //todo: SPI_Write for QSPI
 #endif    // HAL_SPI_MODULE_ENABLED | HAL_QSPI_MODULE_ENABLED
@@ -117,7 +117,6 @@ static DEVCMNI_StatusTypeDef DEVUART_ReceiveStart(void);
 static DEVCMNI_StatusTypeDef DEVUART_TransmitStart(void);
 static void DEVUART_ReceiveEnd(UART_ModuleHandleTypeDef *muart, size_t count);
 static void DEVUART_TransmitEnd(UART_ModuleHandleTypeDef *muart);
-static UART_ModuleHandleTypeDef *DEVUART_GetModular(void *bus);
 
 /* 串口接收函数 */
 DEV_StatusTypeDef DEVUART_Receive(
@@ -187,7 +186,7 @@ DEV_StatusTypeDef DEVUART_Transmit(
 #if defined(STM32HAL)
 /* 指定空间数据接收完毕中断回调函数 */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-    UART_ModuleHandleTypeDef *muart = DEVUART_GetModular(huart);
+    UART_ModuleHandleTypeDef *muart = (UART_ModuleHandleTypeDef *)DEV_GetCmni(huart);
     if(huart->RxState == HAL_UART_STATE_READY || huart->hdmarx->State == HAL_DMA_STATE_READY) {
         /* 判断句柄标志位, 是否为数据接收完毕 */
         DEVUART_ReceiveEnd(muart, muart->receive.size);
@@ -195,7 +194,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 }
 /* 指定空间数据半接收/接收完毕/总线空闲时中断回调函数 */
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size) {
-    UART_ModuleHandleTypeDef *muart = DEVUART_GetModular(huart);
+    UART_ModuleHandleTypeDef *muart = (UART_ModuleHandleTypeDef *)DEV_GetCmni(huart);
     if(huart->RxState == HAL_UART_STATE_READY || huart->hdmarx->State == HAL_DMA_STATE_READY) {
         /* 判断句柄标志位, 是否为数据接收完毕/总线空闲 */
         DEVUART_ReceiveEnd(muart, size);
@@ -205,23 +204,23 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size) {
 }
 /* 数据发送完毕中断回调函数 */
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
-    UART_ModuleHandleTypeDef *muart = DEVUART_GetModular(huart);
+    UART_ModuleHandleTypeDef *muart = (UART_ModuleHandleTypeDef *)DEV_GetCmni(huart);
     DEVUART_TransmitEnd(muart);
 }
 #elif defined(STM32FWLIB)
 /* 指定空间数据接收完毕中断回调函数 */
 void FWLIB_UART_RxCpltCallback(USART_TypeDef *USARTx) {
-    UART_ModuleHandleTypeDef *muart = DEVUART_GetModular(USARTx);
+    UART_ModuleHandleTypeDef *muart = (UART_ModuleHandleTypeDef *)DEV_GetCmni(USARTx);
     DEVUART_ReceiveEnd(muart, muart->receive.size);
 }
 /* 指定空间数据接收完毕/总线空闲时中断回调函数 */
 void FWLIB_UARTEx_RxEventCallback(USART_TypeDef *USARTx, uint16_t size) {
-    UART_ModuleHandleTypeDef *muart = DEVUART_GetModular(USARTx);
+    UART_ModuleHandleTypeDef *muart = (UART_ModuleHandleTypeDef *)DEV_GetCmni(USARTx);
     DEVUART_ReceiveEnd(muart, size);
 }
 /* 数据发送完毕中断回调函数 */
 void FWLIB_UART_TxCpltCallback(USART_TypeDef *USARTx) {
-    UART_ModuleHandleTypeDef *muart = DEVUART_GetModular(USARTx);
+    UART_ModuleHandleTypeDef *muart = (UART_ModuleHandleTypeDef *)DEV_GetCmni(USARTx);
     DEVUART_TransmitEnd(muart);
 }
 #endif
@@ -237,16 +236,16 @@ static DEVCMNI_StatusTypeDef DEVUART_ReceiveStart(void) {
     if(uartmodular->usedma) {
 #if defined(HAL_DMA_MODULE_ENABLED)
         res = (DEVCMNI_StatusTypeDef)HAL_UARTEx_ReceiveToIdle_DMA(
-            uartmodular->bus, uartmodular->receive.buf, uartmodular->receive.size);
+            uartmodular->cmni.bus, uartmodular->receive.buf, uartmodular->receive.size);
 #endif    // HAL_DMA_MODULE_ENABLED
     } else {
         res = (DEVCMNI_StatusTypeDef)HAL_UARTEx_ReceiveToIdle_IT(
-            uartmodular->bus, uartmodular->receive.buf, uartmodular->receive.size);
+            uartmodular->cmni.bus, uartmodular->receive.buf, uartmodular->receive.size);
     }
 #endif    // HAL_UART_MODULE_ENABLED
 #elif defined(STM32FWLIB)
     FWLIB_UARTEx_ReceiveToIdle_IT(
-        uartmodular->bus, uartmodular->receive.buf, uartmodular->receive.size);
+        uartmodular->cmni.bus, uartmodular->receive.buf, uartmodular->receive.size);
 #endif
 #endif
     return res;
@@ -261,16 +260,16 @@ static DEVCMNI_StatusTypeDef DEVUART_TransmitStart(void) {
     if(uartmodular->usedma) {
 #if defined(HAL_DMA_MODULE_ENABLED)
         res = (DEVCMNI_StatusTypeDef)HAL_UART_Transmit_DMA(
-            uartmodular->bus, uartmodular->transmit.buf, uartmodular->transmit.size);
+            uartmodular->cmni.bus, uartmodular->transmit.buf, uartmodular->transmit.size);
 #endif    // HAL_DMA_MODULE_ENABLED
     } else {
         res = (DEVCMNI_StatusTypeDef)HAL_UART_Transmit_IT(
-            uartmodular->bus, uartmodular->transmit.buf, uartmodular->transmit.size);
+            uartmodular->cmni.bus, uartmodular->transmit.buf, uartmodular->transmit.size);
     }
 #endif    // HAL_UART_MODULE_ENABLED
 #elif defined(STM32FWLIB)
     FWLIB_UART_Transmit_IT(
-        uartmodular->bus, uartmodular->transmit.buf, uartmodular->transmit.size);
+        uartmodular->cmni.bus, uartmodular->transmit.buf, uartmodular->transmit.size);
 #endif
 #endif
     return res;
@@ -289,18 +288,6 @@ static void DEVUART_TransmitEnd(UART_ModuleHandleTypeDef *muart) {
     muart->transmit.buf = NULL;
     muart->transmit.size = 0;
     muart->transmit.state = DEVCMNI_UPDATE;
-}
-
-/* 获取串口句柄对应通信句柄 */
-extern DEVS_TypeDef *myuarts;
-extern DEV_TypeDef myuart[];
-static UART_ModuleHandleTypeDef *DEVUART_GetModular(void *bus) {
-    for(size_t i = 0; i < myuarts->size; i++) {
-        if(((UART_ModuleHandleTypeDef *)myuart[i].cmni.confi->modular)->bus == bus) {
-            return myuart[i].cmni.confi->modular;
-        }
-    }
-    return NULL;
 }
 
 #endif    // DEVUART_HARDWARE_ENABLED
