@@ -1,23 +1,12 @@
-#ifndef __TIMER_H
-#define __TIMER_H
+#ifndef __DEVICE_TIMER_H
+#define __DEVICE_TIMER_H
 #include <stdint.h>
 #include "device.h"
 
-#if defined(STM32)
-#if defined(STM32HAL)
-#include "tim.h"
-#define TIMERERROR 0    //为了修正函数运行带来的误差, 在使用不同型号芯片前需调试计算得到数值
-#define TIMERCOUNT TIM4->CNT
-#define TIMERHANDLE htim4
-#elif defined(STM32FWLIB)
-#define TIMERERROR 0
-#define TIMER TIM4
-#define TIMERCOUNT TIM4->CNT
-#define TIMER_IRQn TIM4_IRQn
-#define RCC_TIMER RCC_APB1Periph_TIM4
-#endif
-#endif
-////////////////////////////////////////////////////////////////////////////
+void TIMER_tick(void);
+uint64_t TIMER_query(void);
+float TIMER_fps(void);
+
 static inline uint64_t TIMER_getRunTimeus(void) {
     extern volatile uint64_t time_us;
     extern volatile int8_t flag_timerrupt;
@@ -31,25 +20,21 @@ static inline uint64_t TIMER_getRunTimeus(void) {
 }
 uint32_t TIMER_getRunTimems(void);
 uint32_t TIMER_getRunTimes(void);
-////////////////////////////////////////////////////////////////////////////
-void TIMER_tick(void);
-uint64_t TIMER_query(void);
-float TIMER_fps(void);
-////////////////////////////////////////////////////////////////////////////
+
 /* 宏函数, 查询式定时器延时, 在代码的每个调用处定义局部静态变量和标志用于记录、查询延时
 使用了形如x=({1});的语法, 需要开启GNU扩展支持(C/C++ -> GNU extensions) */
 /* delay_timer(原地等待型)
 输入: 延时时间  输出: 无 */
 #define delayus_timer(TIME) ({while(!delayus_timer_paral(TIME)); })
 #define delayms_timer(TIME) ({while(!delayms_timer_paral(TIME)); })
-#define delays_timer(TIME) ({while(!delays_timer_paral(TIME)); })
+#define delays_timer(TIME)  ({while(!delays_timer_paral(TIME)); })
 /* delay_timer_paral(查询终止型), 查询到延时结束后恢复至停止状态, 再次调用时才进行下次计时
 输入: 延时时间  输出: 延时情况(1延时结束/0延时未结束) */
 #define delayus_timer_paral(TIME) ({ static volatile uint64_t compare = 0;   static volatile int8_t state = 0; \
     TIMER_uscmptor(TIME, &compare, &state); })
 #define delayms_timer_paral(TIME) ({ static volatile uint64_t compare = 0;   static volatile int8_t state = 0; \
     TIMER_mscmptor(TIME, &compare, &state); })
-#define delays_timer_paral(TIME) ({ static volatile uint64_t compare = 0;   static volatile int8_t state = 0; \
+#define delays_timer_paral(TIME)  ({ static volatile uint64_t compare = 0;   static volatile int8_t state = 0; \
     TIMER_scmptor(TIME, &compare, &state); })
 /* delay_Timer_paral(查询重装型), 查询到延时结束后开始下次计时
 输入: 延时时间(若为0则视为停止计时,返回0)  输出: 延时情况(1延时结束(查询后自动开始下一次计时)/0延时未结束) */
@@ -61,7 +46,7 @@ float TIMER_fps(void);
     typeof(TIMER_mscmptor(TIME, &compare, &state)) result = TIMER_mscmptor(TIME, &compare, &state); \
     if(TIME==0) result = state = 0;     else if(result==1) TIMER_mscmptor(TIME, &compare, &state); \
     result; })
-#define delays_Timer_paral(TIME) ({ static volatile uint64_t compare = 0;   static volatile int8_t state = 0; \
+#define delays_Timer_paral(TIME)  ({ static volatile uint64_t compare = 0;   static volatile int8_t state = 0; \
     typeof(TIMER_scmptor(TIME, &compare, &state)) result = TIMER_scmptor(TIME, &compare, &state); \
     if(TIME==0) result = state = 0;     else if(result==1) TIMER_scmptor(TIME, &compare, &state); \
     result; })
@@ -95,7 +80,8 @@ static inline int8_t TIMER_uscmptor(uint64_t us, volatile uint64_t *compare, vol
 int8_t TIMER_mscmptor(uint64_t ms, volatile uint64_t *compare, volatile int8_t *state);
 int8_t TIMER_scmptor(uint64_t s, volatile uint64_t *compare, volatile int8_t *state);
 
-void TIMER_Confi(void);
+void TIMER_Init(void);
+void TIMER_Callback(void *handle);
 
 #ifdef TIMER_USEMACRO
 #undef TIMER_USEMACRO

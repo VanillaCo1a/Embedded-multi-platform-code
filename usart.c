@@ -212,7 +212,6 @@ static void UART_Transmit_IT_(USART_TypeDef *USARTx) {
         /* 发送写入完毕, 关TXE中断, 开TC中断 */
         USART_ITConfig(USARTx, USART_IT_TXE, DISABLE);
         USART_ITConfig(USARTx, USART_IT_TC, ENABLE);
-        modular->transmit.count = 0;
     }
 }
 

@@ -1,7 +1,7 @@
 #ifndef __DEVICE_H
 #define __DEVICE_H
 
-/* 头文件&宏定义1 */
+/*****   C基础头文件   *****/
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -11,43 +11,8 @@
 #include <stdbool.h>
 #include <math.h>
 
-#define DEVI2C_SOFTWARE_ENABLED
-#define DEVSPI_SOFTWARE_ENABLED
-#define DEVOWRE_SOFTWARE_ENABLED
-#define DEVUART_SOFTWARE_ENABLED
-#define DEVI2C_HARDWARE_ENABLED
-#define DEVSPI_HARDWARE_ENABLED
-#define DEVOWRE_HARDWARE_ENABLED
-#define DEVUART_HARDWARE_ENABLED
-// #define DEVI2C_USEPOINTER
-// #define DEVSPI_USEPOINTER
-// #define DEVOWRE_USEPOINTER
-
-#define DEVPOOL_MAXNUM     100    //设备池大小
-#define DEVBUSYLIST_MAXNUM 20     //忙设备列表大小
-typedef uint16_t poolsize;        //池大小的数据类型
-
-
-/* 头文件&宏定义2 */
-#if !defined(STM32) && !defined(STC89C) && !defined(TC264) && \
-    !defined(TI) && !defined(ESP32) && !defined(HC32)
-#define STM32
-// #define STC89C
-// #define TC264
-// #define TI
-// #define ESP32
-// #define HC32
-#endif
-#if defined(STM32)
-#define STM32HAL
-// #define STM32FWLIB
-#define USE_LLLIB
-#define USE_REGISTER
-#elif defined(STC89C)
-// #define STC89C51
-#define STC89C52
-#endif
-
+/*****   配置头文件&宏定义   *****/
+#include "mydevice.h"
 #if defined(STM32)
 #if defined(STM32HAL)
 #include "main.h"
@@ -60,11 +25,20 @@ typedef uint16_t poolsize;        //池大小的数据类型
 #include "stm32f10x.h"
 #endif
 #endif
-#include "protocol_software.h"
-#include "protocol_hardware.h"
 
+/*****   设备子文件的头文件   *****/
+#include "device_timer.h"
+#include "device_protocol.h"
 
-/* 枚举 */
+#ifndef DEV_DEFINE
+#define DEV_DEFINE
+/* 设备池尺寸宏定义 */
+#define DEVPOOL_MAXNUM     20   //设备池大小
+#define DEVBUSYLIST_MAXNUM 10   //忙设备列表大小
+typedef uint16_t poolsize;      //池大小的数据类型
+#endif // !DEV_DEFINE
+
+/*****   枚举   *****/
 typedef enum {
     DEV_POOLFULL = 1,
     DEV_NOFOUND,
@@ -84,8 +58,8 @@ typedef enum {
 typedef enum {
     I2C = 1,
     SPI,
+    USART,
     ONEWIRE,
-    USART
 } DEVCMNI_ProtocolTypeDef;
 typedef enum {
     idle = 0,
@@ -108,8 +82,8 @@ typedef enum {
 } DEVCMNI_WareTypeDef;
 
 
-/* 结构体定义 */
-//    设备IO配置
+/*****   结构体定义   *****/
+/* 设备IO结构体定义 */
 typedef struct {
     DEVIO_PinState State;
 #if defined(STM32)
@@ -130,11 +104,12 @@ typedef struct {
     DEVIO_InitTypeDef Init;
 #endif
 } DEVIO_TypeDef;
-//    设备通信配置
-typedef struct {
+
+/* 设备通信结构体定义 */
+typedef struct {    //设备通信IO结构体
     DEVIO_TypeDef SCL_SCK;
-    DEVIO_TypeDef SDA_SDI_OWRE;
-    DEVIO_TypeDef SDO;
+    DEVIO_TypeDef SDA_SDO_TXD_OWRE;
+    DEVIO_TypeDef SDI_RXD;
     DEVIO_TypeDef CS;
 } DEVCMNIIO_TypeDef;
 typedef struct {
@@ -143,7 +118,8 @@ typedef struct {
     void *bus;        //总线句柄
     void *modular;    //模块句柄
 } DEVCMNI_TypeDef;
-//    设备总体控制
+
+/* 设备总体控制 */
 typedef struct {             //设备类结构体
     DEV_TypeTypeDef type;    //设备类型
     poolsize stream;         //活动设备相对序号
@@ -170,35 +146,35 @@ typedef struct {             //设备结构体
 } DEV_TypeDef;
 
 
-/* 设备相关函数 */
-//    设备构造&错误处理部分
-void DEV_Init(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize num);
+/*****   设备相关函数   *****/
+/* 设备构造&错误处理部分 */
+void DEV_Init(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize size);
 void DEV_Error(uint16_t err);
-//    活动流控制部分
-int8_t DEV_setActDevs(DEVS_TypeDef *self);
-DEVS_TypeDef *DEV_getActDevs(void);
-int8_t DEV_setActStream(DEVS_TypeDef *self, poolsize stream);
-poolsize DEV_getActStream(void);
-DEV_TypeDef *DEV_getActDev(void);
-DEVIO_TypeDef *DEV_getActDevIo(void);
-DEVCMNI_TypeDef *DEV_getActDevCmni(void);
-DEVCMNIIO_TypeDef *DEV_getActDevCmniIo(void);
-void DEV_closeActStream(void);
-int8_t DEV_setStream(DEVS_TypeDef *self, poolsize stream);
-DEV_TypeDef *DEV_getStream(DEVS_TypeDef *self);
-int8_t DEV_setActState(uint16_t us);
-DEV_StateTypeDef DEV_getActState(void);
-void DEV_doAction(DEVS_TypeDef *devs, void (*action)(void));
-//    设备IO部分
+/* 活动流控制部分 */
+int8_t DEV_SetActDevs(DEVS_TypeDef *self);
+DEVS_TypeDef *DEV_GetActDevs(void);
+int8_t DEV_SetActStream(DEVS_TypeDef *self, poolsize stream);
+poolsize DEV_GetActStream(void);
+DEV_TypeDef *DEV_GetActDev(void);
+DEVIO_TypeDef *DEV_GetActDevIo(void);
+DEVCMNI_TypeDef *DEV_GetActDevCmni(void);
+DEVCMNIIO_TypeDef *DEV_GetActDevCmniIo(void);
+void DEV_CloseActStream(void);
+int8_t DEV_SetStream(DEVS_TypeDef *self, poolsize stream);
+DEV_TypeDef *DEV_GetStream(DEVS_TypeDef *self);
+int8_t DEV_SetActState(uint16_t us);
+DEV_StateTypeDef DEV_GetActState(void);
+void DEV_DoAction(DEVS_TypeDef *devs, void (*action)(void));
+/* 设备IO部分 */
 void DEVIO_SetPin(DEVIO_TypeDef *devio);
 void DEVIO_ResetPin(DEVIO_TypeDef *devio);
 void DEVIO_WritePin(DEVIO_TypeDef *devio, DEVIO_PinState pinstate);
 DEVIO_PinState DEVIO_ReadPin(DEVIO_TypeDef *devio);
-//    设备通信部分
+/* 设备通信部分 */
 void DEVCMNI_WriteByte(uint8_t data, uint8_t address);
 uint8_t DEVCMNI_ReadByte(uint8_t address);
 bool DEVCMNI_ReadBit(uint8_t address);
-bool DEVCMNI_Write(uint8_t *pdata, size_t size, uint8_t address);
-bool DEVCMNI_Read(uint8_t *pdata, size_t size, size_t *length, uint8_t address);
+DEV_StatusTypeDef DEVCMNI_Write(uint8_t *pdata, size_t size, uint8_t address);
+DEV_StatusTypeDef DEVCMNI_Read(uint8_t *pdata, size_t size, size_t *length, uint8_t address);
 
 #endif    // !__DEVICE_H
