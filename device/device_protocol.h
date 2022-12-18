@@ -22,6 +22,9 @@
 #define DEVSPI_SCLK_HIGH_TIME 0
 #define DEVSPI_SCLK_LOW_TIME  0
 
+#define DEVOWRE_OWRE_HIGH_TIME            1    //不得大于15us
+#define DEVOWRE_OWRE_LOW_TIME             0    //不得大于15us
+
 typedef enum {
     LOW,
     HIGH
@@ -815,6 +818,7 @@ typedef struct {           //ONEWIRE模拟总线结构体
 
 static inline int8_t DEVOWRE_Init(ONEWIRE_ModuleHandleTypeDef *modular) {
     DEVOWRE_OWIO_Out(HIGH);
+    DEVOWRE_delayus(DEVOWRE_OWRE_HIGH_TIME);
     DEVOWRE_OWIO_Set(IN);
     if(DEVOWRE_OWIO_In() != HIGH) {
         return 1;    //若总线没有被释放, 返回错误值
@@ -822,47 +826,47 @@ static inline int8_t DEVOWRE_Init(ONEWIRE_ModuleHandleTypeDef *modular) {
     DEVOWRE_OWIO_Set(OUT);
     return 0;
 }
-static inline uint8_t DEVOWRE_Reset(ONEWIRE_ModuleHandleTypeDef *modular) {
-    uint8_t result = 0;
+static inline int8_t DEVOWRE_Reset(ONEWIRE_ModuleHandleTypeDef *modular) {
+    int8_t res = 0;
     DEVOWRE_OWIO_Out(LOW);    //拉低总线480us, 发出复位信号
-    DEVOWRE_delayus(480);
-    //todo: 关中断      //应答信号最好在60-120us期间读取, 应关闭中断
-    DEVOWRE_OWIO_Out(HIGH);    //释放总线, 等待60us
-    DEVOWRE_delayus(60);
+    DEVOWRE_delayus(480 + DEVOWRE_OWRE_LOW_TIME);
+    //todo: 关中断              //应答信号的采样延时T取值范围为: T∈(60+T拉高总线,75), 注意关闭中断
+    DEVOWRE_OWIO_Out(HIGH);    //释放总线, 等待进行采样
+    DEVOWRE_delayus(60 + DEVOWRE_OWRE_HIGH_TIME);
     DEVOWRE_OWIO_Set(IN);              //读取总线信息
-    if(DEVOWRE_OWIO_In() == HIGH) {    //若总线被拉低, 返回0, 否则返回1
-        result = 1;
-    } else {
-        result = 0;
+    if(DEVOWRE_OWIO_In() == HIGH) {    //若总线未被拉低, 返回-1
+        res = -1;
     }
     //todo: 开中断
     DEVOWRE_delayus(420);
     DEVOWRE_OWIO_Set(OUT);
-    return result;
+    return res;
 }
 static inline void DEVOWRE_WriteBit(ONEWIRE_ModuleHandleTypeDef *modular, bool bit) {
     if(bit) {
         //todo: 关中断
         DEVOWRE_OWIO_Out(LOW);
-        DEVOWRE_delayus(5);
+        DEVOWRE_delayus((15 - 1) - (DEVOWRE_OWRE_HIGH_TIME >= (15 - 1) ? (14 - 1) : DEVOWRE_OWRE_LOW_TIME));
         DEVOWRE_OWIO_Out(HIGH);
         //todo: 开中断
-        DEVOWRE_delayus(55);
+        DEVOWRE_delayus((45 + 1) + DEVOWRE_OWRE_LOW_TIME + DEVOWRE_OWRE_HIGH_TIME);
     } else {
+        //todo: 关中断
         DEVOWRE_OWIO_Out(LOW);
-        DEVOWRE_delayus(60);
+        DEVOWRE_delayus(60 + DEVOWRE_OWRE_LOW_TIME);
         DEVOWRE_OWIO_Out(HIGH);
-        DEVOWRE_delayus(1);
+        //todo: 开中断
+        DEVOWRE_delayus(DEVOWRE_OWRE_HIGH_TIME);
     }
 }
-static inline uint8_t DEVOWRE_ReadBit(ONEWIRE_ModuleHandleTypeDef *modular) {
+static inline bool DEVOWRE_ReadBit(ONEWIRE_ModuleHandleTypeDef *modular) {
     bool bit = 0;
     //todo: 关中断
-    DEVOWRE_OWIO_Out(LOW);     //拉低总线1us, 开始读时隙
-    DEVOWRE_delayus(1);        //若主控的主频较低, 可跳过1us的延时
-    DEVOWRE_OWIO_Out(HIGH);    //释放总线
+    DEVOWRE_OWIO_Out(LOW);                         //拉低总线1us, 开始读时隙
+    DEVOWRE_delayus(1 + DEVOWRE_OWRE_LOW_TIME);    //若主控的主频较低, 可跳过1us的延时
+    DEVOWRE_OWIO_Out(HIGH);                        //释放总线
     DEVOWRE_OWIO_Set(IN);
-    DEVOWRE_delayus(10);    //在15us内的最后时刻读取总线, 考虑到误差只延时10us
+    DEVOWRE_delayus((15 - 5) - (DEVOWRE_OWRE_LOW_TIME >= (15 - 5) ? (14 - 5) : DEVOWRE_OWRE_LOW_TIME));    //在15us内的最后时刻读取总线
     if(DEVOWRE_OWIO_In() == HIGH) {
         bit = 1;
     } else {
@@ -870,9 +874,9 @@ static inline uint8_t DEVOWRE_ReadBit(ONEWIRE_ModuleHandleTypeDef *modular) {
     }
     //todo: 开中断
     if(bit) {
-        DEVOWRE_delayus(50);
+        DEVOWRE_delayus((45 + 5));
     } else {
-        DEVOWRE_delayus(51);
+        DEVOWRE_delayus((45 + 5) + DEVOWRE_OWRE_HIGH_TIME);
     }
     DEVOWRE_OWIO_Set(OUT);
     return bit;
