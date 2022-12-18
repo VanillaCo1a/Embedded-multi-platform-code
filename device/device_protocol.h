@@ -3,7 +3,11 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define TIMER_DELAY                       1     //延时自身耗时1us
+#define TIMER_DELAY 1    //延时自身耗时1us
+
+#define DEVI2C_EXCEPTION 0    //读取从机应答信号异常后的处理方式
+
+/* 修改IO输出电位在电路上稳定与内核中语句执行完毕耗时之差(us), 向上取整, 需根据具体硬件性能测试优化 */
 #define DEVI2C_LOWSPEED_SCL_HIGH_TIME     3     //I2C低速模式
 #define DEVI2C_LOWSPEED_SCL_LOW_TIME      97    //
 #define DEVI2C_STANDARD_SCL_HIGH_TIME     3     //I2C标准模式
@@ -16,12 +20,8 @@
 #define DEVI2C_HIGHSPEED_SCL_LOW_TIME     0     //仍需要0.5us左右的延时
 #define DEVI2C_ULTRAFAST_SCL_HIGH_TIME    0     //I2C超快模式
 #define DEVI2C_ULTRAFAST_SCL_LOW_TIME     0     //仍需要0.3us左右的延时
-
-#define DEVI2C_EXCEPTION 0    //读取从机应答信号异常后的处理方式
-
-#define DEVSPI_SCLK_HIGH_TIME 0
-#define DEVSPI_SCLK_LOW_TIME  0
-
+#define DEVSPI_SCK_HIGH_TIME              0
+#define DEVSPI_SCK_LOW_TIME               0
 #define DEVOWRE_OWRE_HIGH_TIME            1    //不得大于15us
 #define DEVOWRE_OWRE_LOW_TIME             0    //不得大于15us
 
@@ -56,13 +56,6 @@ typedef enum {
 #endif
 #endif
 } DEVCMNI_StatusTypeDef;
-
-typedef enum {
-    DEV_OK = 0,
-    DEV_ERROR = -1,
-    DEV_BUSY = 1,
-    DEV_SET = 2
-} DEV_StatusTypeDef;
 
 
 /*****   MODULE STRUCTURE DEFINITION & FUNCTION DECLARAION OF I2C DEVICE COMMUNITCATION   *****/
@@ -163,9 +156,9 @@ typedef struct {          //I2C模拟总线结构体
     bool (*SCL_In)(void);
     bool (*SDA_In)(void);
     void (*error)(int8_t err);
-    void (*delayus)(uint16_t us);
-    void (*delayms)(uint16_t ms);
-    int8_t (*delayus_paral)(uint16_t us);
+    void (*delayus)(uint64_t us);
+    void (*delayms)(uint64_t ms);
+    int8_t (*delayus_paral)(uint64_t us);
 #endif    // DEVI2C_USEPOINTER
 } I2C_SoftHandleTypeDef;
 #if defined(DEVI2C_USEPOINTER)
@@ -643,16 +636,16 @@ __attribute__((unused)) static DEV_StatusTypeDef DEVI2C_Transmit(I2C_ModuleHandl
 /*****   SOFTWARE STRUCTURE DEFINITION & FUNCTION IMPLEMENTATION OF SPI DEVICE COMMUNITCATION   *****/
 #ifdef DEVSPI_SOFTWARE_ENABLED
 typedef struct {    //SPI模拟总线结构体
-    bool something;
+    bool unused;
 #ifdef DEVSPI_USEPOINTER
     void (*SCK_Out)(bool);
     void (*SDI_RXD_Out)(bool);
     bool (*SDO_In)();
     void (*CS_Out)(bool);
     void (*error)(int8_t err);
-    void (*delayus)(uint16_t us);
-    void (*delayms)(uint16_t ms);
-    int8_t (*delayus_paral)(uint16_t us);
+    void (*delayus)(uint64_t us);
+    void (*delayms)(uint64_t ms);
+    int8_t (*delayus_paral)(uint64_t us);
 #endif    //DEVSPI_USEPOINTER
 } SPI_SoftHandleTypeDef;
 #if defined(DEVSPI_USEPOINTER)
@@ -661,8 +654,8 @@ typedef struct {    //SPI模拟总线结构体
 #define DEVSPI_SDO_In()          ((SPI_SoftHandleTypeDef *)modular->cmni.bus)->SDO_In()
 #define DEVSPI_CS_Out(pot)       ((SPI_SoftHandleTypeDef *)modular->cmni.bus)->CS_Out(pot)
 #define DEVSPI_Error(err)        ((SPI_SoftHandleTypeDef *)modular->cmni.bus)->error(err)
-#define DEVSPI_delayus(us)       ({if(us) {((SPI_SoftHandleTypeDef *)modular->cmni.bus)->delayus(us-TIMER_DELAY);} })
-#define DEVSPI_delayms(ms)       ({if(ms) {((SPI_SoftHandleTypeDef *)modular->cmni.bus)->delayms(ms);} })
+#define DEVSPI_Delayus(us)       ({if(us) {((SPI_SoftHandleTypeDef *)modular->cmni.bus)->delayus(us-TIMER_DELAY);} })
+#define DEVSPI_Delayms(ms)       ({if(ms) {((SPI_SoftHandleTypeDef *)modular->cmni.bus)->delayms(ms);} })
 #define DEVSPI_Delayus_paral(us) ((SPI_SoftHandleTypeDef *)modular->cmni.bus)->delayus_paral(us)
 #else
 #define DEVSPI_SCK_Out(pot)      DEVCMNI_SCL_SCK_Out(pot)
@@ -670,8 +663,8 @@ typedef struct {    //SPI模拟总线结构体
 #define DEVSPI_SDO_In()          DEVCMNI_SDO_In()
 #define DEVSPI_CS_Out(pot)       DEVCMNI_CS_Out(pot)
 #define DEVSPI_Error(err)        DEVCMNI_Error(err)
-#define DEVSPI_delayus(us)       ({if(us) {DEVCMNI_Delayus(us-TIMER_DELAY);} })
-#define DEVSPI_delayms(ms)       ({if(ms) {DEVCMNI_Delayms(ms);} })
+#define DEVSPI_Delayus(us)       ({if(us) {DEVCMNI_Delayus(us-TIMER_DELAY);} })
+#define DEVSPI_Delayms(ms)       ({if(ms) {DEVCMNI_Delayms(ms);} })
 #define DEVSPI_Delayus_paral(us) DEVCMNI_Delayus_paral(us)
 #endif    // DEVSPI_USEPOINTER
 
@@ -682,7 +675,7 @@ static void DEVSPI_Start(SPI_ModuleHandleTypeDef *modular, int8_t skip) {
     if(!skip) {    //如果能设置片选, 才初始化总线电位, 否则可能写入多余数据
         DEVSPI_CS_Out(HIGH);
         DEVSPI_SDI_RXD_Out(HIGH);
-        DEVSPI_delayus(DEVSPI_SCLK_LOW_TIME);
+        DEVSPI_Delayus(DEVSPI_SCK_LOW_TIME);
         DEVSPI_SCK_Out(LOW);
         DEVSPI_CS_Out(LOW);    //拉低片选
     }
@@ -691,32 +684,32 @@ static void DEVSPI_Stop(SPI_ModuleHandleTypeDef *modular, int8_t skip) {
     if(!skip) {
         DEVSPI_CS_Out(HIGH);    //拉高片选
         DEVSPI_SDI_RXD_Out(HIGH);
-        DEVSPI_delayus(DEVSPI_SCLK_HIGH_TIME);
+        DEVSPI_Delayus(DEVSPI_SCK_HIGH_TIME);
         DEVSPI_SCK_Out(HIGH);
-        DEVSPI_delayus(DEVSPI_SCLK_HIGH_TIME);
+        DEVSPI_Delayus(DEVSPI_SCK_HIGH_TIME);
     }
 }
 static inline void DEVSPI_WriteBit(SPI_ModuleHandleTypeDef *modular, bool bit) {
     DEVSPI_SDI_RXD_Out(bit);
-    DEVSPI_delayus(DEVSPI_SCLK_LOW_TIME);
+    DEVSPI_Delayus(DEVSPI_SCK_LOW_TIME);
     DEVSPI_SCK_Out(HIGH);
-    DEVSPI_delayus(DEVSPI_SCLK_HIGH_TIME);
+    DEVSPI_Delayus(DEVSPI_SCK_HIGH_TIME);
     DEVSPI_SCK_Out(LOW);
 }
 static inline bool DEVSPI_ReadBit(SPI_ModuleHandleTypeDef *modular) {
     bool bit = 0;
-    DEVSPI_delayus(DEVSPI_SCLK_LOW_TIME);
+    DEVSPI_Delayus(DEVSPI_SCK_LOW_TIME);
     DEVSPI_SCK_Out(HIGH);
-    DEVSPI_delayus(DEVSPI_SCLK_HIGH_TIME);
+    DEVSPI_Delayus(DEVSPI_SCK_HIGH_TIME);
     bit = DEVSPI_SDO_In();
     DEVSPI_SCK_Out(LOW);
     return bit;
 }
 static inline bool DEVSPI_TransmitBit(SPI_ModuleHandleTypeDef *modular, bool bit) {
     DEVSPI_SDI_RXD_Out(bit);
-    DEVSPI_delayus(DEVSPI_SCLK_LOW_TIME);
+    DEVSPI_Delayus(DEVSPI_SCK_LOW_TIME);
     DEVSPI_SCK_Out(HIGH);
-    DEVSPI_delayus(DEVSPI_SCLK_HIGH_TIME);
+    DEVSPI_Delayus(DEVSPI_SCK_HIGH_TIME);
     bit = DEVSPI_SDO_In();
     DEVSPI_SCK_Out(LOW);
     return bit;
@@ -770,8 +763,8 @@ __attribute__((unused)) static DEV_StatusTypeDef DEVSPI_Transmit(SPI_ModuleHandl
 #undef DEVSPI_SDO_In
 #undef DEVSPI_CS_Out
 #undef DEVSPI_Error
-#undef DEVSPI_delayus
-#undef DEVSPI_delayms
+#undef DEVSPI_Delayus
+#undef DEVSPI_Delayms
 #undef DEVSPI_Delayus_paral
 
 #endif    // DEVSPI_SOFTWARE_ENABLED
@@ -793,9 +786,9 @@ typedef struct {           //ONEWIRE模拟总线结构体
     void (*OWIO_Out)(bool);
     bool (*OWIO_In)(void);
     void (*error)(int8_t err);
-    void (*delayus)(uint16_t us);
-    void (*delayms)(uint16_t ms);
-    int8_t (*delayus_paral)(uint16_t us);
+    void (*delayus)(uint64_t us);
+    void (*delayms)(uint64_t ms);
+    int8_t (*delayus_paral)(uint64_t us);
 #endif    // DEVOWRE_USEPOINTER
 } ONEWIRE_SoftHandleTypeDef;
 #if defined(DEVOWRE_USEPOINTER)
@@ -803,22 +796,22 @@ typedef struct {           //ONEWIRE模拟总线结构体
 #define DEVOWRE_OWIO_Out(pot)     ((ONEWIRE_SoftHandleTypeDef *)modular->cmni.bus)->OWIO_Out(pot)
 #define DEVOWRE_OWIO_In()         ((ONEWIRE_SoftHandleTypeDef *)modular->cmni.bus)->OWIO_In()
 #define DEVOWRE_Error(err)        ((ONEWIRE_SoftHandleTypeDef *)modular->cmni.bus)->error(err)
-#define DEVOWRE_delayus(us)       ({if(us) {((ONEWIRE_SoftHandleTypeDef *)modular->cmni.bus)->delayus(us);} })
-#define DEVOWRE_delayms(ms)       ({if(ms) {((ONEWIRE_SoftHandleTypeDef *)modular->cmni.bus)->delayms(ms);} })
+#define DEVOWRE_Delayus(us)       ({if(us) {((ONEWIRE_SoftHandleTypeDef *)modular->cmni.bus)->delayus(us);} })
+#define DEVOWRE_Delayms(ms)       ({if(ms) {((ONEWIRE_SoftHandleTypeDef *)modular->cmni.bus)->delayms(ms);} })
 #define DEVOWRE_Delayus_paral(us) ((ONEWIRE_SoftHandleTypeDef *)modular->cmni.bus)->delayus_paral(us)
 #else
 #define DEVOWRE_OWIO_Set(pot)     DEVCMNI_SDA_OWRE_Set(pot)
 #define DEVOWRE_OWIO_Out(pot)     DEVCMNI_SDA_SDI_RXD_OWRE_Out(pot)
-#define DEVOWRE_OWIO_In(pot)      DEVCMNI_SDA_OWRE_In(pot)
+#define DEVOWRE_OWIO_In()         DEVCMNI_SDA_OWRE_In()
 #define DEVOWRE_Error(err)        DEVCMNI_Error(err)
-#define DEVOWRE_delayus(us)       ({if(us) {DEVCMNI_Delayus(us);} })
-#define DEVOWRE_delayms(ms)       ({if(ms) {DEVCMNI_Delayms(ms);} })
+#define DEVOWRE_Delayus(us)       ({if(us) {DEVCMNI_Delayus(us);} })
+#define DEVOWRE_Delayms(ms)       ({if(ms) {DEVCMNI_Delayms(ms);} })
 #define DEVOWRE_Delayus_paral(us) DEVCMNI_Delayus_paral(us)
 #endif    // DEVOWRE_USEPOINTER
 
 static inline int8_t DEVOWRE_Init(ONEWIRE_ModuleHandleTypeDef *modular) {
     DEVOWRE_OWIO_Out(HIGH);
-    DEVOWRE_delayus(DEVOWRE_OWRE_HIGH_TIME);
+    DEVOWRE_Delayus(DEVOWRE_OWRE_HIGH_TIME);
     DEVOWRE_OWIO_Set(IN);
     if(DEVOWRE_OWIO_In() != HIGH) {
         return 1;    //若总线没有被释放, 返回错误值
@@ -829,16 +822,16 @@ static inline int8_t DEVOWRE_Init(ONEWIRE_ModuleHandleTypeDef *modular) {
 static inline int8_t DEVOWRE_Reset(ONEWIRE_ModuleHandleTypeDef *modular) {
     int8_t res = 0;
     DEVOWRE_OWIO_Out(LOW);    //拉低总线480us, 发出复位信号
-    DEVOWRE_delayus(480 + DEVOWRE_OWRE_LOW_TIME);
+    DEVOWRE_Delayus(480 + DEVOWRE_OWRE_LOW_TIME);
     //todo: 关中断              //应答信号的采样延时T取值范围为: T∈(60+T拉高总线,75), 注意关闭中断
     DEVOWRE_OWIO_Out(HIGH);    //释放总线, 等待进行采样
-    DEVOWRE_delayus(60 + DEVOWRE_OWRE_HIGH_TIME);
+    DEVOWRE_Delayus(60 + DEVOWRE_OWRE_HIGH_TIME);
     DEVOWRE_OWIO_Set(IN);              //读取总线信息
     if(DEVOWRE_OWIO_In() == HIGH) {    //若总线未被拉低, 返回-1
         res = -1;
     }
     //todo: 开中断
-    DEVOWRE_delayus(420);
+    DEVOWRE_Delayus(420);
     DEVOWRE_OWIO_Set(OUT);
     return res;
 }
@@ -846,27 +839,27 @@ static inline void DEVOWRE_WriteBit(ONEWIRE_ModuleHandleTypeDef *modular, bool b
     if(bit) {
         //todo: 关中断
         DEVOWRE_OWIO_Out(LOW);
-        DEVOWRE_delayus((15 - 1) - (DEVOWRE_OWRE_HIGH_TIME >= (15 - 1) ? (14 - 1) : DEVOWRE_OWRE_LOW_TIME));
+        DEVOWRE_Delayus((15 - 1) - (DEVOWRE_OWRE_HIGH_TIME >= (15 - 1) ? (14 - 1) : DEVOWRE_OWRE_LOW_TIME));
         DEVOWRE_OWIO_Out(HIGH);
         //todo: 开中断
-        DEVOWRE_delayus((45 + 1) + DEVOWRE_OWRE_LOW_TIME + DEVOWRE_OWRE_HIGH_TIME);
+        DEVOWRE_Delayus((45 + 1) + DEVOWRE_OWRE_LOW_TIME + DEVOWRE_OWRE_HIGH_TIME);
     } else {
         //todo: 关中断
         DEVOWRE_OWIO_Out(LOW);
-        DEVOWRE_delayus(60 + DEVOWRE_OWRE_LOW_TIME);
+        DEVOWRE_Delayus(60 + DEVOWRE_OWRE_LOW_TIME);
         DEVOWRE_OWIO_Out(HIGH);
         //todo: 开中断
-        DEVOWRE_delayus(DEVOWRE_OWRE_HIGH_TIME);
+        DEVOWRE_Delayus(DEVOWRE_OWRE_HIGH_TIME);
     }
 }
 static inline bool DEVOWRE_ReadBit(ONEWIRE_ModuleHandleTypeDef *modular) {
     bool bit = 0;
     //todo: 关中断
     DEVOWRE_OWIO_Out(LOW);                         //拉低总线1us, 开始读时隙
-    DEVOWRE_delayus(1 + DEVOWRE_OWRE_LOW_TIME);    //若主控的主频较低, 可跳过1us的延时
+    DEVOWRE_Delayus(1 + DEVOWRE_OWRE_LOW_TIME);    //若主控的主频较低, 可跳过1us的延时
     DEVOWRE_OWIO_Out(HIGH);                        //释放总线
     DEVOWRE_OWIO_Set(IN);
-    DEVOWRE_delayus((15 - 5) - (DEVOWRE_OWRE_LOW_TIME >= (15 - 5) ? (14 - 5) : DEVOWRE_OWRE_LOW_TIME));    //在15us内的最后时刻读取总线
+    DEVOWRE_Delayus((15 - 5) - (DEVOWRE_OWRE_LOW_TIME >= (15 - 5) ? (14 - 5) : DEVOWRE_OWRE_LOW_TIME));    //在15us内的最后时刻读取总线
     if(DEVOWRE_OWIO_In() == HIGH) {
         bit = 1;
     } else {
@@ -874,9 +867,9 @@ static inline bool DEVOWRE_ReadBit(ONEWIRE_ModuleHandleTypeDef *modular) {
     }
     //todo: 开中断
     if(bit) {
-        DEVOWRE_delayus((45 + 5));
+        DEVOWRE_Delayus((45 + 5));
     } else {
-        DEVOWRE_delayus((45 + 5) + DEVOWRE_OWRE_HIGH_TIME);
+        DEVOWRE_Delayus((45 + 5) + DEVOWRE_OWRE_HIGH_TIME);
     }
     DEVOWRE_OWIO_Set(OUT);
     return bit;
@@ -922,7 +915,7 @@ static inline void DEVOWRE_Read(ONEWIRE_ModuleHandleTypeDef *modular, uint8_t *p
  * @param {int8_t} searchtype
  * @return {*}
  */
-__attribute__((unused)) static void DEVONEWIRE_Search(ONEWIRE_ModuleHandleTypeDef *modular, int8_t searchtype) {
+__attribute__((unused)) static DEV_StatusTypeDef DEVONEWIRE_Search(ONEWIRE_ModuleHandleTypeDef *modular, int8_t searchtype) {
     DEVOWRE_Init(modular);
     DEVOWRE_Reset(modular);
     if(searchtype == 0) {
@@ -936,9 +929,6 @@ __attribute__((unused)) static void DEVONEWIRE_Search(ONEWIRE_ModuleHandleTypeDe
         DEVOWRE_WriteByte(modular, _ALARMSEARCH);
         //...
     }
-}
-__attribute__((unused)) static DEV_StatusTypeDef DEVONEWIRE_ReadBit(ONEWIRE_ModuleHandleTypeDef *modular, bool *bit) {
-    *bit = DEVOWRE_ReadBit(modular);
     return DEV_OK;
 }
 __attribute__((unused)) static DEV_StatusTypeDef DEVONEWIRE_Write(ONEWIRE_ModuleHandleTypeDef *modular, uint8_t *pdata, size_t size, uint32_t timeout) {
@@ -958,12 +948,16 @@ __attribute__((unused)) static DEV_StatusTypeDef DEVONEWIRE_Read(ONEWIRE_ModuleH
     DEVOWRE_Read(modular, pdata, size);
     return DEV_OK;
 }
+__attribute__((unused)) static DEV_StatusTypeDef DEVONEWIRE_ReadBit(ONEWIRE_ModuleHandleTypeDef *modular, bool *bit) {
+    *bit = DEVOWRE_ReadBit(modular);
+    return DEV_OK;
+}
 #undef DEVOWRE_OWIO_Set
 #undef DEVOWRE_OWIO_Out
 #undef DEVOWRE_OWIO_In
 #undef DEVOWRE_Error
-#undef DEVOWRE_delayus
-#undef DEVOWRE_delayms
+#undef DEVOWRE_Delayus
+#undef DEVOWRE_Delayms
 #undef DEVOWRE_Delayus_paral
 #endif    // DEVOWRE_SOFTWARE_ENABLED
 

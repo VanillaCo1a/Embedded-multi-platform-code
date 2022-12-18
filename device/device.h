@@ -82,19 +82,20 @@ typedef enum {
     DEVCMNIIO_NOFOUND,
 } DEV_ErrorTypeDef;
 typedef enum {
-    DEVUNDEF = 0,
+    DEV_UNDEF = 0,
     CMNIBUS,
     OLED,
     MPU6050,
     DS18B20,
     UART,
-    OTHER,
+    DEV_OTHER,
 } DEV_TypeTypeDef;
 typedef enum {
     I2C = 1,
     SPI,
     USART,
     ONEWIRE,
+    DEVCMNI_OTHER
 } DEVCMNI_ProtocolTypeDef;
 typedef enum {
     idle = 0,
@@ -115,6 +116,12 @@ typedef enum {
     SOFTWARE = 1,
     HARDWARE,
 } DEVCMNI_WareTypeDef;
+typedef enum {
+    DEV_OK = 0,
+    DEV_ERROR = -1,
+    DEV_BUSY = 1,
+    DEV_SET = 2
+} DEV_StatusTypeDef;
 
 
 /*****   结构体定义   *****/
@@ -206,6 +213,7 @@ DEV_StateTypeDef DEV_GetActState(void);
 DEVCMNI_TypeDef *DEV_GetCmni(void *bus);
 void DEV_DoAction(DEVS_TypeDef *devs, void (*action)(void));
 /* 设备IO部分 */
+void DEVIO_Init(DEVIO_TypeDef *devio);
 void DEVIO_SetPin(DEVIO_TypeDef *devio);
 void DEVIO_ResetPin(DEVIO_TypeDef *devio);
 void DEVIO_WritePin(DEVIO_TypeDef *devio, DEVIO_PinState pinstate);
@@ -213,9 +221,9 @@ DEVIO_PinState DEVIO_ReadPin(DEVIO_TypeDef *devio);
 /* 设备通信部分 */
 void DEVCMNI_WriteByte(uint8_t data, uint8_t address);
 uint8_t DEVCMNI_ReadByte(uint8_t address);
-bool DEVCMNI_ReadBit(uint8_t address);
 DEV_StatusTypeDef DEVCMNI_Write(uint8_t *pdata, size_t size, uint8_t address);
 DEV_StatusTypeDef DEVCMNI_Read(uint8_t *pdata, size_t size, size_t *length, uint8_t address);
+bool DEVCMNI_ReadBit(uint8_t address);
 
 
 /*****   运行环境头文件   *****/
