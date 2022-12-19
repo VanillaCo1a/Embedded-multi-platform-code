@@ -390,17 +390,24 @@ void DEVCMNI_Delayms(uint64_t ms) {
 #endif
     }
 }
-int8_t DEVCMNI_Delayus_paral(uint64_t us) {
-    if(us) {
+int8_t DEVCMNI_Delayus_paral(int64_t us, int8_t sw) {
+    uint64_t _us = 0;
+    if(sw == 0) {
+        _us = 0;
+    } else {
+        if(us > 0) {
+            _us = us;
+        } else {
+            return 1;
+        }
+    }
 #if defined(STM32)
 #if defined(STM32HAL)
-        return delayus_timer_paral(us);
+    return delayus_timer_paral(us);
 #elif defined(STM32FWLIB)
-        return delayus_timer_paral(us);
+    return delayus_timer_paral(us);
 #endif
 #endif
-    }
-    return 1;
 }
 
 //    I2C/SPI/ONEWIRE通信总线初始化函数

@@ -12,7 +12,7 @@ __weak void DEVCMNI_CS_Out(bool pot) {}
 __weak void DEVCMNI_Error(int8_t err) {}
 __weak void DEVCMNI_Delayus(uint64_t us) {}
 __weak void DEVCMNI_Delayms(uint64_t ms) {}
-__weak int8_t DEVCMNI_Delayus_paral(uint64_t us) { return 1; }
+__weak int8_t DEVCMNI_Delayus_paral(int64_t us, int8_t sw) { return 1; }
 
 
 /*****   HARDWARE IMPLEMENTATION FUNCTION OF I2C DEVICE COMMUNITCATION   *****/

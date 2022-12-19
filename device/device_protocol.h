@@ -140,7 +140,7 @@ void DEVCMNI_CS_Out(bool pot);
 void DEVCMNI_Error(int8_t err);
 void DEVCMNI_Delayus(uint64_t us);
 void DEVCMNI_Delayms(uint64_t ms);
-int8_t DEVCMNI_Delayus_paral(uint64_t us);
+int8_t DEVCMNI_Delayus_paral(int64_t us, int8_t sw);
 
 
 /*****   SOFTWARE STRUCTURE DEFINITION & FUNCTION IMPLEMENTATION OF I2C DEVICE COMMUNITCATION   *****/
@@ -158,31 +158,33 @@ typedef struct {          //I2C模拟总线结构体
     void (*error)(int8_t err);
     void (*delayus)(uint64_t us);
     void (*delayms)(uint64_t ms);
-    int8_t (*delayus_paral)(uint64_t us);
+    int8_t (*delayus_paral)(int64_t us, int8_t sw);
 #endif    // DEVI2C_USEPOINTER
 } I2C_SoftHandleTypeDef;
 #if defined(DEVI2C_USEPOINTER)
-#define DEVI2C_SCL_Set(dir)      i2cbus.SCL_Set(dir)
-#define DEVI2C_SDA_Set(dir)      i2cbus.SDA_Set(dir)
-#define DEVI2C_SCL_Out(pot)      i2cbus.SCL_Out(pot)
-#define DEVI2C_SDA_Out(pot)      i2cbus.SDA_Out(pot)
-#define DEVI2C_SCL_In()          i2cbus.SCL_In()
-#define DEVI2C_SDA_In()          i2cbus.SDA_In()
-#define DEVI2C_Error(err)        i2cbus.error(err)
-#define DEVI2C_Delayus(us)       ({if(us) {i2cbus.delayus(us-TIMER_DELAY);} })
-#define DEVI2C_Delayms(ms)       ({if(ms) {i2cbus.delayms(ms);} })
-#define DEVI2C_Delayus_paral(us) i2cbus.delayus_paral(us)
+#define DEVI2C_SCL_Set(dir)          i2cbus.SCL_Set(dir)
+#define DEVI2C_SDA_Set(dir)          i2cbus.SDA_Set(dir)
+#define DEVI2C_SCL_Out(pot)          i2cbus.SCL_Out(pot)
+#define DEVI2C_SDA_Out(pot)          i2cbus.SDA_Out(pot)
+#define DEVI2C_SCL_In()              i2cbus.SCL_In()
+#define DEVI2C_SDA_In()              i2cbus.SDA_In()
+#define DEVI2C_Error(err)            i2cbus.error(err)
+#define DEVI2C_Delayus(us)           ({if(us) {i2cbus.delayus(us-TIMER_DELAY);} })
+#define DEVI2C_Delayms(ms)           ({if(ms) {i2cbus.delayms(ms);} })
+#define DEVI2C_Delayus_paral(us)     i2cbus.delayus_paral(us, 1)
+#define DEVI2C_Delayus_paral_close() i2cbus.delayus_paral(-1, 0)
 #else
-#define DEVI2C_SCL_Set(dir)      DEVCMNI_SCL_Set(dir)
-#define DEVI2C_SDA_Set(dir)      DEVCMNI_SDA_OWRE_Set(dir)
-#define DEVI2C_SCL_Out(pot)      DEVCMNI_SCL_SCK_Out(pot)
-#define DEVI2C_SDA_Out(pot)      DEVCMNI_SDA_SDI_RXD_OWRE_Out(pot)
-#define DEVI2C_SCL_In()          DEVCMNI_SCL_In()
-#define DEVI2C_SDA_In()          DEVCMNI_SDA_OWRE_In()
-#define DEVI2C_Error(err)        DEVCMNI_Error(err)
-#define DEVI2C_Delayus(us)       ({if(us) {DEVCMNI_Delayus(us-TIMER_DELAY);} })
-#define DEVI2C_Delayms(ms)       ({if(ms) {DEVCMNI_Delayms(ms);} })
-#define DEVI2C_Delayus_paral(us) DEVCMNI_Delayus_paral(us)
+#define DEVI2C_SCL_Set(dir)          DEVCMNI_SCL_Set(dir)
+#define DEVI2C_SDA_Set(dir)          DEVCMNI_SDA_OWRE_Set(dir)
+#define DEVI2C_SCL_Out(pot)          DEVCMNI_SCL_SCK_Out(pot)
+#define DEVI2C_SDA_Out(pot)          DEVCMNI_SDA_SDI_RXD_OWRE_Out(pot)
+#define DEVI2C_SCL_In()              DEVCMNI_SCL_In()
+#define DEVI2C_SDA_In()              DEVCMNI_SDA_OWRE_In()
+#define DEVI2C_Error(err)            DEVCMNI_Error(err)
+#define DEVI2C_Delayus(us)           ({if(us) {DEVCMNI_Delayus(us-TIMER_DELAY);} })
+#define DEVI2C_Delayms(ms)           ({if(ms) {DEVCMNI_Delayms(ms);} })
+#define DEVI2C_Delayus_paral(us)     DEVCMNI_Delayus_paral(us, 1)
+#define DEVI2C_Delayus_paral_close() DEVCMNI_Delayus_paral(-1, 0)
 #endif    // DEVI2C_USEPOINTER
 
 static uint32_t DEVI2C_scl_lowtime = 0, DEVI2C_scl_hightime = 0, DEVI2C_timeout = 0;
@@ -240,6 +242,7 @@ static inline bool DEVI2C_ClockStetch(void) {    //时钟拉伸判断函数
                 return 1;
             }
         }
+        DEVI2C_Delayus_paral_close();
         DEVI2C_SCL_Set(OUT);
     }
     return 0;
@@ -257,6 +260,7 @@ static inline bool DEVI2C_BusArbitration(void) {    //总线仲裁判断函数
                 return 1;
             }
         }
+        DEVI2C_Delayus_paral_close();
         DEVI2C_SDA_Set(OUT);
     }
     return 0;
@@ -280,6 +284,7 @@ static bool DEVI2C_SlaveWaiting(void) {          //从机响应判断函数
                 return 1;
             }
         }
+        DEVI2C_Delayus_paral_close();
     }
     return 0;
 }
@@ -645,27 +650,29 @@ typedef struct {    //SPI模拟总线结构体
     void (*error)(int8_t err);
     void (*delayus)(uint64_t us);
     void (*delayms)(uint64_t ms);
-    int8_t (*delayus_paral)(uint64_t us);
+    int8_t (*delayus_paral)(int64_t us, int8_t sw);
 #endif    //DEVSPI_USEPOINTER
 } SPI_SoftHandleTypeDef;
 #if defined(DEVSPI_USEPOINTER)
-#define DEVSPI_SCK_Out(pot)      ((SPI_SoftHandleTypeDef *)modular->cmni.bus)->SCK_Out(pot)
-#define DEVSPI_SDI_RXD_Out(pot)  ((SPI_SoftHandleTypeDef *)modular->cmni.bus)->SDI_RXD_Out(pot)
-#define DEVSPI_SDO_In()          ((SPI_SoftHandleTypeDef *)modular->cmni.bus)->SDO_In()
-#define DEVSPI_CS_Out(pot)       ((SPI_SoftHandleTypeDef *)modular->cmni.bus)->CS_Out(pot)
-#define DEVSPI_Error(err)        ((SPI_SoftHandleTypeDef *)modular->cmni.bus)->error(err)
-#define DEVSPI_Delayus(us)       ({if(us) {((SPI_SoftHandleTypeDef *)modular->cmni.bus)->delayus(us-TIMER_DELAY);} })
-#define DEVSPI_Delayms(ms)       ({if(ms) {((SPI_SoftHandleTypeDef *)modular->cmni.bus)->delayms(ms);} })
-#define DEVSPI_Delayus_paral(us) ((SPI_SoftHandleTypeDef *)modular->cmni.bus)->delayus_paral(us)
+#define DEVSPI_SCK_Out(pot)          ((SPI_SoftHandleTypeDef *)modular->cmni.bus)->SCK_Out(pot)
+#define DEVSPI_SDI_RXD_Out(pot)      ((SPI_SoftHandleTypeDef *)modular->cmni.bus)->SDI_RXD_Out(pot)
+#define DEVSPI_SDO_In()              ((SPI_SoftHandleTypeDef *)modular->cmni.bus)->SDO_In()
+#define DEVSPI_CS_Out(pot)           ((SPI_SoftHandleTypeDef *)modular->cmni.bus)->CS_Out(pot)
+#define DEVSPI_Error(err)            ((SPI_SoftHandleTypeDef *)modular->cmni.bus)->error(err)
+#define DEVSPI_Delayus(us)           ({if(us) {((SPI_SoftHandleTypeDef *)modular->cmni.bus)->delayus(us-TIMER_DELAY);} })
+#define DEVSPI_Delayms(ms)           ({if(ms) {((SPI_SoftHandleTypeDef *)modular->cmni.bus)->delayms(ms);} })
+#define DEVSPI_Delayus_paral(us)     ((SPI_SoftHandleTypeDef *)modular->cmni.bus)->delayus_paral(us, 1)
+#define DEVSPI_Delayus_paral_close() ((SPI_SoftHandleTypeDef *)modular->cmni.bus)->delayus_paral(-1, 0)
 #else
-#define DEVSPI_SCK_Out(pot)      DEVCMNI_SCL_SCK_Out(pot)
-#define DEVSPI_SDI_RXD_Out(pot)  DEVCMNI_SDA_SDI_RXD_OWRE_Out(pot)
-#define DEVSPI_SDO_In()          DEVCMNI_SDO_In()
-#define DEVSPI_CS_Out(pot)       DEVCMNI_CS_Out(pot)
-#define DEVSPI_Error(err)        DEVCMNI_Error(err)
-#define DEVSPI_Delayus(us)       ({if(us) {DEVCMNI_Delayus(us-TIMER_DELAY);} })
-#define DEVSPI_Delayms(ms)       ({if(ms) {DEVCMNI_Delayms(ms);} })
-#define DEVSPI_Delayus_paral(us) DEVCMNI_Delayus_paral(us)
+#define DEVSPI_SCK_Out(pot)          DEVCMNI_SCL_SCK_Out(pot)
+#define DEVSPI_SDI_RXD_Out(pot)      DEVCMNI_SDA_SDI_RXD_OWRE_Out(pot)
+#define DEVSPI_SDO_In()              DEVCMNI_SDO_In()
+#define DEVSPI_CS_Out(pot)           DEVCMNI_CS_Out(pot)
+#define DEVSPI_Error(err)            DEVCMNI_Error(err)
+#define DEVSPI_Delayus(us)           ({if(us) {DEVCMNI_Delayus(us-TIMER_DELAY);} })
+#define DEVSPI_Delayms(ms)           ({if(ms) {DEVCMNI_Delayms(ms);} })
+#define DEVSPI_Delayus_paral(us)     DEVCMNI_Delayus_paral(us, 1)
+#define DEVSPI_Delayus_paral_close() DEVCMNI_Delayus_paral(-1, 0)
 #endif    // DEVSPI_USEPOINTER
 
 static void DEVSPI_Init(SPI_ModuleHandleTypeDef *modular) {}
@@ -788,25 +795,27 @@ typedef struct {           //ONEWIRE模拟总线结构体
     void (*error)(int8_t err);
     void (*delayus)(uint64_t us);
     void (*delayms)(uint64_t ms);
-    int8_t (*delayus_paral)(uint64_t us);
+    int8_t (*delayus_paral)(int64_t us, int8_t sw);
 #endif    // DEVOWRE_USEPOINTER
 } ONEWIRE_SoftHandleTypeDef;
 #if defined(DEVOWRE_USEPOINTER)
-#define DEVOWRE_OWIO_Set(dir)     ((ONEWIRE_SoftHandleTypeDef *)modular->cmni.bus)->OWIO_Set(dir)
-#define DEVOWRE_OWIO_Out(pot)     ((ONEWIRE_SoftHandleTypeDef *)modular->cmni.bus)->OWIO_Out(pot)
-#define DEVOWRE_OWIO_In()         ((ONEWIRE_SoftHandleTypeDef *)modular->cmni.bus)->OWIO_In()
-#define DEVOWRE_Error(err)        ((ONEWIRE_SoftHandleTypeDef *)modular->cmni.bus)->error(err)
-#define DEVOWRE_Delayus(us)       ({if(us) {((ONEWIRE_SoftHandleTypeDef *)modular->cmni.bus)->delayus(us);} })
-#define DEVOWRE_Delayms(ms)       ({if(ms) {((ONEWIRE_SoftHandleTypeDef *)modular->cmni.bus)->delayms(ms);} })
-#define DEVOWRE_Delayus_paral(us) ((ONEWIRE_SoftHandleTypeDef *)modular->cmni.bus)->delayus_paral(us)
+#define DEVOWRE_OWIO_Set(dir)         ((ONEWIRE_SoftHandleTypeDef *)modular->cmni.bus)->OWIO_Set(dir)
+#define DEVOWRE_OWIO_Out(pot)         ((ONEWIRE_SoftHandleTypeDef *)modular->cmni.bus)->OWIO_Out(pot)
+#define DEVOWRE_OWIO_In()             ((ONEWIRE_SoftHandleTypeDef *)modular->cmni.bus)->OWIO_In()
+#define DEVOWRE_Error(err)            ((ONEWIRE_SoftHandleTypeDef *)modular->cmni.bus)->error(err)
+#define DEVOWRE_Delayus(us)           ({if(us) {((ONEWIRE_SoftHandleTypeDef *)modular->cmni.bus)->delayus(us);} })
+#define DEVOWRE_Delayms(ms)           ({if(ms) {((ONEWIRE_SoftHandleTypeDef *)modular->cmni.bus)->delayms(ms);} })
+#define DEVOWRE_Delayus_paral(us)     ((ONEWIRE_SoftHandleTypeDef *)modular->cmni.bus)->delayus_paral(us, 1)
+#define DEVOWRE_Delayus_paral_close() ((ONEWIRE_SoftHandleTypeDef *)modular->cmni.bus)->delayus_paral(-1, 0)
 #else
-#define DEVOWRE_OWIO_Set(pot)     DEVCMNI_SDA_OWRE_Set(pot)
-#define DEVOWRE_OWIO_Out(pot)     DEVCMNI_SDA_SDI_RXD_OWRE_Out(pot)
-#define DEVOWRE_OWIO_In()         DEVCMNI_SDA_OWRE_In()
-#define DEVOWRE_Error(err)        DEVCMNI_Error(err)
-#define DEVOWRE_Delayus(us)       ({if(us) {DEVCMNI_Delayus(us);} })
-#define DEVOWRE_Delayms(ms)       ({if(ms) {DEVCMNI_Delayms(ms);} })
-#define DEVOWRE_Delayus_paral(us) DEVCMNI_Delayus_paral(us)
+#define DEVOWRE_OWIO_Set(pot)         DEVCMNI_SDA_OWRE_Set(pot)
+#define DEVOWRE_OWIO_Out(pot)         DEVCMNI_SDA_SDI_RXD_OWRE_Out(pot)
+#define DEVOWRE_OWIO_In()             DEVCMNI_SDA_OWRE_In()
+#define DEVOWRE_Error(err)            DEVCMNI_Error(err)
+#define DEVOWRE_Delayus(us)           ({if(us) {DEVCMNI_Delayus(us);} })
+#define DEVOWRE_Delayms(ms)           ({if(ms) {DEVCMNI_Delayms(ms);} })
+#define DEVOWRE_Delayus_paral(us)     DEVCMNI_Delayus_paral(us, 1)
+#define DEVOWRE_Delayus_paral_close() DEVCMNI_Delayus_paral(-1, 0)
 #endif    // DEVOWRE_USEPOINTER
 
 static inline int8_t DEVOWRE_Init(ONEWIRE_ModuleHandleTypeDef *modular) {
