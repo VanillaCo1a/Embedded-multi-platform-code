@@ -158,6 +158,10 @@ typedef struct {                         //设备通信结构体
     DEVCMNI_ProtocolTypeDef protocol;    //总线协议类型
     DEVCMNI_WareTypeDef ware;            //总线驱动方式
     void *bus;                           //总线句柄
+    DEV_StatusTypeDef (*dispatch)(void *handle, uint8_t *pdata, size_t size, bool rw,
+                                  size_t *length, void *parameter, uint32_t timeout);
+    DEV_StatusTypeDef (*dispatchBit)(void *handle, bool *bit, bool rw,
+                                     void *parameter, uint32_t timeout);
 } DEVCMNI_TypeDef;
 
 /* 设备总体控制 */
@@ -219,11 +223,12 @@ void DEVIO_ResetPin(DEVIO_TypeDef *devio);
 void DEVIO_WritePin(DEVIO_TypeDef *devio, DEVIO_PinState pinstate);
 DEVIO_PinState DEVIO_ReadPin(DEVIO_TypeDef *devio);
 /* 设备通信部分 */
-void DEVCMNI_WriteByte(uint8_t data, uint8_t address);
-uint8_t DEVCMNI_ReadByte(uint8_t address);
-DEV_StatusTypeDef DEVCMNI_Write(uint8_t *pdata, size_t size, uint8_t address);
-DEV_StatusTypeDef DEVCMNI_Read(uint8_t *pdata, size_t size, size_t *length, uint8_t address);
-bool DEVCMNI_ReadBit(uint8_t address);
+void DEVCMNI_WriteByte(uint8_t data, void *parameter);
+uint8_t DEVCMNI_ReadByte(void *parameter);
+DEV_StatusTypeDef DEVCMNI_Write(uint8_t *pdata, size_t size, size_t *length, void *parameter);
+DEV_StatusTypeDef DEVCMNI_Read(uint8_t *pdata, size_t size, size_t *length, void *parameter);
+DEV_StatusTypeDef DEVCMNI_WriteBit(bool *bit, void *parameter);
+DEV_StatusTypeDef DEVCMNI_ReadBit(bool *bit, void *parameter);
 
 
 /*****   运行环境头文件   *****/

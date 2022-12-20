@@ -546,9 +546,13 @@ static void DEVI2C_Read_(uint8_t *pdata, size_t size) {
     }
 }
 
-__attribute__((unused)) static DEV_StatusTypeDef DEVI2C_Transmit(I2C_ModuleHandleTypeDef *modular, uint8_t *pdata, size_t size, uint8_t address, bool rw, uint32_t timeout) {
+__attribute__((unused)) static DEV_StatusTypeDef DEVI2C_Dispatch(
+    void *handle, uint8_t *pdata, size_t size, bool rw,
+    size_t *length, void *parameter, uint32_t timeout) {
     /* 多字节读写函数, timeout应答超时,speed速度模式,rw1为读0为写 */
     uint8_t byte;
+    I2C_ModuleHandleTypeDef *modular = handle;
+    uint8_t address = *((uint8_t *)parameter);
     DEVI2C_Init(modular, timeout);
     if(i2cbus.clockstretch || i2cbus.arbitration) {
         do {
@@ -722,8 +726,11 @@ static inline bool DEVSPI_TransmitBit(SPI_ModuleHandleTypeDef *modular, bool bit
     return bit;
 }
 
-__attribute__((unused)) static DEV_StatusTypeDef DEVSPI_Transmit(SPI_ModuleHandleTypeDef *modular, uint8_t *pdata, size_t size, bool rw, uint32_t timeout) {
+__attribute__((unused)) static DEV_StatusTypeDef DEVSPI_Dispatch(
+    void *handle, uint8_t *pdata, size_t size, bool rw,
+    size_t *length, void *parameter, uint32_t timeout) {
     /* 多字节读写函数, timeout应答超时,rw1为读0为写 */
+    SPI_ModuleHandleTypeDef *modular = handle;
     DEVSPI_Init(modular);
     DEVSPI_Start(modular, modular->skip);
     if(modular->duplex == DEVSPI_FULL_DUPLEX) {
@@ -940,25 +947,37 @@ __attribute__((unused)) static DEV_StatusTypeDef DEVONEWIRE_Search(ONEWIRE_Modul
     }
     return DEV_OK;
 }
-__attribute__((unused)) static DEV_StatusTypeDef DEVONEWIRE_Write(ONEWIRE_ModuleHandleTypeDef *modular, uint8_t *pdata, size_t size, uint32_t timeout) {
-    DEVOWRE_Init(modular);
-    DEVOWRE_Reset(modular);
-    if(modular->skip || ((ONEWIRE_SoftHandleTypeDef *)modular->cmni.bus)->num == 1) {
-        DEVOWRE_WriteByte(modular, _SKIP);
-    } else if(((ONEWIRE_SoftHandleTypeDef *)modular->cmni.bus)->num > 1) {
-        DEVOWRE_WriteByte(modular, _MATCH);
-        DEVOWRE_Write(modular, (uint8_t *)&modular->rom, 8);
+__attribute__((unused)) static DEV_StatusTypeDef DEVONEWIRE_Dispatch(
+    void *handle, uint8_t *pdata, size_t size, bool rw,
+    size_t *length, void *parameter, uint32_t timeout) {
+    ONEWIRE_ModuleHandleTypeDef *modular = handle;
+    if(rw) {
+        //tofix: 单总线的读时隙只能跟随在特定的主机写指令之后吗? 当需要并发地与多个设备进行通信时, 怎样进行独立的读操作?
+        DEVOWRE_Read(modular, pdata, size);
+        return DEV_OK;
+    } else {
+        DEVOWRE_Init(modular);
+        DEVOWRE_Reset(modular);
+        if(modular->skip || ((ONEWIRE_SoftHandleTypeDef *)modular->cmni.bus)->num == 1) {
+            DEVOWRE_WriteByte(modular, _SKIP);
+        } else if(((ONEWIRE_SoftHandleTypeDef *)modular->cmni.bus)->num > 1) {
+            DEVOWRE_WriteByte(modular, _MATCH);
+            DEVOWRE_Write(modular, (uint8_t *)&modular->rom, 8);
+        }
+        DEVOWRE_Write(modular, pdata, size);
+        return DEV_OK;
     }
-    DEVOWRE_Write(modular, pdata, size);
-    return DEV_OK;
 }
-__attribute__((unused)) static DEV_StatusTypeDef DEVONEWIRE_Read(ONEWIRE_ModuleHandleTypeDef *modular, uint8_t *pdata, size_t size) {
-    //tofix: 单总线的读时隙只能跟随在特定的主机写指令之后吗? 当需要并发地与多个设备进行通信时, 怎样进行独立的读操作?
-    DEVOWRE_Read(modular, pdata, size);
-    return DEV_OK;
-}
-__attribute__((unused)) static DEV_StatusTypeDef DEVONEWIRE_ReadBit(ONEWIRE_ModuleHandleTypeDef *modular, bool *bit) {
-    *bit = DEVOWRE_ReadBit(modular);
+__attribute__((unused)) static DEV_StatusTypeDef DEVONEWIRE_DispatchBit(
+    void *handle, bool *bit, bool rw, void *parameter, uint32_t timeout) {
+    ONEWIRE_ModuleHandleTypeDef *modular = handle;
+    if(rw) {
+        /* 1-wire协议的bit读是在写特定指令后, 启用读时序获取设备信息 */
+        *bit = DEVOWRE_ReadBit(modular);
+    } else {
+        /* 1-wire协议的bit写暂时未使用 */
+        DEVOWRE_WriteBit(modular, *bit);
+    }
     return DEV_OK;
 }
 #undef DEVOWRE_OWIO_Set
@@ -974,7 +993,8 @@ __attribute__((unused)) static DEV_StatusTypeDef DEVONEWIRE_ReadBit(ONEWIRE_Modu
 /*****   HARDWARE IMPLEMENTATION FUNCTION OF I2C DEVICE COMMUNITCATION   *****/
 #if defined(DEVI2C_HARDWARE_ENABLED)
 #include "i2c.h"
-DEV_StatusTypeDef DEVI2C_Transmit_H(I2C_ModuleHandleTypeDef *modular, uint8_t *pdata, size_t size, uint8_t address, bool rw, uint32_t timeout);
+DEV_StatusTypeDef DEVI2C_Dispatch_H(void *modular, uint8_t *pdata, size_t size, bool rw,
+                                    size_t *length, void *parameter, uint32_t timeout);
 
 #endif    // DEVI2C_HARDWARE_ENABLED
 
@@ -982,7 +1002,8 @@ DEV_StatusTypeDef DEVI2C_Transmit_H(I2C_ModuleHandleTypeDef *modular, uint8_t *p
 /*****   HARDWARE IMPLEMENTATION FUNCTION OF SPI DEVICE COMMUNITCATION   *****/
 #if defined(DEVSPI_HARDWARE_ENABLED)
 #include "spi.h"
-DEV_StatusTypeDef DEVSPI_Transmit_H(SPI_ModuleHandleTypeDef *modular, uint8_t *pdata, size_t size, bool rw, uint32_t timeout);
+DEV_StatusTypeDef DEVSPI_Dispatch_H(void *modular, uint8_t *pdata, size_t size, bool rw,
+                                    size_t *length, void *parameter, uint32_t timeout);
 
 #endif    // DEVSPI_HARDWARE_ENABLED
 
@@ -990,11 +1011,8 @@ DEV_StatusTypeDef DEVSPI_Transmit_H(SPI_ModuleHandleTypeDef *modular, uint8_t *p
 /*****   HARDWARE IMPLEMENTATION FUNCTION OF UART DEVICE COMMUNITCATION   *****/
 #if defined(DEVUART_HARDWARE_ENABLED)
 #include "usart.h"
-/* 串口接收函数 */
-DEV_StatusTypeDef DEVUART_Receive(UART_ModuleHandleTypeDef *modular, uint8_t *pdata, size_t size, size_t *length);
-/* 串口发送函数 */
-DEV_StatusTypeDef DEVUART_Transmit(UART_ModuleHandleTypeDef *modular, uint8_t *pdata, size_t size);
-
+DEV_StatusTypeDef DEVUART_Dispatch_H(void *modular, uint8_t *pdata, size_t size, bool rw,
+                                     size_t *length, void *parameter, uint32_t timeout);
 #endif    // DEVUART_HARDWARE_ENABLED
 
 
