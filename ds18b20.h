@@ -26,10 +26,11 @@ typedef struct {
     uint8_t crc;
 } DS18B20_SCRTypedef;
 
-void DS18B20_Init(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize uSize, int16_t temp[], int8_t state[]);
-void DS18B20_Deinit(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize size);
-
-int8_t DS18B20_SetTem(poolsize num);
-int16_t DS18B20_GetTem(poolsize num);
+void DS18B20_Init(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize devSize,
+                  int16_t devTemperature[], int8_t devState[]);
+void DS18B20_Deinit(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize devSize);
+int8_t DS18B20_SetTemperature(poolsize num);
+int16_t DS18B20_GetTemperature(poolsize num);
+void DS18B20_ClearTemperature(poolsize num);
 
 #endif
