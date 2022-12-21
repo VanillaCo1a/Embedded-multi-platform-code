@@ -1,5 +1,4 @@
 #include "device.h"
-#include "device_protocol.h"
 
 //tofix: ac5编译不支持__weak函数在别处定义为inline
 __weak void DEVCMNI_SCL_Set(bool dir) {}
@@ -13,15 +12,17 @@ __weak void DEVCMNI_CS_Out(bool pot) {}
 __weak void DEVCMNI_Error(int8_t err) {}
 __weak void DEVCMNI_Delayus(uint64_t us) {}
 __weak void DEVCMNI_Delayms(uint64_t ms) {}
-__weak int8_t DEVCMNI_Delayus_paral(uint64_t us) { return 1; }
+__weak int8_t DEVCMNI_Delayus_paral(int64_t us, int8_t sw) { return 1; }
 
 
 /*****   HARDWARE IMPLEMENTATION FUNCTION OF I2C DEVICE COMMUNITCATION   *****/
 #if defined(DEVI2C_HARDWARE_ENABLED)
-DEV_StatusTypeDef DEVI2C_Transmit_H(
-    I2C_ModuleHandleTypeDef *modular, uint8_t *pdata, size_t size, uint8_t address, bool rw, uint32_t timeout) {
+DEV_StatusTypeDef DEVI2C_Dispatch_H(void *handle, uint8_t *pdata, size_t size, bool rw,
+                                    size_t *length, void *parameter, uint32_t timeout) {
     DEVCMNI_StatusTypeDef rc = DEVCMNI_BUSY;
     DEV_StatusTypeDef res = DEV_OK;
+    I2C_ModuleHandleTypeDef *modular = handle;
+    uint8_t address = *((uint8_t *)parameter);
     if(rw) {
 #if defined(STM32HAL)
 #if defined(HAL_I2C_MODULE_ENABLED)
@@ -60,10 +61,17 @@ DEV_StatusTypeDef DEVI2C_Transmit_H(
 
 /*****   HARDWARE IMPLEMENTATION FUNCTION OF SPI DEVICE COMMUNITCATION   *****/
 #if defined(DEVSPI_HARDWARE_ENABLED)
-DEV_StatusTypeDef DEVSPI_Transmit_H(
-    SPI_ModuleHandleTypeDef *modular, uint8_t *pdata, size_t size, bool rw, uint32_t timeout) {
+DEV_StatusTypeDef DEVSPI_Dispatch_H(void *handle, uint8_t *pdata, size_t size, bool rw,
+                                    size_t *length, void *parameter, uint32_t timeout) {
     DEVCMNI_StatusTypeDef rc = DEVCMNI_BUSY;
     DEV_StatusTypeDef res = DEV_OK;
+    SPI_ModuleHandleTypeDef *modular = handle;
+    DEVCMNIIO_TypeDef *devio = DEV_GetActDevCmniIo();
+    if(!modular->skip) {
+        if(devio->CS.GPIOx != NULL) {
+            DEVIO_ResetPin(&devio->CS);
+        }
+    }
     if(modular->duplex == DEVSPI_FULL_DUPLEX) {
         //to add
     } else if(modular->duplex == DEVSPI_HALF_DUPLEX) {
@@ -87,6 +95,11 @@ DEV_StatusTypeDef DEVSPI_Transmit_H(
 #elif defined(STM32FWLIBF1)
             //固件库的硬件SPI驱动函数,待补充
 #endif
+        }
+    }
+    if(!modular->skip) {
+        if(devio->CS.GPIOx != NULL) {
+            DEVIO_SetPin(&devio->CS);
         }
     }
     if(rc == DEVCMNI_BUSY) {
@@ -119,7 +132,7 @@ static void DEVUART_ReceiveEnd(UART_ModuleHandleTypeDef *muart, size_t count);
 static void DEVUART_TransmitEnd(UART_ModuleHandleTypeDef *muart);
 
 /* 串口接收函数 */
-DEV_StatusTypeDef DEVUART_Receive(
+static DEV_StatusTypeDef DEVUART_Receive(
     UART_ModuleHandleTypeDef *modular, uint8_t *pdata, size_t size, size_t *length) {
     DEV_StatusTypeDef res = DEV_BUSY;
     DEVUART_Init(modular);
@@ -151,7 +164,7 @@ DEV_StatusTypeDef DEVUART_Receive(
 }
 
 /* 串口发送函数 */
-DEV_StatusTypeDef DEVUART_Transmit(
+static DEV_StatusTypeDef DEVUART_Transmit(
     UART_ModuleHandleTypeDef *modular, uint8_t *pdata, size_t size) {
     DEV_StatusTypeDef res = DEV_BUSY;
     DEVUART_Init(modular);
@@ -179,6 +192,17 @@ DEV_StatusTypeDef DEVUART_Transmit(
         res = DEV_OK;
     }
     return res;
+}
+
+/* 串口收发函数 */
+DEV_StatusTypeDef DEVUART_Dispatch_H(void *handle, uint8_t *pdata, size_t size, bool rw,
+                                     size_t *length, void *parameter, uint32_t timeout) {
+    UART_ModuleHandleTypeDef *modular = handle;
+    if(rw) {
+        return DEVUART_Receive(modular, pdata, size, length);
+    } else {
+        return DEVUART_Transmit(modular, pdata, size);
+    }
 }
 
 /* 中断回调函数 */

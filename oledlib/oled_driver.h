@@ -16,9 +16,6 @@ typedef struct {
     DEVIO_TypeDef RST;
 } OLED_IOTypeDef;
 typedef struct {
-    DEVCMNI_TypeDef cmni;
-} OLED_CMNITypeDef;
-typedef struct {
     OledChip_TypeDef chip;
     bool flip;
 } OLED_PARTypeDef;

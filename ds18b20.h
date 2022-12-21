@@ -11,9 +11,6 @@ typedef struct {
     DEVCMNIIO_TypeDef cmniio;
 } DS18B20_IOTypedef;
 typedef struct {
-    DEVCMNI_TypeDef cmni;
-} DS18B20_CMNITypeDef;
-typedef struct {
     DS18B20_POWMDTypedef powermode;
 } DS18B20_PARTypeDef;
 

@@ -1,7 +1,6 @@
 #ifndef __DEVICE_TIMER_H
 #define __DEVICE_TIMER_H
 #include <stdint.h>
-#include "device.h"
 
 void TIMER_tick(void);
 uint64_t TIMER_query(void);

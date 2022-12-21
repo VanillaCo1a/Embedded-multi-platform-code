@@ -17,34 +17,42 @@ int8_t *ds18b20State;
 
 /* DS18B20器件驱动函数 */
 static void convertTemperature(int8_t alldevice) {    //开始温度转换
+    bool bit = 0;
+    uint8_t cm_pa = 0x00;
     DS18B20_PARTypeDef *ds_pa = (DS18B20_PARTypeDef *)DEV_GetActDev()->parameter;
     ONEWIRE_ModuleHandleTypeDef *modular = (ONEWIRE_ModuleHandleTypeDef *)DEV_GetActDevCmni();
     modular->skip = true;
-    DEVCMNI_WriteByte(_CONVERT, 0);
+    DEVCMNI_WriteByte(_CONVERT, &cm_pa);
     modular->skip = false;
     if(ds_pa->powermode == PARASITIC) {
         DEVIO_SetPin(&((DEVCMNIIO_TypeDef *)((DS18B20_IOTypedef *)DEV_GetActDevIo()))->SDA_SDO_TXD_OWRE);
         //tofix: 定义总线设备类型, 改为将总线置忙750ms
         DEV_SetActState(37500);    //todel
     } else if(ds_pa->powermode == EXTERNAL) {
-        while(DEVCMNI_ReadBit(0x00)) continue;
+        do {
+            DEVCMNI_ReadBit(&bit, &cm_pa);
+        } while(bit);
     }
 }
 static void writeScrpatchpad(DS18B20_SCRTypedef *scr) {
+    size_t length = 0;
+    uint8_t cm_pa = 0x00;
     ONEWIRE_ModuleHandleTypeDef *modular = (ONEWIRE_ModuleHandleTypeDef *)DEV_GetActDevCmni();
-    DEVCMNI_WriteByte(_WR_SCRATCH, 0);
+    DEVCMNI_WriteByte(_WR_SCRATCH, &cm_pa);
     modular->skip = true;
-    DEVCMNI_Write(&((uint8_t *)scr)[2], 3, 0);
+    DEVCMNI_Write(&((uint8_t *)scr)[2], 3, &length, &cm_pa);
     modular->skip = false;
 }
 static void readScrpatchpad(DS18B20_SCRTypedef *scr) {
     size_t length = 0;
-    DEVCMNI_WriteByte(_RD_SCRATCH, 0);
-    DEVCMNI_Read((uint8_t *)scr, sizeof(*scr) / sizeof(uint8_t), &length, 0x00);
+    uint8_t cm_pa = 0x00;
+    DEVCMNI_WriteByte(_RD_SCRATCH, &cm_pa);
+    DEVCMNI_Read((uint8_t *)scr, sizeof(*scr) / sizeof(uint8_t), &length, &cm_pa);
 }
 static void copyScrToRom(void) {
+    uint8_t cm_pa = 0x00;
     DS18B20_PARTypeDef *ds_pa = (DS18B20_PARTypeDef *)DEV_GetActDev()->parameter;
-    DEVCMNI_WriteByte(_CP_TOROM, 0);
+    DEVCMNI_WriteByte(_CP_TOROM, &cm_pa);
     if(ds_pa->powermode == PARASITIC) {
         DEVIO_SetPin(&((DEVCMNIIO_TypeDef *)((DS18B20_IOTypedef *)DEV_GetActDevIo()))->SDA_SDO_TXD_OWRE);
         //tofix: 定义总线设备类型, 改为将总线置忙10ms
@@ -52,12 +60,16 @@ static void copyScrToRom(void) {
     }
 }
 static void recallScrFromRom(void) {
-    DEVCMNI_WriteByte(_CP_FROMROM, 0);
+    uint8_t cm_pa = 0x00;
+    DEVCMNI_WriteByte(_CP_FROMROM, &cm_pa);
 }
 void readPowerSupply(void) {
+    bool bit = 0;
+    uint8_t cm_pa = 0x00;
     DS18B20_PARTypeDef *ds_pa = (DS18B20_PARTypeDef *)DEV_GetActDev()->parameter;
-    DEVCMNI_WriteByte(_RD_POWER, 0);
-    if(DEVCMNI_ReadBit(0x00) == 1) {
+    DEVCMNI_WriteByte(_RD_POWER, &cm_pa);
+    DEVCMNI_ReadBit(&bit, &cm_pa);
+    if(bit == 1) {
         ds_pa->powermode = EXTERNAL;
     } else {
         ds_pa->powermode = PARASITIC;

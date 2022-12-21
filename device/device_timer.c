@@ -1,4 +1,4 @@
-#include "device_timer.h"
+#include "device.h"
 
 volatile uint64_t _time = 0;
 void TIMER_tick(void) {

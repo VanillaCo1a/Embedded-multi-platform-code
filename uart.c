@@ -41,15 +41,17 @@ void UART_Init(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize uSize, char *buf,
 void UART_Deinit(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize size) {}
 
 bool UART_ScanArray(int8_t num, uint8_t arr[], size_t size, size_t *length, DEV_StatusTypeDef wait) {
+    uint8_t cm_pa = 0x00;
     DEV_SetActStream(uarts, num);
-    return (DEVCMNI_Read((uint8_t *)arr, size, length, 0xFF) == wait);
+    return (DEVCMNI_Read((uint8_t *)arr, size, length, &cm_pa) == wait);
 }
 bool UART_ScanString(int8_t num, char *str, size_t size, DEV_StatusTypeDef wait) {
     DEV_StatusTypeDef rc;
     bool res = false;
-    size_t length;
+    size_t length = 0;
+    uint8_t cm_pa = 0x00;
     DEV_SetActStream(uarts, num);
-    if((rc = DEVCMNI_Read((uint8_t *)str, size - 1, &length, 0xFF)) == wait) {
+    if((rc = DEVCMNI_Read((uint8_t *)str, size - 1, &length, &cm_pa)) == wait) {
         res = true;
     }
     if(rc == DEV_OK) {
@@ -58,12 +60,16 @@ bool UART_ScanString(int8_t num, char *str, size_t size, DEV_StatusTypeDef wait)
     return res;
 }
 bool UART_PrintArray(int8_t num, const uint8_t arr[], size_t size, DEV_StatusTypeDef wait) {
+    size_t length = 0;
+    uint8_t cm_pa = 0x00;
     DEV_SetActStream(uarts, num);
-    return (DEVCMNI_Write((uint8_t *)arr, size, 0xFF) == wait);
+    return (DEVCMNI_Write((uint8_t *)arr, size, &length, &cm_pa) == wait);
 }
 bool UART_PrintString(int8_t num, const char *str, DEV_StatusTypeDef wait) {
+    size_t length = 0;
+    uint8_t cm_pa = 0x00;
     DEV_SetActStream(uarts, num);
-    return (DEVCMNI_Write((uint8_t *)str, strlen(str), 0xFF) == wait);
+    return (DEVCMNI_Write((uint8_t *)str, strlen(str), &length, &cm_pa) == wait);
 }
 bool UART_Printf(int8_t num, char *str, DEV_StatusTypeDef wait, ...) {
     va_list args;
