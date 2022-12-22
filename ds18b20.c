@@ -1,20 +1,14 @@
 #include "ds18b20.h"
 
+
+/*****    DS18B20设备驱动函数    *****/
+
 #define _CONVERT    0x44
 #define _WR_SCRATCH 0x4E
 #define _RD_SCRATCH 0xBE
 #define _CP_TOROM   0x48
 #define _CP_FROMROM 0xB8
 #define _RD_POWER   0xB4
-
-DEVS_TypeDef *ds18b20s = NULL;
-DEV_TypeDef *ds18b20 = NULL;
-poolsize ds18b20Size = 0;
-int16_t *ds18b20Temperature = NULL;
-int8_t *ds18b20State = NULL;
-
-
-/*****    DS18B20器件驱动函数    *****/
 
 static void convertStart(void) {    //设备写指令, 进行温度转换
     bool bit = 0;
@@ -132,7 +126,14 @@ static void readPowerSupply(void) {
 }
 
 
+
 /*****    DS18B20外部调用接口    *****/
+
+static DEVS_TypeDef *ds18b20s = NULL;
+static DEV_TypeDef *ds18b20 = NULL;
+static poolsize ds18b20Size = 0;
+static int16_t *ds18b20Temperature = NULL;
+static int8_t *ds18b20State = NULL;
 
 /* DS18B20构造函数 */
 void DS18B20_Init(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize devSize,
@@ -151,7 +152,7 @@ void DS18B20_Init(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize devSize,
     /* 尝试设置设备IO流 */
     if(DEV_SetActStream(ds18b20s, 0) == 1) { DEV_Error(1); }
 
-    /* 检测并更新ds18b20设备的电源类型 */
+    /* 检测并更新DS18B20设备的电源类型 */
     DEV_DoAction(ds18b20s, readPowerSupply);
 
     /* 初始化数据区域 */

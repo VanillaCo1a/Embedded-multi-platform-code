@@ -72,6 +72,9 @@ typedef uint16_t poolsize;      //池大小的数据类型
 
 #endif    // !__MYDEVICE_H
 
+#define DEV_MAX(A, B) ((A) >= (B)) ? (A) : (B)
+#define DEV_MIN(A, B) ((A) <= (B)) ? (A) : (B)
+#define DEV_SIZEIO(_IOTypedef)   sizeof(_IOTypedef) / sizeof(DEVIO_TypeDef)
 
 /*****   枚举   *****/
 typedef enum {

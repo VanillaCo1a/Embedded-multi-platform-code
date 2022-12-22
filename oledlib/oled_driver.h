@@ -23,9 +23,11 @@ typedef struct {
 extern char *oled_va_buf;
 extern size_t oled_bufSize;
 
-void OLED_Init(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize uSize, char *buf, size_t bSize);
-void OLED_Error(void);
+void OLED_Init(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize devSize, char *buf, size_t bufSize);
+void OLED_Deinit(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize devSize);
 void OLED_DevInit(uint8_t flip);
+void OLED_DevDeinit();
+void OLED_Error(void);
 
 void OLED_On(void);
 void OLED_Off(void);

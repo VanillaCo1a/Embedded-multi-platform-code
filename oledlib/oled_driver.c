@@ -1,7 +1,6 @@
 #include "oled_driver.h"
 
 /***  OLED类, 初始化实例的样例如下:
-#define SIZE_IO(_IOTypedef)   sizeof(_IOTypedef) / sizeof(DEVIO_TypeDef)
 void DEVIO_InitCallBack(void);
 static OLED_PARTypeDef oled_parameter[] = {{.chip = OLED_SSD1306}};
 static OLED_IOTypeDef oled_io[] = {
@@ -31,16 +30,12 @@ static SPI_ModuleHandleTypeDef oled_mspi[] = {
 static DEVS_TypeDef oleds = {.type = OLED};
 static DEV_TypeDef oled[] = {
     {.parameter = &oled_parameter[0],
-     .io = {.num = SIZE_IO(OLED_IOTypeDef), .confi = (DEVIO_TypeDef *)&oled_io[0], .init = DEVIO_InitCallBack},
+     .io = {.num = DEV_SIZEIO(OLED_IOTypeDef), .confi = (DEVIO_TypeDef *)&oled_io[0], .init = DEVIO_InitCallBack},
      .cmni = {.num = 1, .confi = (DEVCMNI_TypeDef *)&oled_mspi[0], .init = NULL}}};     ***/
 
 
-DEVS_TypeDef *oleds = NULL;
-DEV_TypeDef *oled = NULL;
-poolsize oledSize = 0;
 
-char *oled_va_buf = NULL;
-size_t oled_bufSize = 0;
+/*****    OLED通信驱动函数    *****/
 
 /* OLEDIO配置回调函数 */
 void DEVIO_InitCallBack(void) {
@@ -82,31 +77,11 @@ void DEVIO_InitCallBack(void) {
 #endif
 }
 
-/* OLED构造函数 */
-void OLED_Init(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize uSize, char *buf, size_t bSize) {
-    oleds = devs;
-    oled = dev;
-    oledSize = uSize;
-    oled_va_buf = buf;
-    oled_bufSize = bSize;
-    /* 初始化OLED类设备, 将参数绑定到设备池中, 并初始化通信引脚 */
-    DEV_Init(oleds, oled, oledSize);
-
-    if(DEV_SetActStream(oleds, 0) == 1) { DEV_Error(1); }
-    OLED_DevInit(((OLED_PARTypeDef *)DEV_GetActDev()->parameter)->flip);
-}
-
-/* TODO: OLED析构函数 */
-void OLED_Deinit(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize size) {}
-
-
-/***  OLED I2C/SPI通信驱动  ***/
-//[四脚OLED]只能进行I2C通信, 没有其他控制引脚
-//[七脚OLED][I2C]CS:片选,默认置高,通信时置低, DC:I2C地址选择,在通信时根据当前OLEDI2C地址配置电位
-//[七脚OLED][SPI]DC*:命令/数据选择,在通信时根据写往OLED内命令/数据寄存器配置电位
-
-/* OLED连续写函数 */
+/* OLED通信驱动函数 */
 static int8_t OLED_Write(uint8_t *pdata, uint16_t size, uint8_t address) {
+    //[四脚OLED]只能进行I2C通信, 没有其他控制引脚
+    //[七脚OLED][I2C]CS:片选,默认置高,通信时置低, DC:I2C地址选择,在通信时根据当前OLEDI2C地址配置电位
+    //[七脚OLED][SPI]DC*:命令/数据选择,在通信时根据写往OLED内命令/数据寄存器配置电位
     int8_t res;
     size_t length = 0;
     uint8_t cm_pa = 0x00;
@@ -140,14 +115,15 @@ static int8_t OLED_Write(uint8_t *pdata, uint16_t size, uint8_t address) {
     return res;
 }
 
-/* OLED写字节函数 */
 static void OLED_WriteByte(uint8_t data, uint8_t address) {
     OLED_Write(&data, 1, address);
 }
 
 
-/***  OLED的驱动函数, 将前面的配置IO口,通信等操作封装集成为OLED驱动, 供外部调用  ***/
-/* 配置器件内部寄存器  initial settings configuration */
+
+/*****    OLED设备驱动函数    *****/
+
+/* 配置器件内部寄存器 */
 static void OLED_Configure(void) {
     //1. 基本命令
     OLED_WriteByte(0xAE, 0X00);    //设置显示关(默认)/开: 0xAE显示关闭(睡眠模式),0xAF显示正常开启  Set Display OFF(RESET)/ON: 0xAE Display OFF(sleep mode),0xAF Display ON in normal mode
@@ -185,30 +161,6 @@ static void OLED_Configure(void) {
     OLED_WriteByte(0xF1, 0X00);    //高4位： 第2阶段间隔(0x1~0xF), 高4位： 第1阶段间隔时钟周期(0x1~0xF)
     OLED_WriteByte(0xDB, 0X00);    //Set VCOMH(默认0x20)
     OLED_WriteByte(0x30, 0X00);    //0x00 0.65xVcc, 0x20 0.77xVCC, 0x30 0.83xVCC
-}
-
-/* OLED初始化函数 */
-void OLED_DevInit(uint8_t flip) {
-    OLED_Off();
-    OLED_Reset();
-    OLED_Configure();
-    OLED_Clear();
-    OLED_Flip(flip, flip);
-    OLED_SetCursor(0, 0);
-    OLED_On();
-}
-
-/* OLED错误处理函数 */
-void OLED_Error(void) {
-    if(DEV_GetActDev()->error == 1) {
-        DEV_GetActDev()->error++;
-        DEV_SetActState(10000);
-    } else if(DEV_GetActDev()->error == 2) {
-        if(DEV_GetActState() == idle) {
-            OLED_DevInit(((OLED_PARTypeDef *)DEV_GetActDev()->parameter)->flip);
-            DEV_GetActDev()->error = 0;
-        }
-    }
 }
 
 /* OLED开启屏幕函数 */
@@ -285,4 +237,62 @@ void OLED_Fill(uint8_t (*Buffer)[SCREEN_PAGE][SCREEN_COLUMN]) {
 void OLED_FillByte(uint8_t page, uint8_t col, uint8_t data) {
     OLED_SetCursor(page, col);
     OLED_WriteByte(data, 0X40);
+}
+
+
+
+/*****    OLED外部调用接口    *****/
+
+static DEVS_TypeDef *oleds = NULL;
+static DEV_TypeDef *oled = NULL;
+static poolsize oledSize = 0;
+
+char *oled_va_buf = NULL;
+size_t oled_bufSize = 0;
+
+/* OLED构造函数 */
+void OLED_Init(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize devSize, char *buf, size_t bufSize) {
+    oleds = devs;
+    oled = dev;
+    oledSize = devSize;
+    oled_va_buf = buf;
+    oled_bufSize = bufSize;
+    
+    /* 初始化设备类和设备, 将参数绑定到设备池中, 并初始化通信引脚 */
+    DEV_Init(oleds, oled, oledSize);
+    /* 尝试设置设备IO流 */
+    if(DEV_SetActStream(oleds, 0) == 1) { DEV_Error(1); }
+
+    /* 初始化OLED设备 */
+    OLED_DevInit(((OLED_PARTypeDef *)DEV_GetActDev()->parameter)->flip);
+}
+
+/* TODO: OLED析构函数 */
+void OLED_Deinit(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize devSize) {}
+
+/* OLED设备初始化函数 */
+void OLED_DevInit(uint8_t flip) {
+    OLED_Off();
+    OLED_Reset();
+    OLED_Configure();
+    OLED_Clear();
+    OLED_Flip(flip, flip);
+    OLED_SetCursor(0, 0);
+    OLED_On();
+}
+
+/* TODO: OLED设备反初始化函数 */
+void OLED_DevDeinit() {}
+
+/* OLED错误处理函数 */
+void OLED_Error(void) {
+    if(DEV_GetActDev()->error == 1) {
+        DEV_GetActDev()->error++;
+        DEV_SetActState(10000);
+    } else if(DEV_GetActDev()->error == 2) {
+        if(DEV_GetActState() == idle) {
+            OLED_DevInit(((OLED_PARTypeDef *)DEV_GetActDev()->parameter)->flip);
+            DEV_GetActDev()->error = 0;
+        }
+    }
 }
