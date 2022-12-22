@@ -90,6 +90,7 @@ typedef enum {
     OLED,
     MPU6050,
     DS18B20,
+    DHT11,
     UART,
     DEV_OTHER,
 } DEV_TypeTypeDef;
