@@ -1,5 +1,5 @@
-#ifndef __UART_H
-#define __UART_H
+#ifndef __PRINT_H
+#define __PRINT_H
 #include "device.h"
 
 void UART_Init(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize uSize, char *buf, size_t bSize);

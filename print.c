@@ -1,5 +1,4 @@
-#include "uart.h"
-#include "usart.h"
+#include "print.h"
 
 /***  串口类, 初始化实例的样例如下:
 static UART_ModuleHandleTypeDef uart_muart[UART_NUM] = {
