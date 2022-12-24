@@ -87,11 +87,12 @@ typedef enum {
 typedef enum {
     DEV_UNDEF = 0,
     CMNIBUS,
+    PRINT,
     OLED,
     MPU6050,
     DS18B20,
     DHT11,
-    UART,
+    ESP8266,
     DEV_OTHER,
 } DEV_TypeTypeDef;
 typedef enum {

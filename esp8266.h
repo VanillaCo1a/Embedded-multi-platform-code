@@ -17,7 +17,7 @@
 
 #endif
 
-#define MAXNUM_TOPIC 10
+#define ESP8266_MAXNUM_TOPIC 10
 
 typedef struct {
     /* 模式 */
@@ -63,13 +63,13 @@ typedef struct {
 
 typedef struct {
     /* 发布/订阅的 topic, 最大长度：128 字节 */
-    char *topic[MAXNUM_TOPIC];
+    char *topic[ESP8266_MAXNUM_TOPIC];
     /* 发布/订阅的 QoS, 参数可选 0、1、或 2, 默认值：0 */
-    uint8_t qos[MAXNUM_TOPIC];
+    uint8_t qos[ESP8266_MAXNUM_TOPIC];
     /* 发布 retain */
-    uint8_t retain[MAXNUM_TOPIC];
+    uint8_t retain[ESP8266_MAXNUM_TOPIC];
     /* 订阅的 topic 的 requestid, 进行回复后请清空 */
-    char requestId[MAXNUM_TOPIC][128];
+    char requestId[ESP8266_MAXNUM_TOPIC][128];
     /* MQTT 缓冲区指针 */
     void *buffer;
 
@@ -147,6 +147,15 @@ typedef struct {
     ESP8266_TcpTypedef tcp;
     ESP8266_MqttTypedef mqtt;
 } ESP8266_Typedef;
+
+
+void ESP8266_Init(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize devSize);
+void ESP8266_Deinit(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize devSize);
+void ESP8266_DevInit(void);
+bool ESP8266_ScanArray(int8_t num, uint8_t arr[], size_t size, size_t *length, DEV_StatusTypeDef wait);
+bool ESP8266_ScanString(int8_t num, char *str, size_t size, DEV_StatusTypeDef wait);
+bool ESP8266_PrintArray(int8_t num, const uint8_t arr[], size_t size, DEV_StatusTypeDef wait);
+bool ESP8266_PrintString(int8_t num, const char *str, DEV_StatusTypeDef wait);
 
 void ESP8266_WifiInit(ESP8266_Typedef *esp8266, uint8_t mode, const char *ssid, const char *pwd);
 void ESP8266_MqttConnectInit(ESP8266_Typedef *esp8266, char *hostaddr, int hostport);

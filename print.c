@@ -1,7 +1,7 @@
 #include "print.h"
 
-/***  串口类, 初始化实例的样例如下:
-static UART_ModuleHandleTypeDef uart_muart[UART_NUM] = {
+/***  PRINT类, 初始化实例的样例如下:
+static UART_ModuleHandleTypeDef uart_muart[PRINT_NUM] = {
     {.cmni = {
          .protocol = USART,
          .ware = HARDWARE,
@@ -14,20 +14,37 @@ static UART_ModuleHandleTypeDef uart_muart[UART_NUM] = {
 #endif
      },
      .usedma = 0}};
-static DEVS_TypeDef myuarts = {.type = UART};
-static DEV_TypeDef myuart[] = {{.parameter = NULL, .io = {0}, .cmni = {.num = 1, .confi = (DEVCMNI_TypeDef *)&uart_muart[0], .init = NULL}}};    ***/
+static DEVS_TypeDef myprints = {.type = PRINT};
+static DEV_TypeDef myprint[] = {{.parameter = NULL, .io = {0}, .cmni = {.num = 1, .confi = (DEVCMNI_TypeDef *)&print_muart[0], .init = NULL}}};    ***/
 
 
-static DEVS_TypeDef *uarts = NULL;
+
+/*****    PRINT外部调用接口    *****/
+
+static DEVS_TypeDef *prints = NULL;
+static DEV_TypeDef *print = NULL;
+
 static char *va_buf = NULL;
 static size_t va_size = 0;
 
-/* 串口构造函数 */
-void UART_Init(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize uSize, char *buf, size_t bSize) {
-    uarts = devs;
+/* PRINT构造函数 */
+void PRINT_Init(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize devSize, char *buf, size_t bufSize) {
+    prints = devs;
+    print = dev;
     va_buf = buf;
-    va_size = bSize;
-    DEV_Init(devs, dev, uSize);
+    va_size = bufSize;
+
+    /* 初始化设备类和设备, 将参数绑定到设备池中, 并初始化通信引脚 */
+    DEV_Init(prints, print, devSize);
+
+    /* 初始化PRINT设备 */
+    PRINT_DevInit();
+}
+
+/* TODO: PRINT析构函数 */
+void PRINT_Deinit(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize devSize) {}
+
+void PRINT_DevInit(void) {
 #if defined(STM32)
 #if defined(STM32HAL)
 #elif defined(STM32FWLIB)
@@ -36,20 +53,17 @@ void UART_Init(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize uSize, char *buf,
 #endif
 }
 
-/* TODO: 串口析构函数 */
-void UART_Deinit(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize size) {}
-
-bool UART_ScanArray(int8_t num, uint8_t arr[], size_t size, size_t *length, DEV_StatusTypeDef wait) {
+bool PRINT_ScanArray(int8_t num, uint8_t arr[], size_t size, size_t *length, DEV_StatusTypeDef wait) {
     uint8_t cm_pa = 0x00;
-    DEV_SetActStream(uarts, num);
+    DEV_SetActStream(prints, num);
     return (DEVCMNI_Read((uint8_t *)arr, size, length, &cm_pa) == wait);
 }
-bool UART_ScanString(int8_t num, char *str, size_t size, DEV_StatusTypeDef wait) {
+bool PRINT_ScanString(int8_t num, char *str, size_t size, DEV_StatusTypeDef wait) {
     DEV_StatusTypeDef rc;
     bool res = false;
     size_t length = 0;
     uint8_t cm_pa = 0x00;
-    DEV_SetActStream(uarts, num);
+    DEV_SetActStream(prints, num);
     if((rc = DEVCMNI_Read((uint8_t *)str, size - 1, &length, &cm_pa)) == wait) {
         res = true;
     }
@@ -58,23 +72,22 @@ bool UART_ScanString(int8_t num, char *str, size_t size, DEV_StatusTypeDef wait)
     }
     return res;
 }
-bool UART_PrintArray(int8_t num, const uint8_t arr[], size_t size, DEV_StatusTypeDef wait) {
+bool PRINT_PrintArray(int8_t num, const uint8_t arr[], size_t size, DEV_StatusTypeDef wait) {
     size_t length = 0;
     uint8_t cm_pa = 0x00;
-    DEV_SetActStream(uarts, num);
+    DEV_SetActStream(prints, num);
     return (DEVCMNI_Write((uint8_t *)arr, size, &length, &cm_pa) == wait);
 }
-bool UART_PrintString(int8_t num, const char *str, DEV_StatusTypeDef wait) {
+bool PRINT_PrintString(int8_t num, const char *str, DEV_StatusTypeDef wait) {
     size_t length = 0;
     uint8_t cm_pa = 0x00;
-    DEV_SetActStream(uarts, num);
+    DEV_SetActStream(prints, num);
     return (DEVCMNI_Write((uint8_t *)str, strlen(str), &length, &cm_pa) == wait);
 }
-bool UART_Printf(int8_t num, char *str, DEV_StatusTypeDef wait, ...) {
+bool PRINT_Printf(int8_t num, char *str, DEV_StatusTypeDef wait, ...) {
     va_list args;
     va_start(args, str);
     vsnprintf(va_buf, va_size, (char *)str, args);
     va_end(args);
-    DEV_SetActStream(uarts, num);
-    return UART_PrintString(0, va_buf, wait);
+    return PRINT_PrintString(num, va_buf, wait);
 }

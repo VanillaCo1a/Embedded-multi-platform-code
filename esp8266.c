@@ -1,23 +1,68 @@
 #include "esp8266.h"
 
+
+/*****    ESP8266外部调用接口    *****/
+
+static DEVS_TypeDef *esp8266s = NULL;
+static DEV_TypeDef *esp8266 = NULL;
+
+/* ESP8266构造函数 */
+void ESP8266_Init(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize devSize) {
+    esp8266s = devs;
+    esp8266 = dev;
+
+    /* 初始化设备类和设备, 将参数绑定到设备池中, 并初始化通信引脚 */
+    DEV_Init(esp8266s, esp8266, devSize);
+
+    /* 初始化ESP8266设备 */
+    ESP8266_DevInit();
+}
+
+/* TODO: ESP8266析构函数 */
+void ESP8266_Deinit(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize size) {}
+
+void ESP8266_DevInit(void) {}
+
+bool ESP8266_ScanArray(int8_t num, uint8_t arr[], size_t size, size_t *length, DEV_StatusTypeDef wait) {
+    uint8_t cm_pa = 0x00;
+    DEV_SetActStream(esp8266s, num);
+    return (DEVCMNI_Read((uint8_t *)arr, size, length, &cm_pa) == wait);
+}
+bool ESP8266_ScanString(int8_t num, char *str, size_t size, DEV_StatusTypeDef wait) {
+    DEV_StatusTypeDef rc;
+    bool res = false;
+    size_t length = 0;
+    uint8_t cm_pa = 0x00;
+    DEV_SetActStream(esp8266s, num);
+    if((rc = DEVCMNI_Read((uint8_t *)str, size - 1, &length, &cm_pa)) == wait) {
+        res = true;
+    }
+    if(rc == DEV_OK) {
+        str[length] = '\0';
+    }
+    return res;
+}
+bool ESP8266_PrintArray(int8_t num, const uint8_t arr[], size_t size, DEV_StatusTypeDef wait) {
+    size_t length = 0;
+    uint8_t cm_pa = 0x00;
+    DEV_SetActStream(esp8266s, num);
+    return (DEVCMNI_Write((uint8_t *)arr, size, &length, &cm_pa) == wait);
+}
+bool ESP8266_PrintString(int8_t num, const char *str, DEV_StatusTypeDef wait) {
+    size_t length = 0;
+    uint8_t cm_pa = 0x00;
+    DEV_SetActStream(esp8266s, num);
+    return (DEVCMNI_Write((uint8_t *)str, strlen(str), &length, &cm_pa) == wait);
+}
+
+
+
+/*****    ESP8266 初始化函数, 将配置存入对象实例    *****/
+
 #define lenof(arr)       (sizeof(arr) / sizeof(*(arr)))
 #define ESP8266_BUF_SIZE 256
 static char buffer[2][ESP8266_BUF_SIZE];
 static const char *taskmsg = "ESP8266";
-
-
-/*****    字符串操作的局部函数, 将字符串/整型字符串化后拼接至目标字符串    *****/
-
-static const char escape[] = {',', '"', '\\'};
-static char *itoa_s(int value, char *str, size_t size, int8_t base);
-static char *strcpy_str_s(char *dest, size_t size, const char *source);
-static char *strcpy_int_s(char *dest, size_t size, const int integer);
-static char *strcat_str_s(char *dest, size_t size, const char *source);
-static char *strcat_int_s(char *dest, size_t size, const int integer);
-static char *strcat_s_(char *dest, size_t size, const char *source);
-
-
-/*****    ESP8266 初始化函数, 将配置存入对象实例    *****/
 
 void ESP8266_WifiInit(ESP8266_Typedef *esp8266, uint8_t mode, const char *ssid, const char *pwd) {
     esp8266->wifi.mode = mode;
@@ -60,7 +105,7 @@ void ESP8266_MqttPubSubInit(ESP8266_Typedef *esp8266) {
 /* 消息的发布暂不做数据持久化处理 */
 // int ESP8266_MqttPubTopicInit(ESP8266_Typedef *esp8266,
 //                              char *topicPublish[], int qosPublish[], int sizePublish) {
-//     if(esp8266->mqtt.publish.num + sizePublish > MAXNUM_TOPIC) {
+//     if(esp8266->mqtt.publish.num + sizePublish > ESP8266_MAXNUM_TOPIC) {
 //         return -1;
 //     }
 //     for(size_t i = 0; i < sizePublish; i++) {
@@ -74,7 +119,7 @@ void ESP8266_MqttPubSubInit(ESP8266_Typedef *esp8266) {
 
 int ESP8266_MqttSubTopicInit(ESP8266_Typedef *esp8266, char *topicSubscribe[], int qosSubscribe[],
                              int sizeSubscribe, void *topicBuffer) {
-    if(esp8266->mqtt.subscribe.num + sizeSubscribe > MAXNUM_TOPIC) {
+    if(esp8266->mqtt.subscribe.num + sizeSubscribe > ESP8266_MAXNUM_TOPIC) {
         return -1;
     }
     for(size_t i = 0; i < sizeSubscribe; i++) {
@@ -88,7 +133,16 @@ int ESP8266_MqttSubTopicInit(ESP8266_Typedef *esp8266, char *topicSubscribe[], i
 }
 
 
+
 /*****    ESP8266 功能函数, 根据配置发送相应的串口指令    *****/
+
+static const char escape[] = {',', '"', '\\'};
+static char *itoa_s(int value, char *str, size_t size, int8_t base);
+static char *strcpy_str_s(char *dest, size_t size, const char *source);
+static char *strcpy_int_s(char *dest, size_t size, const int integer);
+static char *strcat_str_s(char *dest, size_t size, const char *source);
+static char *strcat_int_s(char *dest, size_t size, const int integer);
+static char *strcat_s_(char *dest, size_t size, const char *source);
 
 __attribute__((weak)) bool ESP8266_Read(uint8_t *data, size_t size) {
     /* user should rewrite this function to read data for esp8266 */
@@ -118,13 +172,12 @@ int ESP8266_WifiConnect(ESP8266_Typedef *esp8266) {
     strcat_s_(str, len, "\r\n");
     printf("[%s]%s", taskmsg, str);
     while(!ESP8266_Write((uint8_t *)str, strlen(str) * sizeof(char))) continue;
-    ESP8266_Delayms(10);
 
     strcpy(str, "AT+RST");
     strcat_s_(str, len, "\r\n");
     printf("[%s]%s", taskmsg, str);
     while(!ESP8266_Write((uint8_t *)str, strlen(str) * sizeof(char))) continue;
-    ESP8266_Delayms(5000);
+    ESP8266_Delayms(2500);
 
     strcpy(str, "AT+CWJAP=");
     strcat_str_s(str, len, esp8266->wifi.ssid);
@@ -133,7 +186,7 @@ int ESP8266_WifiConnect(ESP8266_Typedef *esp8266) {
     strcat_s_(str, len, "\r\n");
     printf("[%s]%s", taskmsg, str);
     while(!ESP8266_Write((uint8_t *)str, strlen(str) * sizeof(char))) continue;
-    ESP8266_Delayms(5000);
+    ESP8266_Delayms(2500);
 
     return 0;
 }
@@ -163,8 +216,6 @@ int ESP8266_MqttUserConfig(ESP8266_Typedef *esp8266) {
 
     printf("[%s]%s", taskmsg, str);
     while(!ESP8266_Write((uint8_t *)str, strlen(str) * sizeof(char))) continue;
-    //tofix: 串口发送存在问题, 需要延时等待
-    ESP8266_Delayms(10);
 
     return 0;
 }
@@ -192,7 +243,6 @@ int ESP8266_MqttConnectConfig(ESP8266_Typedef *esp8266) {
 
     printf("[%s]%s", taskmsg, str);
     while(!ESP8266_Write((uint8_t *)str, strlen(str) * sizeof(char))) continue;
-    ESP8266_Delayms(10);
 
     return 0;
 }
@@ -214,7 +264,6 @@ int ESP8266_MqttConnect(ESP8266_Typedef *esp8266) {
 
     printf("[%s]%s", taskmsg, str);
     while(!ESP8266_Write((uint8_t *)str, strlen(str) * sizeof(char))) continue;
-    ESP8266_Delayms(10);
 
     ESP8266_MqttPubSubInit(esp8266);
 
@@ -232,7 +281,6 @@ int ESP8266_MqttDisconnect(ESP8266_Typedef *esp8266) {
 
     printf("[%s]%s", taskmsg, str);
     while(!ESP8266_Write((uint8_t *)str, strlen(str) * sizeof(char))) continue;
-    ESP8266_Delayms(10);
 
     return 0;
 }
@@ -256,7 +304,6 @@ int ESP8266_MqttPublish(ESP8266_Typedef *esp8266, char *topicPublish, int qosPub
 
     printf("[%s]%s", taskmsg, str);
     while(!ESP8266_Write((uint8_t *)str, strlen(str) * sizeof(char))) continue;
-    ESP8266_Delayms(10);
 
     return 0;
 }
@@ -277,7 +324,6 @@ int ESP8266_MqttSubscribe(ESP8266_Typedef *esp8266) {
 
         printf("[%s]%s", taskmsg, str);
         while(!ESP8266_Write((uint8_t *)str, strlen(str) * sizeof(char))) continue;
-        ESP8266_Delayms(10);
     }
 
     return 0;
@@ -298,7 +344,6 @@ int ESP8266_MqttUnsubscribe(ESP8266_Typedef *esp8266) {
 
         printf("[%s]%s", taskmsg, str);
         while(!ESP8266_Write((uint8_t *)str, strlen(str) * sizeof(char))) continue;
-        ESP8266_Delayms(10);
     }
 
     return 0;
@@ -319,7 +364,6 @@ int ESP8266_MqttSubRes(ESP8266_Typedef *esp8266) {
         rt = scanf("%s", (uint8_t *)str);
 #endif
         if(!rt) { break; }
-        printf("[%s]%s\r\n", taskmsg, str);
 
         /* 匹配指令 */
         strtok(str, ":");
@@ -355,7 +399,8 @@ int ESP8266_MqttSubRes(ESP8266_Typedef *esp8266) {
         str += strlen(str) + 1;
         strncpy(esp8266->mqtt.subscribe.buffer, str, length);
         ((char *)esp8266->mqtt.subscribe.buffer)[length] = '\0';
-        memset(str, 0, size);
+        /* 清空缓存区 */
+        memset(buffer[1], 0, size);
         printf("[%s]REQUESTID=%s, PAYLOAD=%s\r\n", taskmsg, esp8266->mqtt.subscribe.requestId[i], ((char *)esp8266->mqtt.subscribe.buffer));
 
         return 0;
@@ -363,6 +408,10 @@ int ESP8266_MqttSubRes(ESP8266_Typedef *esp8266) {
 
     return res;
 }
+
+
+
+/*****    字符串操作的局部函数, 将字符串/整型字符串化后拼接至目标字符串    *****/
 
 static char *itoa_s(int value, char *str, size_t size, int8_t base) {
     int8_t i = 0, j = 0, bit = 0;
