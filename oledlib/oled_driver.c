@@ -247,16 +247,11 @@ static DEVS_TypeDef *oleds = NULL;
 static DEV_TypeDef *oled = NULL;
 static poolsize oledSize = 0;
 
-char *oled_va_buf = NULL;
-size_t oled_bufSize = 0;
-
 /* OLED构造函数 */
-void OLED_Init(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize devSize, char *buf, size_t bufSize) {
+void OLED_Init(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize devSize) {
     oleds = devs;
     oled = dev;
     oledSize = devSize;
-    oled_va_buf = buf;
-    oled_bufSize = bufSize;
     
     /* 初始化设备类和设备, 将参数绑定到设备池中, 并初始化通信引脚 */
     DEV_Init(oleds, oled, oledSize);

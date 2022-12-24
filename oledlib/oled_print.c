@@ -844,12 +844,12 @@ void OLED_PrintIntNum(uint8_t y, uint8_t x, int32_t num, uint8_t len) {
     }
     OLED_PrintNum(y, x, num, len-1);
 }
-void OLED_Printf(uint8_t y, uint8_t x, const char *str, ...) {
+void OLED_Printf(uint8_t buf[], size_t size, uint8_t y, uint8_t x, const char *str, ...) {
     uint8_t i, j;
     va_list args;
-    char *pstr = oled_va_buf;
+    char *pstr = (char *)buf;
     va_start(args, str);
-    vsnprintf(oled_va_buf, oled_bufSize, (char *)str, args);
+    vsnprintf((char *)buf, size, str, args);
     va_end(args);
 
     //if(code == 0) {

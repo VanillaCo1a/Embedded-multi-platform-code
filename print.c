@@ -23,17 +23,12 @@ static DEV_TypeDef myprint[] = {{.parameter = NULL, .io = {0}, .cmni = {.num = 1
 
 static DEVS_TypeDef *prints = NULL;
 static DEV_TypeDef *print = NULL;
-
-static char *va_buf = NULL;
-static size_t va_size = 0;
 static int8_t print_stdnum = 0;
 
 /* PRINT构造函数 */
-void PRINT_Init(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize devSize, char *buf, size_t bufSize, int8_t stdnum) {
+void PRINT_Init(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize devSize, int8_t stdnum) {
     prints = devs;
     print = dev;
-    va_buf = buf;
-    va_size = bufSize;
     print_stdnum = stdnum;
 
     /* 初始化设备类和设备, 将参数绑定到设备池中, 并初始化通信引脚 */

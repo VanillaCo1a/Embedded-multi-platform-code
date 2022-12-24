@@ -20,10 +20,7 @@ typedef struct {
     bool flip;
 } OLED_PARTypeDef;
 
-extern char *oled_va_buf;
-extern size_t oled_bufSize;
-
-void OLED_Init(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize devSize, char *buf, size_t bufSize);
+void OLED_Init(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize devSize);
 void OLED_Deinit(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize devSize);
 void OLED_DevInit(uint8_t flip);
 void OLED_DevDeinit();
