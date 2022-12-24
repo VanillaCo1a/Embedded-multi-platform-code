@@ -682,6 +682,57 @@ DEV_StatusTypeDef DEVCMNI_ReadBit(bool *bit, void *parameter) {
     }
     return res;
 }
+//    带缓冲区参数的通信驱动函数, 封装度更高
+bool DEV_ScanArray(DEV_StatusTypeDef wait, uint8_t buf[], size_t size, uint8_t arr[], size_t *len) {
+    DEV_StatusTypeDef rc;
+    bool res = false;
+    uint8_t cm_pa = 0x00;
+    if((rc = DEVCMNI_Read(buf, size, len, &cm_pa)) == wait) {
+        res = true;
+    }
+    if(rc == DEV_OK) {
+        memmove(arr, buf, *len);
+    }
+    return res;
+}
+bool DEV_ScanString(DEV_StatusTypeDef wait, uint8_t buf[], size_t size, char *str) {
+    DEV_StatusTypeDef rc;
+    bool res = false;
+    size_t len = 0;
+    uint8_t cm_pa = 0x00;
+    if((rc = DEVCMNI_Read(buf, size - 1, &len, &cm_pa)) == wait) {
+        res = true;
+    }
+    if(rc == DEV_OK) {
+        memmove(str, buf, len);
+        str[len] = '\0';
+    }
+    return res;
+}
+bool DEV_PrintArray(DEV_StatusTypeDef wait, uint8_t buf[], size_t size, const uint8_t arr[]) {
+    size_t len = 0;
+    uint8_t cm_pa = 0x00;
+    memmove(buf, arr, size);
+    return (DEVCMNI_Write(buf, size, &len, &cm_pa) == wait);
+}
+bool DEV_PrintString(DEV_StatusTypeDef wait, uint8_t buf[], size_t size, const char *str) {
+    size_t len = 0;
+    uint8_t cm_pa = 0x00;
+    memmove(buf, str, DEV_MIN(size, strlen(str)*sizeof(char)));
+    return (DEVCMNI_Write((uint8_t *)str, strlen(str), &len, &cm_pa) == wait);
+}
+bool DEV_Printf(DEV_StatusTypeDef wait, uint8_t buf[], size_t size, const char *str, ...) {
+    bool res;
+
+    va_list args;
+    va_start(args, str);
+    args = va_arg(args, va_list);
+    vsnprintf((char *)buf, size, (char *)str, args);
+    va_end(args);
+
+    res = DEV_PrintString(wait, buf, size, (char *)buf);
+    return res;
+}
 
 
 /*****   设备构造&错误处理部分   *****/

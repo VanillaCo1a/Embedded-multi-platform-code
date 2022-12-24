@@ -234,6 +234,11 @@ DEV_StatusTypeDef DEVCMNI_Write(uint8_t *pdata, size_t size, size_t *length, voi
 DEV_StatusTypeDef DEVCMNI_Read(uint8_t *pdata, size_t size, size_t *length, void *parameter);
 DEV_StatusTypeDef DEVCMNI_WriteBit(bool *bit, void *parameter);
 DEV_StatusTypeDef DEVCMNI_ReadBit(bool *bit, void *parameter);
+bool DEV_ScanArray(DEV_StatusTypeDef wait, uint8_t buf[], size_t size, uint8_t arr[], size_t *len);
+bool DEV_ScanString(DEV_StatusTypeDef wait, uint8_t buf[], size_t size, char *str);
+bool DEV_PrintArray(DEV_StatusTypeDef wait, uint8_t buf[], size_t size, const uint8_t arr[]);
+bool DEV_PrintString(DEV_StatusTypeDef wait, uint8_t buf[], size_t size, const char *str);
+bool DEV_Printf(DEV_StatusTypeDef wait, uint8_t buf[], size_t size, const char *str, ...);
 
 
 /*****   运行环境头文件   *****/

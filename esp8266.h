@@ -152,10 +152,9 @@ typedef struct {
 void ESP8266_Init(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize devSize);
 void ESP8266_Deinit(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize devSize);
 void ESP8266_DevInit(void);
-bool ESP8266_ScanArray(int8_t num, uint8_t arr[], size_t size, size_t *length, DEV_StatusTypeDef wait);
-bool ESP8266_ScanString(int8_t num, char *str, size_t size, DEV_StatusTypeDef wait);
-bool ESP8266_PrintArray(int8_t num, const uint8_t arr[], size_t size, DEV_StatusTypeDef wait);
-bool ESP8266_PrintString(int8_t num, const char *str, DEV_StatusTypeDef wait);
+bool ESP8266_Read(uint8_t *data, size_t size);
+bool ESP8266_Write(uint8_t *data, size_t size);
+void ESP8266_Delayms(int ms);
 
 void ESP8266_WifiInit(ESP8266_Typedef *esp8266, uint8_t mode, const char *ssid, const char *pwd);
 void ESP8266_MqttConnectInit(ESP8266_Typedef *esp8266, char *hostaddr, int hostport);

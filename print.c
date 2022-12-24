@@ -26,13 +26,15 @@ static DEV_TypeDef *print = NULL;
 
 static char *va_buf = NULL;
 static size_t va_size = 0;
+static int8_t print_stdnum = 0;
 
 /* PRINT构造函数 */
-void PRINT_Init(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize devSize, char *buf, size_t bufSize) {
+void PRINT_Init(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize devSize, char *buf, size_t bufSize, int8_t stdnum) {
     prints = devs;
     print = dev;
     va_buf = buf;
     va_size = bufSize;
+    print_stdnum = stdnum;
 
     /* 初始化设备类和设备, 将参数绑定到设备池中, 并初始化通信引脚 */
     DEV_Init(prints, print, devSize);
@@ -53,41 +55,67 @@ void PRINT_DevInit(void) {
 #endif
 }
 
-bool PRINT_ScanArray(int8_t num, uint8_t arr[], size_t size, size_t *length, DEV_StatusTypeDef wait) {
-    uint8_t cm_pa = 0x00;
+bool PRINT_ScanArray(int8_t num, uint8_t arr[], size_t size, size_t *len) {
+    uint8_t *buf = arr;
     DEV_SetActStream(prints, num);
-    return (DEVCMNI_Read((uint8_t *)arr, size, length, &cm_pa) == wait);
+    return DEV_ScanArray(DEV_OK, buf, size, arr, len);
 }
-bool PRINT_ScanString(int8_t num, char *str, size_t size, DEV_StatusTypeDef wait) {
-    DEV_StatusTypeDef rc;
-    bool res = false;
-    size_t length = 0;
-    uint8_t cm_pa = 0x00;
+bool PRINT_ScanString(int8_t num, char str[], size_t size) {
+    uint8_t *buf = (uint8_t *)str;
     DEV_SetActStream(prints, num);
-    if((rc = DEVCMNI_Read((uint8_t *)str, size - 1, &length, &cm_pa)) == wait) {
-        res = true;
-    }
-    if(rc == DEV_OK) {
-        str[length] = '\0';
-    }
-    return res;
+    return DEV_ScanString(DEV_OK, buf, size, str);
 }
-bool PRINT_PrintArray(int8_t num, const uint8_t arr[], size_t size, DEV_StatusTypeDef wait) {
-    size_t length = 0;
-    uint8_t cm_pa = 0x00;
+bool PRINT_PrintArray(int8_t num, uint8_t arr[], size_t size) {
+    uint8_t *buf = arr;
     DEV_SetActStream(prints, num);
-    return (DEVCMNI_Write((uint8_t *)arr, size, &length, &cm_pa) == wait);
+    return DEV_PrintArray(DEV_OK, buf, size, arr);
 }
-bool PRINT_PrintString(int8_t num, const char *str, DEV_StatusTypeDef wait) {
-    size_t length = 0;
-    uint8_t cm_pa = 0x00;
+bool PRINT_PrintString(int8_t num, uint8_t buf[], size_t size, const char *str) {
     DEV_SetActStream(prints, num);
-    return (DEVCMNI_Write((uint8_t *)str, strlen(str), &length, &cm_pa) == wait);
+    return DEV_PrintString(DEV_OK, buf, size, str);
 }
-bool PRINT_Printf(int8_t num, char *str, DEV_StatusTypeDef wait, ...) {
+bool PRINT_Printf(int8_t num, uint8_t buf[], size_t size, const char *str, ...) {
+    bool res;
     va_list args;
     va_start(args, str);
-    vsnprintf(va_buf, va_size, (char *)str, args);
+    DEV_SetActStream(prints, num);
+    res = DEV_Printf(DEV_OK, buf, size, str, args);
     va_end(args);
-    return PRINT_PrintString(num, va_buf, wait);
+    return res;
+}
+
+
+
+/*****    stdio重定向    *****/
+
+int fputc(int ch, FILE *f) {
+    size_t length = 0;
+    uint8_t cm_pa = 0x00;
+    DEVS_TypeDef *devs = DEV_GetActDevs();
+    poolsize dev = DEV_GetActStream();
+    DEV_SetActStream(prints, print_stdnum);
+    while(DEVCMNI_Write((uint8_t *)&ch, 1, &length, &cm_pa) != DEV_OK) continue;
+    DEV_SetActStream(devs, dev);
+    return ch;
+}
+int _write(int fd, char *pBuffer, int size) {
+    size_t length = 0;
+    uint8_t cm_pa = 0x00;
+    DEVS_TypeDef *devs = DEV_GetActDevs();
+    poolsize dev = DEV_GetActStream();
+    DEV_SetActStream(prints, print_stdnum);
+    while(DEVCMNI_Write((uint8_t *)pBuffer, size, &length, &cm_pa) != DEV_OK) continue;
+    DEV_SetActStream(devs, dev);
+    return size;
+}
+int fgetc(FILE *f) {
+    int ch;
+    size_t length = 0;
+    uint8_t cm_pa = 0x00;
+    DEVS_TypeDef *devs = DEV_GetActDevs();
+    poolsize dev = DEV_GetActStream();
+    DEV_SetActStream(prints, print_stdnum);
+    while(DEVCMNI_Read((uint8_t *)&ch, 1, &length, &cm_pa) != DEV_OK) continue;
+    DEV_SetActStream(devs, dev);
+    return ch;
 }

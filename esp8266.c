@@ -23,36 +23,18 @@ void ESP8266_Deinit(DEVS_TypeDef *devs, DEV_TypeDef dev[], poolsize size) {}
 
 void ESP8266_DevInit(void) {}
 
-bool ESP8266_ScanArray(int8_t num, uint8_t arr[], size_t size, size_t *length, DEV_StatusTypeDef wait) {
-    uint8_t cm_pa = 0x00;
-    DEV_SetActStream(esp8266s, num);
-    return (DEVCMNI_Read((uint8_t *)arr, size, length, &cm_pa) == wait);
+bool ESP8266_Read(uint8_t *data, size_t size) {
+    DEV_SetActStream(esp8266s, 0);
+    return DEV_ScanString(DEV_OK, data, size, (char *)data);
 }
-bool ESP8266_ScanString(int8_t num, char *str, size_t size, DEV_StatusTypeDef wait) {
-    DEV_StatusTypeDef rc;
-    bool res = false;
-    size_t length = 0;
-    uint8_t cm_pa = 0x00;
-    DEV_SetActStream(esp8266s, num);
-    if((rc = DEVCMNI_Read((uint8_t *)str, size - 1, &length, &cm_pa)) == wait) {
-        res = true;
-    }
-    if(rc == DEV_OK) {
-        str[length] = '\0';
-    }
-    return res;
+
+bool ESP8266_Write(uint8_t *data, size_t size) {
+    DEV_SetActStream(esp8266s, 0);
+    return DEV_PrintString(DEV_OK, data, size, (char *)data);
 }
-bool ESP8266_PrintArray(int8_t num, const uint8_t arr[], size_t size, DEV_StatusTypeDef wait) {
-    size_t length = 0;
-    uint8_t cm_pa = 0x00;
-    DEV_SetActStream(esp8266s, num);
-    return (DEVCMNI_Write((uint8_t *)arr, size, &length, &cm_pa) == wait);
-}
-bool ESP8266_PrintString(int8_t num, const char *str, DEV_StatusTypeDef wait) {
-    size_t length = 0;
-    uint8_t cm_pa = 0x00;
-    DEV_SetActStream(esp8266s, num);
-    return (DEVCMNI_Write((uint8_t *)str, strlen(str), &length, &cm_pa) == wait);
+
+void ESP8266_Delayms(int ms) {
+    delayms_timer(ms);
 }
 
 
@@ -143,24 +125,6 @@ static char *strcpy_int_s(char *dest, size_t size, const int integer);
 static char *strcat_str_s(char *dest, size_t size, const char *source);
 static char *strcat_int_s(char *dest, size_t size, const int integer);
 static char *strcat_s_(char *dest, size_t size, const char *source);
-
-__attribute__((weak)) bool ESP8266_Read(uint8_t *data, size_t size) {
-    /* user should rewrite this function to read data for esp8266 */
-    printf("[%s]!!!user should rewrite \"ESP8266_Read\" to read data!!!\r\n", taskmsg);
-    return false;
-}
-
-__attribute__((weak)) bool ESP8266_Write(uint8_t *data, size_t size) {
-    /* user should rewrite this function to write data for esp8266 */
-    printf("[%s]!!!user should rewrite \"ESP8266_Write\" to write data!!!\r\n", taskmsg);
-    return false;
-}
-
-//todo: 优化为设备置忙
-__attribute__((weak)) void ESP8266_Delayms(int ms) {
-    /* user should rewrite this function to write data for esp8266 */
-    printf("[%s]!!!user should rewrite \"ESP8266_Delayms\" to waiting!!!\r\n", taskmsg);
-}
 
 int ESP8266_WifiConnect(ESP8266_Typedef *esp8266) {
     char *str = buffer[0];
